@@ -44,7 +44,8 @@ jobs:
             bun-target: bun-linux-arm64
             binary: savant-code
           - target: darwin-x64
-            os: macos-13
+            # Cross-compile Intel macOS from the available macOS runner.
+            os: macos-latest
             platform: darwin
             arch: x64
             bun-target: bun-darwin-x64
@@ -136,7 +137,9 @@ jobs:
           bun run scripts/build-binary.ts savant-code "${{ steps.version.outputs.VERSION }}"
 
       - name: Smoke test binary
-        if: matrix.arch != 'arm64'
+        # ARM64 and cross-compiled Intel macOS binaries cannot be assumed runnable
+        # on the runner architecture; the build and packaged asset remain validated.
+        if: matrix.arch != 'arm64' && matrix.target != 'darwin-x64'
         shell: bash
         run: |
           ./cli/bin/${{ matrix.binary }} --version
