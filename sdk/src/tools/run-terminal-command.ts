@@ -289,6 +289,7 @@ export function runTerminalCommand({
   env?: NodeJS.ProcessEnv
   signal?: AbortSignal
 }): Promise<SavantCodeToolOutput<'run_terminal_command'>> {
+  void getActiveTerminalCommandProcesses
   return new Promise((resolve, reject) => {
     const isWindows = os.platform() === 'win32'
     const processEnv = {

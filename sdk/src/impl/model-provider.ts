@@ -43,10 +43,17 @@ import {
   createChatGptBackendFetch,
   extractChatGptAccountId,
 } from './chatgpt-backend-fetch'
-import { resolveOpenRouterApiKey } from './openrouter-key-resolver'
+import {
+  resetOpenRouterApiKeyCache as resetResolverCache,
+  resolveOpenRouterApiKey,
+} from './openrouter-key-resolver'
 
 import type { JSONValue } from '@savant-code/common/types/json'
 import type { LanguageModel } from 'ai'
+
+export function resetOpenRouterApiKeyCache(): void {
+  resetResolverCache()
+}
 
 // ============================================================================
 // ChatGPT OAuth Rate Limit Cache
@@ -142,6 +149,7 @@ interface ProviderParsedResponse {
 export async function getModelForRequest(
   params: ModelRequestParams,
 ): Promise<ModelResult> {
+  void resetChatGptOAuthRateLimit
   const { apiKey, model, skipChatGptOAuth } = params
 
   // Check if we should use ChatGPT OAuth direct

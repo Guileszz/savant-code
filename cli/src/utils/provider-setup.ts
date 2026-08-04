@@ -17,6 +17,11 @@ import type { JSONValue } from '@savant-code/common/types/json'
 export const PROVIDER_SETUP_DEFAULT = 'opencode-go' as const
 
 export const PROVIDER_SETUP_CONFIG = {
+  openrouter: {
+    label: 'OpenRouter direct',
+    envVar: 'OPENROUTER_API_KEY',
+    baseUrl: 'https://openrouter.ai/api/v1',
+  },
   'opencode-go': {
     label: 'OpenCode Go',
     envVar: 'OPENCODE_GO_API_KEY',
@@ -238,14 +243,33 @@ export function saveProviderApiKey(
     // Best effort only; do not make a valid Windows setup fail.
   }
 
-  process.env[config.envVar] = trimmedKey
-  process.env.DIRECT_PROVIDER = provider
-  process.env.INFERENCE_BASE_URL = config.baseUrl
-  saveSettings({
-    savantCodeModelProviderPreference: provider,
-    directProvider: provider,
-    directProviderBaseUrl: config.baseUrl,
-  })
+  const hasShellKey = Boolean(process.env[config.envVar]?.trim())
+  if (!hasShellKey) {
+    process.env[config.envVar] = trimmedKey
+  }
+
+  const shellProvider = process.env.DIRECT_PROVIDER?.trim()
+  const shellBaseUrl = process.env.INFERENCE_BASE_URL?.trim()
+  let activated = false
+
+  if (!shellProvider && !shellBaseUrl) {
+    process.env.DIRECT_PROVIDER = provider
+    process.env.INFERENCE_BASE_URL = config.baseUrl
+    activated = true
+  } else if (shellProvider === provider && !shellBaseUrl) {
+    process.env.INFERENCE_BASE_URL = config.baseUrl
+    activated = true
+  } else if (shellProvider === provider && shellBaseUrl === config.baseUrl) {
+    activated = true
+  }
+
+  if (activated) {
+    saveSettings({
+      savantCodeModelProviderPreference: provider,
+      directProvider: provider,
+      directProviderBaseUrl: config.baseUrl,
+    })
+  }
 }
 
 export function getConfiguredProviderNames(): ProviderSetupName[] {

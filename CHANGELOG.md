@@ -1,5 +1,22 @@
 # Changelog
 
+## v0.0.18 — 2026-08-04
+
+### Fixed
+
+- **Standalone binary version display:** The sidebar footer now prefers the injected `SAVANT_CODE_CLI_VERSION`, so npm-installed release binaries display their actual release version instead of the repository-file fallback `v0.0.0` (`cli/src/utils/version.ts`).
+- **Provider key management:** `/provider` now supports safe interactive key replacement with explicit shell/provider/base-URL precedence, generic persistence errors, and preserved unrelated credentials (`cli/src/utils/provider-setup.ts`, `cli/src/commands/router.ts`).
+- **OpenRouter resolver lifecycle:** Added exported cache reset and concurrent exchange deduplication while preserving `OR_MASTER_KEY > OPENROUTER_API_KEY > INFERENCE_API_KEY` precedence (`sdk/src/impl/openrouter-key-resolver.ts`, `sdk/src/index.ts`).
+- **Release artifact consistency:** The official binary release is rebuilt from the hotfix source so npm-installed users execute the same model catalog and provider-routing code as the repository (`cli/scripts/build-binary.ts`, `.github/workflows/build-release-binaries.yml`).
+
+### Changed
+
+- **Release metadata:** Synchronized the root, CLI, SDK, `VERSION`, protocol configuration, README files, versioning/privacy/launch docs, and npm package metadata to `0.0.18`.
+
+### Verification
+
+- Focused CLI typecheck and release smoke checks are required before tagging and publishing `v0.0.18`.
+
 ## v0.0.17 — 2026-08-03
 
 ### Changed

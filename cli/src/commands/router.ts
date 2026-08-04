@@ -452,12 +452,11 @@ export async function routeUserPrompt(
             `${info.label} API key saved locally. You can now use the configured provider model.`,
           ),
         ])
-      } catch (error) {
-        const message = error instanceof Error ? error.message : String(error)
+      } catch {
         setMessages((prev) => [
           ...prev,
           getSystemMessage(
-            `Could not save the ${info.label} API key: ${message}`,
+            `Could not save the ${info.label} API key. Check your local configuration permissions and try again.`,
           ),
         ])
       }

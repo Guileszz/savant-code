@@ -21,17 +21,42 @@ export { buildUserMessageContent } from '@savant-code/agent-runtime/util/message
 // FID-2026-0803-004: persistent per-turn file checkpoints (rewind). The CLI
 // owns the turn lifecycle (openTurn before run, closeTurn after) and reads
 // checkpoints back for /rewind; the runtime captures pre-write snapshots.
+import {
+  CHECKPOINT_RETENTION,
+  captureSnapshot,
+  clearOpenTurnsForTesting,
+  closeTurn,
+  forkFrom,
+  getTurn,
+  listTurns,
+  openTurn,
+  restoreTurn as restoreTurnImpl,
+} from '@savant-code/agent-runtime/tools/handlers/tool/checkpoint-store'
+
+export const restoreTurn = (...args: Parameters<typeof restoreTurnImpl>) =>
+  restoreTurnImpl(...args)
+
+void [
+  openTurn,
+  captureSnapshot,
+  closeTurn,
+  listTurns,
+  getTurn,
+  forkFrom,
+  clearOpenTurnsForTesting,
+  CHECKPOINT_RETENTION,
+]
+
 export {
   openTurn,
   captureSnapshot,
   closeTurn,
   listTurns,
   getTurn,
-  restoreTurn,
   forkFrom,
   clearOpenTurnsForTesting,
   CHECKPOINT_RETENTION,
-} from '@savant-code/agent-runtime/tools/handlers/tool/checkpoint-store'
+}
 export type {
   CheckpointFileEntry,
   TurnCheckpoint,
@@ -128,6 +153,7 @@ export {
 } from './impl/llm'
 export {
   resetChatGptOAuthRateLimit,
+  resetOpenRouterApiKeyCache,
   isCloudflareModel,
   isCommandCodeModel,
 } from './impl/model-provider'

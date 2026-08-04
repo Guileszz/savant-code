@@ -17,8 +17,8 @@ import {
 import { saveSettings } from '../settings'
 
 const PROVIDER_ENV_VARS = [
+  'OPENROUTER_API_KEY',
   'OPENCODE_GO_API_KEY',
-  'TOKENROUTER_API_KEY',
   'NVIDIA_API_KEY',
   'COMMAND_CODE_API_KEY',
   'CLOUDFLARE_API_TOKEN',
@@ -68,6 +68,49 @@ describe('provider setup', () => {
     )
     expect(credentials.providerApiKeys.OPENCODE_GO_API_KEY).not.toContain('  ')
     expect(getConfiguredProviderNames()).toContain('opencode-go')
+  })
+
+  test('saves OpenRouter credentials for direct-provider mode', () => {
+    saveProviderApiKey('openrouter', '  test-openrouter-key  ')
+
+    expect(process.env.OPENROUTER_API_KEY).toBe('test-openrouter-key')
+    expect(process.env.DIRECT_PROVIDER).toBe('openrouter')
+    expect(process.env.INFERENCE_BASE_URL).toBe('https://openrouter.ai/api/v1')
+    expect(getConfiguredProviderNames()).toContain('openrouter')
+  })
+
+  test('preserves an explicit shell key and routing when replacing a provider key', () => {
+    process.env.OPENROUTER_API_KEY = 'shell-key'
+    process.env.DIRECT_PROVIDER = 'ollama'
+    process.env.INFERENCE_BASE_URL = 'https://custom.example/v1'
+
+    saveProviderApiKey('openrouter', 'stored-key')
+
+    expect(process.env.OPENROUTER_API_KEY).toBe('shell-key')
+    expect(process.env.DIRECT_PROVIDER).toBe('ollama')
+    expect(process.env.INFERENCE_BASE_URL).toBe('https://custom.example/v1')
+    const credentials = JSON.parse(
+      fs.readFileSync(path.join(tempDir, 'credentials.json'), 'utf8'),
+    )
+    expect(credentials.providerApiKeys.OPENROUTER_API_KEY).toBe('stored-key')
+  })
+
+  test('fills the registered base URL when the selected provider is already explicit', () => {
+    process.env.DIRECT_PROVIDER = 'openrouter'
+
+    saveProviderApiKey('openrouter', 'stored-key')
+
+    expect(process.env.DIRECT_PROVIDER).toBe('openrouter')
+    expect(process.env.INFERENCE_BASE_URL).toBe('https://openrouter.ai/api/v1')
+  })
+
+  test('preserves a custom endpoint when no provider is explicit', () => {
+    process.env.INFERENCE_BASE_URL = 'https://custom.example/v1'
+
+    saveProviderApiKey('openrouter', 'stored-key')
+
+    expect(process.env.DIRECT_PROVIDER).toBeUndefined()
+    expect(process.env.INFERENCE_BASE_URL).toBe('https://custom.example/v1')
   })
 
   test('restores persisted keys without overriding an explicit environment variable', () => {
@@ -174,6 +217,10 @@ describe('provider setup', () => {
   })
 
   test('returns setup metadata for supported providers only', () => {
+    expect(getProviderSetupInfo('OpenRouter')).toMatchObject({
+      provider: 'openrouter',
+      envVar: 'OPENROUTER_API_KEY',
+    })
     expect(getProviderSetupInfo('OpenCode-Go')).toMatchObject({
       provider: 'opencode-go',
       envVar: 'OPENCODE_GO_API_KEY',

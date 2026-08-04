@@ -178,7 +178,7 @@ async function fixBrokenExportAliases(filePath: string) {
   // Collect every top-level declaration's identifier.
   const declared = new Set()
   const declRegex =
-    /^(?:var|let|const|function|class|async\s+function)\s+([A-Za-z_$][A-Za-z0-9_$]*)\b/gm
+    /^(?:export\s+)?(?:var|let|const|function|class|async\s+function)\s+([A-Za-z_$][A-Za-z0-9_$]*)\b/gm
   for (const match of content.matchAll(declRegex)) {
     declared.add(match[1])
   }

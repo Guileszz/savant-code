@@ -23,12 +23,46 @@ import { logger } from '../utils/logger'
 // string = resolved key. Negative caching (FID-2026-0802-008 D6) stops a
 // failed master-key exchange from re-hitting the network on every call.
 let cachedKey: string | undefined | null
+let cachedEnvironmentSignature: string | undefined
+let resolvingKey: Promise<string | undefined> | null = null
+
+function getEnvironmentSignature(): string {
+  return [
+    process.env['OR_MASTER_KEY'] ?? '',
+    process.env['OPENROUTER_API_KEY'] ?? '',
+    process.env['INFERENCE_API_KEY'] ?? '',
+  ].join('\u0000')
+}
+
+export function resetOpenRouterApiKeyCache(): void {
+  cachedKey = undefined
+  cachedEnvironmentSignature = undefined
+}
 
 export async function resolveOpenRouterApiKey(): Promise<string | undefined> {
+  const environmentSignature = getEnvironmentSignature()
+  if (
+    cachedEnvironmentSignature !== undefined &&
+    cachedEnvironmentSignature !== environmentSignature
+  ) {
+    cachedKey = undefined
+  }
+  cachedEnvironmentSignature = environmentSignature
+
   if (cachedKey !== undefined) {
     return cachedKey ?? undefined
   }
+  if (resolvingKey) return resolvingKey
 
+  resolvingKey = resolveAndCacheOpenRouterApiKey()
+  try {
+    return await resolvingKey
+  } finally {
+    resolvingKey = null
+  }
+}
+
+async function resolveAndCacheOpenRouterApiKey(): Promise<string | undefined> {
   // Path 1: Master key exchange
   const masterKey = process.env['OR_MASTER_KEY']
   if (masterKey && masterKey.trim() !== '') {

@@ -7,6 +7,13 @@ let cachedVersion: string | null = null
 
 export function getVersion(): string {
   if (cachedVersion) return cachedVersion
+
+  const injectedVersion = process.env.SAVANT_CODE_CLI_VERSION?.trim()
+  if (injectedVersion) {
+    cachedVersion = injectedVersion
+    return cachedVersion
+  }
+
   try {
     cachedVersion = readFileSync(VERSION_PATH, 'utf-8').trim()
   } catch {
