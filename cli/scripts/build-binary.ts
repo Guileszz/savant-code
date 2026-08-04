@@ -455,10 +455,6 @@ async function ensureOpenTuiNativeBundle(targetInfo: TargetInfo) {
         '-C',
         extractDirForTar,
       ]
-      if (process.platform === 'win32') {
-        tarArgs.unshift('--force-local')
-      }
-
       runCommand('tar', tarArgs)
       log(
         `Installed OpenTUI native bundle for ${targetInfo.platform}-${targetInfo.arch} in ${target.label}`,

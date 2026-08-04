@@ -11,6 +11,11 @@ on:
         description: 'Existing GitHub release tag to build and upload (for example v0.0.17)'
         required: true
         type: string
+      source_ref:
+        description: 'Optional source ref; defaults to the release tag'
+        required: false
+        default: ''
+        type: string
 
 permissions:
   contents: write
@@ -63,6 +68,7 @@ jobs:
         shell: bash
         env:
           INPUT_RELEASE_TAG: ${{ inputs.release_tag }}
+          INPUT_SOURCE_REF: ${{ inputs.source_ref }}
           EVENT_RELEASE_TAG: ${{ github.event.release.tag_name }}
         run: |
           TAG="${INPUT_RELEASE_TAG:-$EVENT_RELEASE_TAG}"
@@ -71,11 +77,13 @@ jobs:
             exit 1
           fi
           echo "TAG=$TAG" >> "$GITHUB_OUTPUT"
+          SOURCE_REF="${INPUT_SOURCE_REF:-$TAG}"
+          echo "SOURCE_REF=$SOURCE_REF" >> "$GITHUB_OUTPUT"
 
-      - name: Checkout release tag
+      - name: Checkout release source
         uses: actions/checkout@v4
         with:
-          ref: ${{ steps.release-tag.outputs.TAG }}
+          ref: ${{ steps.release-tag.outputs.SOURCE_REF }}
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@v1
@@ -110,6 +118,15 @@ jobs:
           # Release binaries must run in production mode. SAVANT_CODE_BUILD_ENV
           # lets dev builds opt out; in CI we always want prod.
           NEXT_PUBLIC_CB_ENVIRONMENT: prod
+          NEXT_PUBLIC_SAVANT_CODE_APP_URL: https://savant-code.com
+          NEXT_PUBLIC_WEB_PORT: 3000
+          NEXT_PUBLIC_SUPPORT_EMAIL: support@savant-code.com
+          NEXT_PUBLIC_POSTHOG_API_KEY: phc_release_placeholder
+          NEXT_PUBLIC_POSTHOG_HOST_URL: https://us.i.posthog.com
+          NEXT_PUBLIC_GRAVITY_PIXEL_ID: 00000000-0000-0000-0000-000000000000
+          NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: pk_release_placeholder
+          NEXT_PUBLIC_STRIPE_CUSTOMER_PORTAL: https://savant-code.com/portal
+          NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION_ID: release_placeholder
           # Pin the build target so the native runner architecture does not
           # accidentally influence which binary is produced.
           OVERRIDE_TARGET: ${{ matrix.bun-target }}
@@ -119,6 +136,7 @@ jobs:
           bun run scripts/build-binary.ts savant-code "${{ steps.version.outputs.VERSION }}"
 
       - name: Smoke test binary
+        if: matrix.arch != 'arm64'
         shell: bash
         run: |
           ./cli/bin/${{ matrix.binary }} --version

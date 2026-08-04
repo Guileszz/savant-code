@@ -7,7 +7,7 @@
 - **Release alignment:** Advanced the active Savant-Code release metadata to `0.0.17` across the root, CLI, SDK, `VERSION`, protocol configuration, and current-facing documentation while preserving the historical `v0.0.16` record.
 - **Complete CLI package README:** Expanded the publishable npm README with the full feature surface: nine-agent ECHO orchestration, Thinker reasoning, fail-closed tool execution, Checkpoint & Rewind, permissions, planning/review/goal workflows, context compaction, skills, MCP, telemetry, diagnostics, SDK/runtime capabilities, and the complete provider matrix.
 - **Provider setup documentation:** Added safe dummy-only examples for OpenCode Go, TokenRouter, NVIDIA NIM, CommandCode, OpenRouter direct mode (`OR_MASTER_KEY` → `OPENROUTER_API_KEY` → `INFERENCE_API_KEY`), Ollama, custom endpoints, and `AMAZON_WORKER`. Private GitHub/npm publishing credentials are intentionally excluded.
-- **GitHub release workflow:** Existing release-artifact workflow supports manual dispatch for an explicit release tag and the five native binary targets.
+- **GitHub release workflow:** Existing release-artifact workflow supports manual dispatch for an explicit release tag and optional source ref, plus the five native binary targets. The `v0.0.17` repair run uses `source_ref=main` so the corrected cross-platform build fixes are included while the release tag remains immutable.
 
 ### Verification
 
