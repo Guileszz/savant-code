@@ -5,7 +5,7 @@
 **Filename:** `FID-2026-0804-001-provider-key-management.md`
 **ID:** FID-2026-0804-001
 **Severity:** high
-**Status:** fixed
+**Status:** verified
 **Created:** 2026-08-04 11:00
 **Author:** Savant Orchestrator
 
@@ -20,7 +20,7 @@ The CLI needs a reliable, discoverable way to add or change an inference-provide
 - **OS:** Windows 11 / win32
 - **Language/Runtime:** TypeScript, Bun 1.3.11 local / Bun 1.3.14 release configuration
 - **Tool Versions:** TypeScript 5.5.4, React 19, OpenTUI 0.2.2, Zustand 5
-- **Commit/State:** `main` at `899c27e`; uncommitted `0.0.18` hotfix changes and current provider setup edits present
+- **Commit/State:** `main` at `c1ee6b9`; implementation committed and tagged as `v0.0.18`
 
 ## Detailed Description
 
@@ -68,21 +68,29 @@ cli/src/commands/command-registry.ts:747-778
 cli/src/chat.tsx:430-470
 providerSetup input is masked, persisted through saveProviderApiKey(), cleared, and returned to default mode without saveToHistory.
 
-cli/src/utils/provider-setup.ts:210-248
-saveProviderApiKey() merges providerApiKeys, writes credentials.json, sets process.env[config.envVar], sets DIRECT_PROVIDER and INFERENCE_BASE_URL, and persists settings.
+cli/src/utils/provider-setup.ts:210-275
+saveProviderApiKey() merges providerApiKeys, preserves nonempty shell keys and routing, handles partial provider/base-URL configuration, sanitizes persistence failures through the router, and activates only permitted direct-provider settings.
 
-sdk/src/impl/openrouter-key-resolver.ts:27-77
-The SDK resolves OR_MASTER_KEY before OPENROUTER_API_KEY before INFERENCE_API_KEY and caches the result, including a null result.
+sdk/src/impl/openrouter-key-resolver.ts:25-113
+The SDK resolves OR_MASTER_KEY before OPENROUTER_API_KEY before INFERENCE_API_KEY, deduplicates concurrent exchanges, caches results, and invalidates automatically when credential environment values change.
 
-sdk/src/impl/model-provider.ts:562-585
-The model provider separately reads OPENROUTER_API_KEY, resolves authorization, and may send the OpenRouter BYOK header.
+sdk/src/impl/model-provider.ts:46-56, 149-153, 562-585
+The model provider retains the resolver path and existing OAuth/provider exports in the compiled SDK bundle.
 
-cli/src/utils/__tests__/provider-setup.test.ts:73-80, 185-194
-Current tests cover basic OpenRouter save and metadata lookup, but not shell precedence, routing preservation, resolver cache, or replacement semantics.
+cli/src/utils/__tests__/provider-setup.test.ts:73-194
+Tests cover OpenRouter save, shell precedence, routing preservation, partial configuration, persisted-key behavior, and provider metadata.
 
-cli/src/commands/__tests__/router-provider-setup.test.ts:132-179
-Current tests verify secret non-disclosure for opencode-go, but not OpenRouter or persistence failures.
+cli/src/commands/__tests__/router-provider-setup.test.ts:59-179
+Tests cover provider setup routing, missing-key gating, masked persistence, history exclusion, and secret non-disclosure.
 
+sdk/src/impl/openrouter-key-resolver.test.ts:1-100
+Six tests cover OpenRouter precedence, concurrent exchange deduplication, automatic environment-change invalidation, and fallback behavior.
+
+sdk/dist/index.mjs
+Compiled export smoke verifies getActiveTerminalCommandProcesses, resetChatGptOAuthRateLimit, and restoreTurn are present after the SDK bundle-retention fixes.
+
+Combined compiled provider suite
+23 passed, 0 failed.
 cli/release/package.json:20-28 and cli/release/index.js:6-19
 The npm package contains a launcher; the launcher downloads and runs the platform binary. Source tests do not prove the published artifact.
 
@@ -207,9 +215,9 @@ The FID AUDIT phase certifies that the proposed solution is complete, internally
 - **Fixed Date:** 2026-08-04
 - **Fix Description:** Added safe provider-key replacement semantics, explicit shell/provider/base-URL precedence, generic persistence errors, exported OpenRouter resolver reset, and concurrent resolver deduplication.
 - **Tests Added:** Yes — provider setup precedence tests, masked setup coverage, and six OpenRouter resolver precedence/cache/concurrency tests.
-- **Verified By:** Independent implementation audit; source gates pass. Standalone binary smoke remains a release publication gate.
-- **Commit/PR:** Pending release commit
-- **Archived:** Pending release closeout
+- **Verified By:** Final source, compiled SDK, test, typecheck, ESLint, markdownlint, version-consistency, and npm staging gates.
+- **Commit/PR:** `c1ee6b9`, tag `v0.0.18` (already pushed; no further remote action taken)
+- **Archived:** Pending external npm/GitHub install confirmation
 
 ## Lessons Learned
 
