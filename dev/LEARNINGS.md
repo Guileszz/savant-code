@@ -436,4 +436,32 @@ tracking doc).
 
 ---
 
+## Session 2026-08-05: v0.0.20 Release Publish (version-collision + credentials)
+
+**Key Learnings:**
+
+- **`dist-tags.latest` is not the full registry story — always diff the version list before publishing.**
+  npmjs.com showed `0.0.18` as latest (correct), but the registry already held a stale `0.0.19` published
+  *before* the 0.0.18 hotfix — and npm refuses to republish an existing version string. A stale/broken publish
+  (launcher pointing at a GitHub release that never existed) silently burned the next version number. The fix:
+  check `npm view <pkg> versions --json` AND the raw `https://registry.npmjs.org/<pkg>` metadata (dist-tags +
+  per-version publish times) before any publish. Then bump (`0.0.19` → `0.0.20`) rather than unpublish.
+- **npm username ≠ GitHub username is normal, not a credential mismatch.** `savant0x` is the GitHub login;
+  the `savant-code` npm maintainer is `fame0x <spencerhowell84@gmail.com>` (same person). Verify a publish
+  token by `npm whoami` AND `npm view <pkg> maintainers` — the token resolving to a different username than
+  GitHub is expected; the token resolving to someone NOT in `maintainers` is the real problem.
+- **Treat build-shell env hygiene as two independently-verifiable steps.** The clean-shell binary build worked
+  (exit 0, canonical env.json), but the command's `mv` restore never ran after a truncated output — `.env.local`
+  was missing afterward. Unset/move-aside must be paired with an explicit restore-verify command; never infer
+  the restore happened from the build's own tail output.
+- **Windows native curl cannot read Git-bash `/tmp/` paths.** The GitHub release-body JSON was written to
+  `/tmp/` and `curl -d @/tmp/...` failed to open the file. Write payload files into the repo working tree
+  (`-d @./file.json`) and delete them after — same pattern as any cross-tool artifact handoff on Windows.
+- **Releases are a chain, verify each link before the next.** Commit → push (pre-push hook green ×2) → tag →
+  release create → workflow `in_progress` → npm publish (`latest` = 0.0.20). Confirming `git ls-remote` for
+  main + tag, the release API response, and `npm view` after each step caught nothing, but the discipline
+  cost seconds and keeps a 5-surface release honest.
+
+---
+
 <!-- Add new entries above this line -->
