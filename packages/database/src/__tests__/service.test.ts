@@ -1,7 +1,8 @@
 import { beforeEach, describe, expect, it } from 'bun:test'
 
 // FID-006 DB-tests: run against an isolated in-memory DB. The env var must be
-// set BEFORE importing the module (index.ts opens the connection at import).
+// set BEFORE importing the module (DB_PATH is computed at import; the
+// connection itself is opened lazily on first getDb() call).
 process.env.SAVANT_DB_PATH = ':memory:'
 
 const {
@@ -21,7 +22,62 @@ const {
   createFidDocument,
   updateFidDocument,
 } = await import('../service')
-const { db, getSchemaVersion } = await import('../index')
+const { getDb, getSchemaVersion, resolveBunSqliteDatabaseModule } =
+  await import('../index')
+
+// Lazily-opened connection (index.ts defers the bun:sqlite open to first
+// use), so grab it once per test file.
+const db = getDb()
+
+// ============================================================================
+// resolveBunSqliteDatabaseModule (Node-ESM / Node-CJS edge-case hardening)
+// ============================================================================
+
+describe('resolveBunSqliteDatabaseModule', () => {
+  it('throws a clear error when `require` is unavailable (Node ESM)', () => {
+    // `null` bypasses the default parameter (which would inject Bun's real
+    // `require`), simulating an environment with no require global.
+    try {
+      resolveBunSqliteDatabaseModule(null)
+      expect.unreachable('should throw')
+    } catch (e) {
+      expect((e as Error).message).toContain('Bun runtime')
+      expect((e as Error).message).toContain('bun:sqlite')
+      expect((e as Error).message).not.toContain('ReferenceError')
+    }
+  })
+
+  it('wraps a failed require (Node CJS: Cannot find module) in a clear error', () => {
+    try {
+      resolveBunSqliteDatabaseModule(() => {
+        throw new Error("Cannot find module 'bun:sqlite'")
+      })
+      expect.unreachable('should throw')
+    } catch (e) {
+      const err = e as Error
+      expect(err.message).toContain('Bun runtime')
+      expect(err.message).toContain("Cannot find module 'bun:sqlite'")
+    }
+  })
+
+  it('resolves the real bun:sqlite module when require exists (Bun)', () => {
+    const mod = resolveBunSqliteDatabaseModule(require)
+    expect(typeof mod.Database).toBe('function')
+    // The resolved constructor actually opens a database.
+    const conn = new mod.Database(':memory:')
+    conn.exec('CREATE TABLE t (id INTEGER)')
+    conn.close()
+  })
+
+  it('defers the database open until first use (lazy getDb)', () => {
+    // getDb() must return a working connection that runs queries.
+    const conn = getDb()
+    const row = conn
+      .prepare('SELECT COUNT(*) as n FROM sessions')
+      .get() as { n: number }
+    expect(row.n).toBe(0)
+  })
+})
 
 describe('database service (FID-006)', () => {
   beforeEach(() => {

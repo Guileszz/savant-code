@@ -75,6 +75,46 @@ describe('ApplyPatchComponent', () => {
     expect(markup).toContain('+newLine')
   })
 
+  test('exposes the [-N/+M] footer counter from the diff counts (FID-2026-0804-010)', () => {
+    const toolBlock = createToolBlock({
+      type: 'update_file',
+      path: 'src/existing.ts',
+      diff: '@@\n-oldLine1\n-oldLine2\n+newLine1\n+newLine2\n+newLine3\n',
+    })
+
+    const result = renderToolComponent(
+      toolBlock,
+      chatThemes.dark,
+      renderOptions,
+    )
+
+    expect(result?.footerLeft).toBeDefined()
+    const footerMarkup = renderToStaticMarkup(
+      result?.footerLeft as React.ReactElement,
+    )
+    expect(footerMarkup).toContain('[-2/+3]')
+  })
+
+  test('create_file reports its additions (new-file diff is all + rows)', () => {
+    const toolBlock = createToolBlock({
+      type: 'create_file',
+      path: 'src/new-file.ts',
+      diff: '@@\n+export const value = 1\n',
+    })
+
+    const result = renderToolComponent(
+      toolBlock,
+      chatThemes.dark,
+      renderOptions,
+    )
+
+    expect(result?.footerLeft).toBeDefined()
+    const footerMarkup = renderToStaticMarkup(
+      result?.footerLeft as React.ReactElement,
+    )
+    expect(footerMarkup).toContain('[-0/+1]')
+  })
+
   test('renders delete_file operation', () => {
     const toolBlock = createToolBlock({
       type: 'delete_file',
@@ -93,5 +133,7 @@ describe('ApplyPatchComponent', () => {
     const markup = renderToStaticMarkup(result?.content as React.ReactElement)
     expect(markup).toContain('Delete')
     expect(markup).toContain('src/remove-me.ts')
+    // delete_file carries no diff in the payload — no footer counter.
+    expect(result?.footerLeft).toBeUndefined()
   })
 })

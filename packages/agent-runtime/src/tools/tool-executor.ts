@@ -1,3 +1,5 @@
+import * as fs from 'node:fs'
+
 import {
   endsAgentStepParam,
   toolNames,
@@ -11,11 +13,14 @@ import { cloneDeep } from 'lodash'
 
 import { getMCPToolData } from '../mcp'
 import { MCP_TOOL_SEPARATOR } from '../mcp-constants'
+import { savantCode$1 } from './handlers/list'
+import {
+  isSecuritySensitivePath,
+} from '../util/echo-compliance'
 import { captureSnapshot } from './handlers/tool/checkpoint-store'
 import { evaluateToolCall, createDefaultSandboxPolicy } from './sandbox'
 import { getAgentShortName, getAgentToolName } from '../templates/prompts'
 import { formatValueForError } from '../util/format-value'
-import { savantCode$1 } from './handlers/list'
 import { resolveSpawnableAgent } from './handlers/tool/spawn-agent-utils'
 import { ensureZodSchema } from './prompts'
 import { toolActivity, setActivity } from '../util/activity-tracking'
@@ -64,6 +69,50 @@ export type ToolCallError = {
   input: JSONValue
   error: string
 } & Pick<SavantCodeToolCall, 'toolCallId'>
+
+/**
+ * FID-2026-0804-009: approximate lines added/touched by a write tool call,
+ * used by the mechanical Verifier-criteria flag (10+ lines triggers review).
+ */
+function countWriteLines(
+  toolName: string,
+  input: Record<string, JSONValue>,
+): number {
+  if (toolName === 'write_file') {
+    return typeof input.content === 'string'
+      ? input.content.split('\n').length
+      : 0
+  }
+  if (toolName === 'str_replace') {
+    const replacements = Array.isArray(input.replacements)
+      ? input.replacements
+      : []
+    let added = 0
+    for (const r of replacements) {
+      if (r && typeof r === 'object') {
+        const oldString =
+          'oldString' in r && typeof r.oldString === 'string'
+            ? r.oldString
+            : ''
+        const newString =
+          'newString' in r && typeof r.newString === 'string'
+            ? r.newString
+            : ''
+        added += Math.max(
+          newString.split('\n').length - oldString.split('\n').length,
+          0,
+        )
+      }
+    }
+    return added
+  }
+  if (toolName === 'apply_patch') {
+    const operation =
+      typeof input.operation === 'string' ? input.operation : ''
+    return (operation.match(/^\+/gm) ?? []).length
+  }
+  return 0
+}
 
 const bareStringFieldRepairAllowlist: Partial<
   Record<string, readonly string[]>
@@ -344,6 +393,12 @@ export async function executeToolCall<T extends ToolName>(
   // Dev override: bypass ALL tool gating and agent restrictions when devMode is active
   const isDevOverride = params.fileContext.devMode === true
 
+  // FID-2026-0804-009: resolved path of the current write tool call, if any.
+  // Set by the write gate; consumed by the Law 1 record AFTER the sandbox gate
+  // (code-review finding — sandbox-denied writes must not count toward the
+  // change footprint). Undefined for non-write tools.
+  let resolvedWritePath: string | undefined
+
   // FID-2026-0802-005 C1: the parse-error branch MUST run before any
   // `toolCall.input` dereference. On parse failure `toolCall.input` is the raw
   // (unvalidated) input — null or a bare string would crash the write gate
@@ -447,6 +502,9 @@ export async function executeToolCall<T extends ToolName>(
     // call input so the downstream handler receives a canonical form. Same Q8
     // hardening, plus the resolved path now reflects any symlink chain.
     input.path = pathResult.resolved
+    // FID-2026-0804-009: stash the resolved write path for the post-sandbox
+    // Law 1 record (moved there per code-review finding — see below).
+    resolvedWritePath = pathResult.resolved
 
     // FID-2026-0803-004: pre-write checkpoint capture (CKR-1/CKR-2). Reads the
     // file's CURRENT content — the pre-edit original — before the handler
@@ -538,6 +596,44 @@ export async function executeToolCall<T extends ToolName>(
           message: `Tool \`${toolName}\` requires approval: ${sandboxDecision.reason}. Run with permission mode \`unsafe\` or re-run interactively when supported.`,
         })
         return previousToolCallFinished
+      }
+    }
+  }
+
+  // FID-2026-0804-009: Law 1 (read-before-write) — evaluated AFTER the sandbox
+  // gate so sandbox-denied writes are never counted toward the change footprint
+  // (code-review finding). Only writes that actually dispatch reach this point;
+  // the write gate above stashed the resolved path. New files and
+  // content-knowledge writes (str_replace with exact oldString, apply_patch)
+  // are exempt. existsSync detects brand-new files; failure degrades to "not
+  // new" (worst case an info receipt).
+  if (resolvedWritePath !== undefined) {
+    const echoCompliance = agentState.echoCompliance
+    if (echoCompliance && echoCompliance.mode !== 'off') {
+      const writeInput = toolCall.input as Record<string, JSONValue>
+      const isNewFile = (() => {
+        try {
+          return !fs.existsSync(resolvedWritePath)
+        } catch {
+          return false
+        }
+      })()
+      const contentKnowledge =
+        toolCall.toolName === 'str_replace' ||
+        toolCall.toolName === 'apply_patch'
+      const content =
+        typeof writeInput.content === 'string' ? writeInput.content : undefined
+      const lineDelta = countWriteLines(toolCall.toolName, writeInput)
+      const violation = echoCompliance.recordWrite({
+        path: resolvedWritePath,
+        lineDelta,
+        contentKnowledge,
+        isNewFile,
+        content,
+        securitySensitive: isSecuritySensitivePath(resolvedWritePath),
+      })
+      if (violation) {
+        onResponseChunk({ type: 'compliance_warning', ...violation })
       }
     }
   }
@@ -662,6 +758,61 @@ export async function executeToolCall<T extends ToolName>(
   // an abort can land inside this window.
   if (params.signal.aborted) {
     return previousToolCallFinished
+  }
+
+  // FID-2026-0804-009: record read / spawn / verification activity on the
+  // run's ECHO compliance tracker so Law 1 bookkeeping and the mechanical
+  // Verifier criteria see the full run picture.
+  const echoCompliance = agentState.echoCompliance
+  if (echoCompliance && echoCompliance.mode !== 'off') {
+    if (toolName === 'read_files' || toolName === 'read_subtree') {
+      const paths = Array.isArray(effectiveInput.paths)
+        ? effectiveInput.paths.filter(
+            (p): p is string => typeof p === 'string',
+          )
+        : typeof effectiveInput.paths === 'string'
+          ? [effectiveInput.paths]
+          : []
+      echoCompliance.recordRead(paths)
+    } else if (toolName === 'read_url') {
+      if (typeof effectiveInput.url === 'string') {
+        echoCompliance.recordRead([effectiveInput.url])
+      }
+    } else if (toolName === 'list_directory') {
+      if (typeof effectiveInput.path === 'string') {
+        echoCompliance.recordDirectoryRead(effectiveInput.path)
+      }
+    } else if (toolName === 'glob' || toolName === 'code_search') {
+      const pattern =
+        typeof effectiveInput.pattern === 'string'
+          ? effectiveInput.pattern
+          : undefined
+      if (pattern) echoCompliance.recordPatternRead(pattern)
+    } else if (toolName === 'run_terminal_command') {
+      if (typeof effectiveInput.command === 'string') {
+        echoCompliance.recordVerification(effectiveInput.command)
+      }
+    } else if (toolName === 'spawn_agents') {
+      const agents = Array.isArray(effectiveInput.agents)
+        ? effectiveInput.agents
+        : []
+      for (const agent of agents) {
+        if (
+          agent &&
+          typeof agent === 'object' &&
+          'agent_type' in agent &&
+          typeof (agent as { agent_type?: unknown }).agent_type === 'string'
+        ) {
+          echoCompliance.recordSpawn(
+            (agent as { agent_type: string }).agent_type,
+          )
+        }
+      }
+    } else if (toolName === 'spawn_agent_inline') {
+      if (typeof effectiveInput.agent_type === 'string') {
+        echoCompliance.recordSpawn(effectiveInput.agent_type)
+      }
+    }
   }
 
   // Only emit tool_call event after permission check passes

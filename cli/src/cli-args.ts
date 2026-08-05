@@ -96,8 +96,9 @@ export function parseArgs({
         '--prompt-file <path>',
         'Read the initial prompt from a file instead of argv',
       )
-      .option('--edit', 'Start in EDIT mode (default)')
+      .option('--edit', 'Start in HYBRID mode (default; legacy flag name)')
       .option('--scaffold', 'Start in SCAFFOLD mode')
+      .option('--strict', 'Start in STRICT mode')
       .option('--analyze', 'Start in ANALYZE mode')
       .option(
         '--permission-mode <mode>',
@@ -146,10 +147,11 @@ export function parseArgs({
   // Determine initial mode from flags (last flag wins if multiple specified)
   let initialMode: AgentMode | undefined
   if (isSavantFree) {
-    initialMode = 'EDIT'
+    initialMode = 'HYBRID'
   } else {
-    if (options.edit) initialMode = 'EDIT'
+    if (options.edit) initialMode = 'HYBRID'
     if (options.scaffold) initialMode = 'SCAFFOLD'
+    if (options.strict) initialMode = 'STRICT'
     if (options.analyze) initialMode = 'ANALYZE'
   }
 

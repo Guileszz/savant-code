@@ -1399,6 +1399,52 @@ export async function loopAgentSteps(
         ]
         shouldEndTurn = false
       }
+
+      // FID-2026-0804-009: harness ECHO compliance — Law 3 (verify-after-write)
+      // + mechanical Verifier-criteria flag + FID escalation, evaluated at each
+      // step boundary (no-op mid-batch; only fires when the turn is ending).
+      // Emits non-blocking compliance_warning receipts and, when violations
+      // exist, injects corrective steering so the running agent self-corrects
+      // (bounded by the tracker's steering budget — never loops forever).
+      // MAIN-LOOP ONLY (code-review finding): subagent loops share the parent
+      // run's tracker for RECORDING (tool-executor) but must never evaluate or
+      // steer here — a Forge/basher subagent can't act on a Verifier-spawn
+      // directive injected into its own message history. Programmatic-only
+      // turns exit at the `if (shouldEndTurn) break` above before this block,
+      // so handleSteps-driven runs intentionally never evaluate here.
+      const echoCompliance = currentAgentState.echoCompliance
+      if (
+        echoCompliance &&
+        echoCompliance.mode !== 'off' &&
+        !currentAgentState.parentId
+      ) {
+        const violations = echoCompliance.evaluateAtStepBoundary({
+          stepNumber: totalSteps,
+          endingTurn: shouldEndTurn,
+        })
+        if (violations.length > 0) {
+          for (const violation of violations) {
+            params.onResponseChunk({
+              type: 'compliance_warning',
+              ...violation,
+            })
+          }
+          const steering = echoCompliance.takeSteeringMessages()
+          if (steering.length > 0) {
+            currentAgentState.messageHistory = [
+              ...currentAgentState.messageHistory,
+              ...steering.map((text) =>
+                userMessage({
+                  content: buildUserMessageContent(text, undefined, undefined),
+                  tags: ['ECHO_COMPLIANCE'],
+                  keepDuringTruncation: true,
+                }),
+              ),
+            ]
+            shouldEndTurn = false
+          }
+        }
+      }
     }
 
     if (clearUserPromptMessagesAfterResponse) {

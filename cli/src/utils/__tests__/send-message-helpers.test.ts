@@ -1836,7 +1836,7 @@ describe('sanitizeRestoredMessages', () => {
   })
 
   test('leaves mode dividers, system messages, and user messages untouched', () => {
-    const divider = createModeDividerMessage('EDIT')
+    const divider = createModeDividerMessage('HYBRID')
     const system: ChatMessage = {
       id: 'sys-123',
       variant: 'ai',

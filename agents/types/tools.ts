@@ -3,14 +3,19 @@
  */
 export type ToolName =
   | 'add_message'
+  | 'analyze_query'
   | 'apply_patch'
   | 'ask_user'
   | 'code_search'
+  | 'deep_research'
+  | 'describe_table'
   | 'end_turn'
+  | 'execute_query'
   | 'find_files'
   | 'glob'
   | 'gravity_index'
   | 'list_directory'
+  | 'list_tables'
   | 'lookup_agent_info'
   | 'propose_str_replace'
   | 'propose_write_file'
@@ -40,14 +45,19 @@ export type ToolName =
  */
 export interface ToolParamsMap {
   add_message: AddMessageParams
+  analyze_query: AnalyzeQueryParams
   apply_patch: ApplyPatchParams
   ask_user: AskUserParams
   code_search: CodeSearchParams
+  deep_research: DeepResearchParams
+  describe_table: DescribeTableParams
   end_turn: EndTurnParams
+  execute_query: ExecuteQueryParams
   find_files: FindFilesParams
   glob: GlobParams
   gravity_index: GravityIndexParams
   list_directory: ListDirectoryParams
+  list_tables: ListTablesParams
   lookup_agent_info: LookupAgentInfoParams
   propose_str_replace: ProposeStrReplaceParams
   propose_write_file: ProposeWriteFileParams
@@ -422,6 +432,65 @@ export interface TransitionPhaseParams {
   phase: 'idle' | 'red' | 'green' | 'audit' | 'self_correct' | 'complete'
   /** Reason for the transition. */
   reason: string
+}
+
+/**
+ * List the tables (and views) in the connected database.
+ */
+export interface ListTablesParams {
+  /** Connection string (SQLite path, ':memory:', or file URI). Falls back to SAVANT_CODE_DATABASE_URL then DATABASE_URL. */
+  databaseUrl?: string
+  /** 'simple' returns table names only; 'detailed' returns full schema. Default 'simple'. */
+  outputFormat?: 'simple' | 'detailed'
+}
+
+/**
+ * Describe a single table: columns, keys, indexes, triggers.
+ */
+export interface DescribeTableParams {
+  /** Connection string (SQLite path, ':memory:', or file URI). Falls back to SAVANT_CODE_DATABASE_URL then DATABASE_URL. */
+  databaseUrl?: string
+  /** The table name to describe. */
+  table: string
+}
+
+/**
+ * Execute a SQL query with adapter-enforced guardrails (read-only default, 1000-row cap, 30s timeout, write approval).
+ */
+export interface ExecuteQueryParams {
+  /** Connection string (SQLite path, ':memory:', or file URI). Falls back to SAVANT_CODE_DATABASE_URL then DATABASE_URL. */
+  databaseUrl?: string
+  /** The SQL statement to execute. */
+  query: string
+  /** Set true ONLY with explicit per-statement user approval for write statements. */
+  allowWrite?: boolean
+}
+
+/**
+ * Return the query plan for a SQL statement (SQLite EXPLAIN QUERY PLAN). Read-only.
+ */
+export interface AnalyzeQueryParams {
+  /** Connection string (SQLite path, ':memory:', or file URI). Falls back to SAVANT_CODE_DATABASE_URL then DATABASE_URL. */
+  databaseUrl?: string
+  /** The SQL statement to analyze. */
+  query: string
+}
+
+/**
+ * Execute a multi-query web research pass mechanically (FID-2026-0804-002).
+ * The model decomposes the question and passes sub-queries; the tool runs them
+ * through the web-search facade, dedups by URL, domain-scores, and returns
+ * structured findings/citations/gaps. No second LLM inside the tool.
+ */
+export interface DeepResearchParams {
+  /** The research question to investigate. */
+  question: string
+  /** Sub-queries to execute (the model's decomposition). Optional: the handler derives depth-based variants as a fallback. */
+  queries?: string[]
+  /** Depth preset: quick (3), standard (5), thorough (10) sub-queries. Default 'standard'. */
+  research_depth?: 'quick' | 'standard' | 'thorough'
+  /** Maximum deduplicated citations to return, highest domain score first. Default 10. */
+  max_sources?: number
 }
 
 /**

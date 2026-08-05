@@ -96,4 +96,27 @@ describe('OpenRouter API key resolver', () => {
 
     await expect(resolveOpenRouterApiKey()).resolves.toBe('second-key')
   })
+
+  test('reset observes a stored key after a cached-null resolution', async () => {
+    // Simulate a negative-cached result (e.g. master-key exchange failure with
+    // no regular/inference key present).
+    await expect(resolveOpenRouterApiKey()).resolves.toBeUndefined()
+
+    // A user then stores an OPENROUTER_API_KEY via /provider; the CLI calls
+    // resetOpenRouterApiKeyCache() so the previously cached null is cleared.
+    resetOpenRouterApiKeyCache()
+    process.env.OPENROUTER_API_KEY = 'stored-key'
+
+    await expect(resolveOpenRouterApiKey()).resolves.toBe('stored-key')
+  })
+
+  test('reset clears both the cached key and environment signature', async () => {
+    process.env.OPENROUTER_API_KEY = 'first-key'
+    await expect(resolveOpenRouterApiKey()).resolves.toBe('first-key')
+
+    resetOpenRouterApiKeyCache()
+    process.env.OPENROUTER_API_KEY = 'second-key'
+
+    await expect(resolveOpenRouterApiKey()).resolves.toBe('second-key')
+  })
 })

@@ -1,5 +1,7 @@
 import fs from 'fs'
 
+import { resetOpenRouterApiKeyCache } from '@savant-code/sdk'
+
 import {
   getAuthToken,
   getAuthTokenDetails,
@@ -270,6 +272,22 @@ export function saveProviderApiKey(
       directProviderBaseUrl: config.baseUrl,
     })
   }
+
+  if (provider === 'openrouter') {
+    resetOpenRouterApiKeyCache()
+  }
+}
+
+/**
+ * Return the stored API key for a provider, or undefined when none is saved.
+ * Shell environment keys are not read here; callers compose env precedence.
+ */
+export function getConfiguredProviderKey(
+  provider: string,
+): string | undefined {
+  const info = getProviderSetupInfo(provider)
+  if (!info) return undefined
+  return readStoredProviderKeys()[info.envVar]
 }
 
 export function getConfiguredProviderNames(): ProviderSetupName[] {

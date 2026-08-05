@@ -2,11 +2,16 @@ import { TextAttributes } from '@opentui/core'
 import React, { useEffect, useRef, useState } from 'react'
 
 import { Button } from './button'
+import { ModeHovertip } from './mode-hovertip'
 import { SegmentedControl } from './segmented-control'
 import { useScaffoldConfirm } from '../hooks/use-scaffold-confirm'
 import { useTheme } from '../hooks/use-theme'
 import { useChatStore } from '../state/chat-store'
-import { AGENT_MODES, IS_SAVANT_FREE } from '../utils/constants'
+import {
+  AGENT_MODES,
+  IS_SAVANT_FREE,
+  MODE_DESCRIPTIONS,
+} from '../utils/constants'
 import { BORDER_CHARS } from '../utils/ui-constants'
 
 import type { Segment } from './segmented-control'
@@ -108,6 +113,7 @@ export function buildExpandedSegments(currentMode: AgentMode): Segment[] {
       label: m,
       isBold: false,
       disabled: m === currentMode,
+      description: MODE_DESCRIPTIONS[m],
     })),
     // Active mode indicator with reversed arrow
     {
@@ -115,6 +121,7 @@ export function buildExpandedSegments(currentMode: AgentMode): Segment[] {
       label: `> ${currentMode}`,
       isSelected: true,
       defaultHighlighted: true,
+      description: MODE_DESCRIPTIONS[currentMode],
     },
   ]
 }
@@ -163,7 +170,23 @@ export const AgentModeToggle = ({
   const theme = useTheme()
   const inputFocused = useChatStore((state) => state.inputFocused)
   const [isCollapsedHovered, setIsCollapsedHovered] = useState(false)
+  const [collapsedHovered, setCollapsedHovered] = useState(false)
+  const [hoveredSegmentId, setHoveredSegmentId] = useState<string | null>(null)
   const hoverToggle = useHoverToggle()
+  // Hover-intent grace for the collapsed tip: delay clearing it so the cursor
+  // can travel toward the tip without it flickering away (FID-2026-0805-001).
+  const collapsedHoverGraceRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  )
+  const COLLAPSED_HOVER_GRACE_MS = 150
+
+  useEffect(() => {
+    return () => {
+      if (collapsedHoverGraceRef.current) {
+        clearTimeout(collapsedHoverGraceRef.current)
+      }
+    }
+  }, [])
   const {
     confirmState,
     requestScaffoldMode,
@@ -186,6 +209,7 @@ export const AgentModeToggle = ({
   const handleSegmentClick = (id: string) => {
     const action = resolveAgentModeClick(mode, id, !!onSelectMode)
     if (action.type === 'closeActive') {
+      setHoveredSegmentId(null)
       hoverToggle.closeNow(true)
       return
     }
@@ -208,46 +232,71 @@ export const AgentModeToggle = ({
   }
 
   if (!hoverToggle.isOpen) {
+    // When the input is not focused, hover does not expand the control — show
+    // the current mode's description as a hovertip instead (FID-2026-0805-001).
+    const showCollapsedTip = collapsedHovered && !inputFocused
     return (
-      <Button
-        style={{
-          flexDirection: 'row',
-          alignItems: 'center',
-          paddingLeft: 1,
-          paddingRight: 1,
-          borderStyle: 'single',
-          borderColor: isCollapsedHovered ? theme.foreground : theme.border,
-        }}
-        customBorderChars={BORDER_CHARS}
+      <box style={{ flexDirection: 'column' }}>
+        <Button
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            paddingLeft: 1,
+            paddingRight: 1,
+            borderStyle: 'single',
+            borderColor: isCollapsedHovered ? theme.foreground : theme.border,
+          }}
+          customBorderChars={BORDER_CHARS}
         onClick={() => {
           if (!inputFocused) return
+          setHoveredSegmentId(null)
           hoverToggle.clearAllTimers()
           hoverToggle.openNow()
         }}
-        onMouseOver={() => {
-          if (inputFocused) {
-            setIsCollapsedHovered(true)
-          }
-          handleMouseOver()
-        }}
-        onMouseOut={handleMouseOut}
-      >
-        <text
-          wrapMode="none"
-          fg={isCollapsedHovered ? theme.foreground : theme.muted}
+          onMouseOver={() => {
+            if (collapsedHoverGraceRef.current) {
+              clearTimeout(collapsedHoverGraceRef.current)
+            }
+            setCollapsedHovered(true)
+            if (inputFocused) {
+              setIsCollapsedHovered(true)
+            }
+            handleMouseOver()
+          }}
+          onMouseOut={() => {
+            if (collapsedHoverGraceRef.current) {
+              clearTimeout(collapsedHoverGraceRef.current)
+            }
+            collapsedHoverGraceRef.current = setTimeout(() => {
+              setCollapsedHovered(false)
+            }, COLLAPSED_HOVER_GRACE_MS)
+            handleMouseOut()
+          }}
         >
-          {isCollapsedHovered ? (
-            <span attributes={TextAttributes.BOLD}>{`< ${mode}`}</span>
-          ) : (
-            `< ${mode}`
-          )}
-        </text>
-      </Button>
+          <text
+            wrapMode="none"
+            fg={isCollapsedHovered ? theme.foreground : theme.muted}
+          >
+            {isCollapsedHovered ? (
+              <span attributes={TextAttributes.BOLD}>{`< ${mode}`}</span>
+            ) : (
+              `< ${mode}`
+            )}
+          </text>
+        </Button>
+        {showCollapsedTip && (
+          <ModeHovertip text={MODE_DESCRIPTIONS[mode]} offsetBottom={1} />
+        )}
+      </box>
     )
   }
 
   // Expanded state: delegate rendering to SegmentedControl
   const segments: Segment[] = buildExpandedSegments(mode)
+  const hoveredSegment = hoveredSegmentId
+    ? segments.find((s) => s.id === hoveredSegmentId)
+    : undefined
+  const hovertipText = hoveredSegment?.description ?? ''
 
   if (confirmState.kind === 'pending') {
     return (
@@ -284,11 +333,15 @@ export const AgentModeToggle = ({
   }
 
   return (
-    <SegmentedControl
-      segments={segments}
-      onSegmentClick={handleSegmentClick}
-      onMouseOver={handleMouseOver}
-      onMouseOut={handleMouseOut}
-    />
+    <box style={{ flexDirection: 'column' }}>
+      <SegmentedControl
+        segments={segments}
+        onSegmentClick={handleSegmentClick}
+        onMouseOver={handleMouseOver}
+        onMouseOut={handleMouseOut}
+        onHoverChange={setHoveredSegmentId}
+      />
+      {hovertipText !== '' && <ModeHovertip text={hovertipText} />}
+    </box>
   )
 }

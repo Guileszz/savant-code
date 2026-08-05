@@ -152,7 +152,11 @@ export const ToolBranch = memo(
 
     if (shouldShowCopyButton) {
       return (
-        <CopyableBlock getCopyText={getCopyText} isStreaming={isStreaming}>
+        <CopyableBlock
+          getCopyText={getCopyText}
+          isStreaming={isStreaming}
+          footerLeft={toolRenderConfig?.footerLeft}
+        >
           <box key={keyPrefix}>
             {toolRenderConfig ? (
               toolRenderConfig.content

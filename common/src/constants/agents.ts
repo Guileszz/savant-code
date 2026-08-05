@@ -224,7 +224,7 @@ export const ECHO_PROTOCOL_INSTRUCTIONS = [
   "RED is for finding EXISTING bugs in code you're about to modify. It is NOT required for:",
   '- Creating new files (nothing to analyze)',
   "- Tasks where the user gave you a clear spec and you're implementing from scratch",
-  '- Small changes (< 75 lines) with no existing code to audit',
+  '- Small changes (< 20 lines) with no existing code to audit',
   '',
   'Law 2 (Present Before Act) still applies: present your plan before writing. But presenting a plan \u2260 running RED phase.',
   '',

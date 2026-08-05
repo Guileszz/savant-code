@@ -44,12 +44,133 @@ function logAlways(message: string) {
   console.log(message)
 }
 
+// FID-2026-0805-002: canonical NEXT_PUBLIC_* defaults for release binaries.
+// The sibling env.json must match these exactly (unless the build is an
+// explicit dev build or override) so dev values never ship in a release
+// artifact. Exported for the env-integrity unit test.
+export const CANONICAL_NEXT_PUBLIC_DEFAULTS: Record<string, string> = {
+  NEXT_PUBLIC_CB_ENVIRONMENT: 'prod',
+  NEXT_PUBLIC_SAVANT_CODE_APP_URL: 'https://savant-code.com',
+  NEXT_PUBLIC_WEB_PORT: '3000',
+  NEXT_PUBLIC_SUPPORT_EMAIL: 'support@savant-code.com',
+  NEXT_PUBLIC_POSTHOG_API_KEY: 'phc_release_placeholder',
+  NEXT_PUBLIC_POSTHOG_HOST_URL: 'https://us.i.posthog.com',
+  NEXT_PUBLIC_GRAVITY_PIXEL_ID: '00000000-0000-0000-0000-000000000000',
+  NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: 'pk_release_placeholder',
+  NEXT_PUBLIC_STRIPE_CUSTOMER_PORTAL: 'https://savant-code.com/portal',
+  NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION_ID: 'release_placeholder',
+}
+
+export interface BinaryEnvLeak {
+  key: string
+  expected: string
+  actual: string
+}
+
+/**
+ * Result of evaluating the binary env against the canonical NEXT_PUBLIC_*
+ * defaults. `block` is true only when a release gate must fail the build;
+ * `warning` carries the accepted-override notice for dev/override builds;
+ * `reason` explains why overrides were accepted (or null when none were).
+ */
+export interface EnvIntegrityDecision {
+  block: boolean
+  warning: string | null
+  reason: 'dev-build' | 'override' | null
+  leaks: BinaryEnvLeak[]
+}
+
+/**
+ * FID-2026-0805-002: decide whether the env-integrity gate blocks the build.
+ * Pure + exported so both escape hatches are unit-testable without running a
+ * full binary build:
+ * - `devBuild` (SAVANT_CODE_BUILD_ENV set) → intentional local dev binary;
+ *   overrides accepted, gate does not block, warning explains why.
+ * - `allowOverrides` (SAVANT_CODE_ALLOW_NEXT_PUBLIC_OVERRIDES=1) → explicit
+ *   CI override (e.g. injecting real prod PostHog/Stripe keys); same behavior
+ *   but the warning names it an explicit override.
+ * With neither set and leaks present, the gate blocks.
+ */
+export function evaluateBinaryEnvIntegrity(
+  binaryEnv: Record<string, string>,
+  canonicalDefaults: Record<string, string>,
+  options: { devBuild?: boolean; allowOverrides?: boolean } = {},
+): EnvIntegrityDecision {
+  const leaks = findBinaryEnvLeaks(binaryEnv, canonicalDefaults)
+  const devBuild = options.devBuild ?? false
+  const allowOverrides = options.allowOverrides ?? false
+
+  if (leaks.length > 0 && !devBuild && !allowOverrides) {
+    return { block: true, warning: null, reason: null, leaks }
+  }
+
+  const accepted = leaks.length > 0
+  return {
+    block: false,
+    warning: accepted
+      ? `⚠️  ${leaks.length} NEXT_PUBLIC_* override(s) accepted (${
+          devBuild ? 'dev build' : 'explicit override'
+        }):\n` +
+          leaks
+            .map(({ key, actual }) => `  ${key} = "${actual}"`)
+            .join('\n')
+      : null,
+    reason: accepted ? (devBuild ? 'dev-build' : 'override') : null,
+    leaks,
+  }
+}
+
+/**
+ * FID-2026-0805-002: detect dev NEXT_PUBLIC_* values in a built binary env.
+ * Returns the keys whose value differs from the canonical release default,
+ * unexpected NEXT_PUBLIC_* keys that are not in the canonical set, and
+ * canonical keys that are missing entirely. Non-NEXT_PUBLIC_ keys are ignored.
+ * Pure + exported so the release-env integrity check is unit-testable.
+ */
+export function findBinaryEnvLeaks(
+  binaryEnv: Record<string, string>,
+  canonicalDefaults: Record<string, string>,
+): BinaryEnvLeak[] {
+  const leaks: BinaryEnvLeak[] = []
+
+  for (const [key, actual] of Object.entries(binaryEnv)) {
+    if (!key.startsWith('NEXT_PUBLIC_')) continue
+    const expected = canonicalDefaults[key]
+    if (expected === undefined) {
+      leaks.push({ key, expected: '<none>', actual })
+    } else if (actual !== expected) {
+      leaks.push({ key, expected, actual })
+    }
+  }
+
+  // Canonical keys missing from the final env (shouldn't happen; be strict).
+  for (const key of Object.keys(canonicalDefaults)) {
+    if (!key.startsWith('NEXT_PUBLIC_')) continue
+    if (binaryEnv[key] === undefined) {
+      leaks.push({ key, expected: canonicalDefaults[key], actual: '<unset>' })
+    }
+  }
+
+  return leaks
+}
+
+function getBunExecutable(): string {
+  // When run under Bun (the normal case), process.execPath points at the Bun
+  // binary even when `bun` is not on the child process PATH (Windows).
+  if (process.execPath && !process.execPath.endsWith('node')) {
+    return process.execPath
+  }
+  return 'bun'
+}
+
 function runCommand(
   command: string,
   args: string[],
   options: SpawnSyncOptions = {},
 ) {
-  const result = spawnSync(command, args, {
+  const executable =
+    command === 'bun' ? getBunExecutable() : command
+  const result = spawnSync(executable, args, {
     cwd: options.cwd,
     stdio: VERBOSE ? 'inherit' : 'pipe',
     env: options.env,
@@ -57,10 +178,17 @@ function runCommand(
 
   if (result.status !== 0) {
     const stderr = result.stderr?.toString() ?? ''
+    const failure = result.error
+      ? `${result.error.message}`
+      : result.signal
+        ? `signal ${result.signal}`
+        : result.status === null
+          ? 'exited without a status (null)'
+          : `exit code ${result.status}`
     throw new Error(
-      `Command "${command} ${args.join(' ')}" failed with exit code ${
-        result.status
-      }${stderr ? `\n${stderr}` : ''}`,
+      `Command "${command} ${args.join(' ')}" failed: ${failure}${
+        stderr ? `\n${stderr}` : ''
+      }`,
     )
   }
 }
@@ -127,7 +255,10 @@ async function main() {
   }
 
   // Release binaries must run in production mode. Local dev builds can opt out
-  // by setting SAVANT_CODE_BUILD_ENV before invoking this script.
+  // by setting SAVANT_CODE_BUILD_ENV before invoking this script. Note: this
+  // force-set runs BEFORE the env overlay below, so a dev NEXT_PUBLIC_CB_ENVIRONMENT
+  // in the shell can never reach env.json — the force-set is the primary guard
+  // for that one var; findBinaryEnvLeaks covers the other nine NEXT_PUBLIC_*.
   const buildEnv = process.env.SAVANT_CODE_BUILD_ENV
   process.env.NEXT_PUBLIC_CB_ENVIRONMENT = buildEnv ?? 'prod'
 
@@ -174,12 +305,49 @@ async function main() {
     SAVANT_CODE_CLI_VERSION: version,
     SAVANT_CODE_CLI_TARGET: getCliTargetLabel(targetInfo),
     SAVANT_FREE_MODE: process.env.SAVANT_FREE_MODE ?? 'false',
+    // Canonical runtime defaults so a locally built (or released) binary can
+    // boot without relying on the build shell exporting every NEXT_PUBLIC_*.
+    ...CANONICAL_NEXT_PUBLIC_DEFAULTS,
   }
 
   for (const [key, value] of Object.entries(process.env)) {
     if (key.startsWith('NEXT_PUBLIC_') && value !== undefined) {
       binaryEnv[key] = value
     }
+  }
+
+  // FID-2026-0805-002: a release build must never ship dev NEXT_PUBLIC_*
+  // values (localhost URLs, personal emails, placeholder keys) inside the
+  // env.json sibling — the build shell and the repo .env.local routinely
+  // inject them. Fail the build instead of shipping. Escape hatches:
+  // - SAVANT_CODE_BUILD_ENV=<env>  → intentional local dev build (skips check)
+  // - SAVANT_CODE_ALLOW_NEXT_PUBLIC_OVERRIDES=1 → explicit CI override
+  //   (e.g. injecting real production PostHog/Stripe keys)
+  const integrity = evaluateBinaryEnvIntegrity(
+    binaryEnv,
+    CANONICAL_NEXT_PUBLIC_DEFAULTS,
+    {
+      devBuild: Boolean(process.env.SAVANT_CODE_BUILD_ENV),
+      allowOverrides:
+        process.env.SAVANT_CODE_ALLOW_NEXT_PUBLIC_OVERRIDES === '1',
+    },
+  )
+  if (integrity.block) {
+    throw new Error(
+      'Release build aborted: dev NEXT_PUBLIC_* values leaked into env.json.\n' +
+        'Unset them (and remove/ignore the repo .env.local) before building, set ' +
+        'SAVANT_CODE_BUILD_ENV to build a local dev binary, or set ' +
+        'SAVANT_CODE_ALLOW_NEXT_PUBLIC_OVERRIDES=1 to explicitly accept them.\n' +
+        integrity.leaks
+          .map(
+            ({ key, expected, actual }) =>
+              `  ${key}: got "${actual}", expected "${expected}"`,
+          )
+          .join('\n'),
+    )
+  }
+  if (integrity.warning) {
+    logAlways(integrity.warning)
   }
 
   const defineFlags = [
@@ -260,14 +428,19 @@ async function main() {
   logAlways(`✅ Built ${outputFilename} (${getCliTargetLabel(targetInfo)})`)
 }
 
-main().catch((error: unknown) => {
-  if (error instanceof Error) {
-    console.error(error.message)
-  } else {
-    console.error(error)
-  }
-  process.exit(1)
-})
+// FID-2026-0805-002: exported for the env-integrity unit test
+// (cli/src/__tests__/unit/build-binary-env.test.ts). Guarded so importing the
+// module for tests never runs the build.
+if (import.meta.main) {
+  main().catch((error: unknown) => {
+    if (error instanceof Error) {
+      console.error(error.message)
+    } else {
+      console.error(error)
+    }
+    process.exit(1)
+  })
+}
 
 /**
  * Find web-tree-sitter's tree-sitter.wasm in any plausible node_modules

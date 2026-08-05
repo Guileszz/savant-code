@@ -124,18 +124,39 @@ export const MAIN_AGENT_ID = 'main-agent'
  * Mapping from agent mode to agent ID.
  * Single source of truth for all agent modes (order = cycling order).
  *
- * Three-position execution-scope axis. EDIT is the default strict ECHO loop;
- * ANALYZE is read-only; SCAFFOLD is an opt-in umbrella-FID mode for first-time
- * project scaffolding. Object key order drives the UI cycling order.
+ * Four-position execution-scope axis (FID-2026-0805-001):
+ * - HYBRID is the default: harness-bounded direct writing (FID-009 Law 1/3
+ *   receipts at warn; FID-010 20-line ceremony threshold).
+ * - SCAFFOLD is an opt-in umbrella-FID mode for first-time project scaffolding.
+ * - STRICT runs the full ECHO Perfection Loop for every change (FID per change,
+ *   Forge writes, Verifier audits, Recorder archives).
+ * - ANALYZE is read-only.
+ * Object key order drives the UI cycling order.
  */
 export const AGENT_MODE_TO_ID = {
-  EDIT: 'savant',
+  HYBRID: 'savant',
   SCAFFOLD: 'savant-scaffold',
+  STRICT: 'savant-strict',
   ANALYZE: 'savant-analyze',
 } as const
 
 export type AgentMode = keyof typeof AGENT_MODE_TO_ID
 export const AGENT_MODES = Object.keys(AGENT_MODE_TO_ID) as AgentMode[]
+
+/**
+ * One-line contract per mode (FID-2026-0805-001). Single source of truth for
+ * the mode-toggle hovertip and any future /mode help surface.
+ */
+export const MODE_DESCRIPTIONS: Record<AgentMode, string> = {
+  HYBRID:
+    'Default. Write directly with harness-enforced read-before-write and verification; escalate ceremony past 20 lines.',
+  SCAFFOLD:
+    'Initialize a new project under a single umbrella FID; project-root writes only.',
+  STRICT:
+    'Full ECHO Perfection Loop for every change: FID per change, Forge writes, Verifier audits, Recorder archives.',
+  ANALYZE:
+    'Read-only. Answer questions and explore without writing files or spawning Forge.',
+}
 
 /**
  * Fallback context-window heuristic used when the live gateway catalog does not

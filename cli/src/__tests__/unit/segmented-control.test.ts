@@ -89,7 +89,7 @@ const theme: ChatTheme = {
 describe('SegmentedControl - processSegments', () => {
   test('computes width from label using string-width', () => {
     const segments: Segment[] = [
-      { id: 'EDIT', label: 'EDIT' },
+      { id: 'HYBRID', label: 'HYBRID' },
       { id: 'SCAFFOLD', label: 'SCAFFOLD' },
       { id: 'ANALYZE', label: 'ANALYZE' },
     ]
@@ -97,7 +97,7 @@ describe('SegmentedControl - processSegments', () => {
     const processed = processSegments(segments, null, false, theme)
     const widths = processed.map((s) => s.width)
     expect(widths).toEqual([
-      stringWidth(' EDIT '),
+      stringWidth(' HYBRID '),
       stringWidth(' SCAFFOLD '),
       stringWidth(' ANALYZE '),
     ])
@@ -105,11 +105,11 @@ describe('SegmentedControl - processSegments', () => {
 
   test('applies defaultHighlighted when nothing hovered', () => {
     const segments: Segment[] = [
-      { id: 'EDIT', label: 'EDIT' },
+      { id: 'HYBRID', label: 'HYBRID' },
       { id: 'SCAFFOLD', label: 'SCAFFOLD' },
       {
-        id: 'active-EDIT',
-        label: '> EDIT',
+        id: 'active-HYBRID',
+        label: '> HYBRID',
         isSelected: true,
         defaultHighlighted: true,
       },
@@ -120,13 +120,13 @@ describe('SegmentedControl - processSegments', () => {
       processed.map((p) => [p.id, p]),
     )
 
-    expect(map['active-EDIT'].leftBorderColor).toBe(theme.foreground)
-    expect(map['EDIT'].leftBorderColor).toBe(theme.border)
+    expect(map['active-HYBRID'].leftBorderColor).toBe(theme.foreground)
+    expect(map['HYBRID'].leftBorderColor).toBe(theme.border)
   })
 
   test('hovering a segment highlights it', () => {
     const segments: Segment[] = [
-      { id: 'EDIT', label: 'EDIT' },
+      { id: 'HYBRID', label: 'HYBRID' },
       { id: 'SCAFFOLD', label: 'SCAFFOLD' },
       { id: 'ANALYZE', label: 'ANALYZE' },
     ]
@@ -137,12 +137,12 @@ describe('SegmentedControl - processSegments', () => {
 
     expect(map.SCAFFOLD.isHovered).toBe(true)
     expect(map.SCAFFOLD.leftBorderColor).toBe(theme.foreground)
-    expect(map.EDIT.leftBorderColor).toBe(theme.border)
+    expect(map.HYBRID.leftBorderColor).toBe(theme.border)
   })
 
   test('disabled segments use muted text and border colors', () => {
     const segments: Segment[] = [
-      { id: 'EDIT', label: 'EDIT', disabled: true },
+      { id: 'HYBRID', label: 'HYBRID', disabled: true },
       { id: 'SCAFFOLD', label: 'SCAFFOLD' },
     ]
     const [edit, scaffold] = processSegments(segments, null, false, theme)

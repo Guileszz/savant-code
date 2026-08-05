@@ -726,10 +726,16 @@ export const useSuggestionEngine = ({
 
   const slashSuggestionItems = useMemo<SuggestionItem[]>(() => {
     return slashMatches.map((command) => {
-      // Check if this is a mode command and if it's the current mode
-      const modeMatch = command.id.match(/^mode:(default|max|plan)$/i)
+      // Mark the active mode in the suggestion menu. The mode commands are
+      // generated from AGENT_MODES (FID-2026-0805-001); the previous regex only
+      // matched the retired DEFAULT/MAX/PLAN ids, so the "(current)" marker
+      // never fired after the EDIT→HYBRID rename. Compare against the current
+      // mode id + aliases instead (no drift when AGENT_MODES changes).
       const isCurrentMode =
-        modeMatch && currentAgentMode?.toLowerCase() === modeMatch[1]
+        currentAgentMode !== undefined &&
+        [command.id, ...(command.aliases ?? [])].includes(
+          `mode:${currentAgentMode.toLowerCase()}`,
+        )
 
       return {
         id: command.id,

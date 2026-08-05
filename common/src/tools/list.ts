@@ -9,6 +9,13 @@ import { browserLogsParams } from './params/tool/browser-logs'
 import { codeSearchParams } from './params/tool/code-search'
 import { composioMetaToolParams } from './params/tool/composio'
 import { createPlanParams } from './params/tool/create-plan'
+import {
+  analyzeQueryParams,
+  describeTableParams,
+  executeQueryParams,
+  listTablesParams,
+} from './params/tool/database'
+import { deepResearchParams } from './params/tool/deep-research'
 import { endTurnParams } from './params/tool/end-turn'
 import { findFilesParams } from './params/tool/find-files'
 import { globParams } from './params/tool/glob'
@@ -50,15 +57,20 @@ export const toolParams = {
   add_message: addMessageParams,
   add_subgoal: addSubgoalParams,
   apply_patch: applyPatchParams,
+  analyze_query: analyzeQueryParams,
   ask_user: askUserParams,
   browser_logs: browserLogsParams,
   code_search: codeSearchParams,
   create_plan: createPlanParams,
+  deep_research: deepResearchParams,
+  describe_table: describeTableParams,
   end_turn: endTurnParams,
+  execute_query: executeQueryParams,
   find_files: findFilesParams,
   glob: globParams,
   gravity_index: gravityIndexParams,
   list_directory: listDirectoryParams,
+  list_tables: listTablesParams,
   lookup_agent_info: lookupAgentInfoParams,
   propose_str_replace: proposeStrReplaceParams,
   propose_write_file: proposeWriteFileParams,

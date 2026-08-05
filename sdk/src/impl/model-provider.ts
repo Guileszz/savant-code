@@ -43,17 +43,10 @@ import {
   createChatGptBackendFetch,
   extractChatGptAccountId,
 } from './chatgpt-backend-fetch'
-import {
-  resetOpenRouterApiKeyCache as resetResolverCache,
-  resolveOpenRouterApiKey,
-} from './openrouter-key-resolver'
+import { resolveOpenRouterApiKey } from './openrouter-key-resolver'
 
 import type { JSONValue } from '@savant-code/common/types/json'
 import type { LanguageModel } from 'ai'
-
-export function resetOpenRouterApiKeyCache(): void {
-  resetResolverCache()
-}
 
 // ============================================================================
 // ChatGPT OAuth Rate Limit Cache

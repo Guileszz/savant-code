@@ -91,7 +91,7 @@ If the Orchestrator asks you to use a tool you don't have (e.g., str_replace, ba
         toolName: 'set_output',
         input: {
           value:
-            'Umbrella FID sealed. Scaffold session complete; reverting to EDIT mode.',
+            'Umbrella FID sealed. Scaffold session complete; reverting to HYBRID mode.',
         },
       }
       return

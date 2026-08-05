@@ -69,7 +69,7 @@ describe('routeUserPrompt providerSetup mode', () => {
     )
     const params = {
       abortControllerRef: { current: null },
-      agentMode: 'EDIT',
+      agentMode: 'HYBRID',
       inputRef: { current: null },
       inputValue: 'hello',
       isChainInProgressRef: { current: false },
@@ -102,7 +102,7 @@ describe('routeUserPrompt providerSetup mode', () => {
     useChatStore.getState().setInputMode('default')
     const params = {
       abortControllerRef: { current: null },
-      agentMode: 'EDIT',
+      agentMode: 'HYBRID',
       inputRef: { current: null },
       inputValue: '/provider opencode-go',
       isChainInProgressRef: { current: false },
@@ -144,7 +144,7 @@ describe('routeUserPrompt providerSetup mode', () => {
 
     const params = {
       abortControllerRef: { current: null },
-      agentMode: 'EDIT',
+      agentMode: 'HYBRID',
       inputRef: { current: null },
       inputValue: secret,
       isChainInProgressRef: { current: false },

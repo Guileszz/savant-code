@@ -39,6 +39,11 @@ const ALLOWLISTED_TARGET_FIELDS: Partial<Record<string, string>> = {
   find_files: 'pattern',
   glob: 'pattern',
   list_directory: 'path',
+  list_tables: '',
+  describe_table: 'table',
+  analyze_query: '',
+  execute_query: '',
+  deep_research: 'question',
   web_search: 'query',
   read_docs: 'query',
   read_files: 'paths',
@@ -211,11 +216,17 @@ export function toolActivity(
   if (
     toolName === 'web_search' ||
     toolName === 'read_docs' ||
+    toolName === 'deep_research' ||
     toolName === 'researcher' ||
     toolName === 'websearch_with_date' ||
     toolName === 'web_search_simple'
   ) {
-    const query = typeof input?.query === 'string' ? input.query : ''
+    const query =
+      typeof input?.query === 'string'
+        ? input.query
+        : typeof input?.question === 'string'
+          ? input.question
+          : ''
     const activity: AgentActivity = {
       kind: 'researching',
       query: truncate(query, 60),

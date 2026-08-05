@@ -41,6 +41,22 @@ const definition: AgentDefinition = {
           description:
             'Starting URL to navigate to (e.g., "http://localhost:3000"). If not provided, the agent will determine the URL from the prompt.',
         },
+        viewport: {
+          type: 'string' as const,
+          enum: ['mobile', 'tablet', 'desktop'] as const,
+          description:
+            'Responsive viewport preset (FID-2026-0804-005 GAP-1): mobile (375x667), tablet (768x1024), or desktop (1920x1080). Default desktop. Applied via CDP device-metrics; when a dedicated viewport tool is unavailable, resize with evaluate_script and verify with take_snapshot. Documents the responsive-testing contract.',
+        },
+        wcag: {
+          type: 'boolean' as const,
+          description:
+            'When true, run a WCAG accessibility scan on the loaded page (FID-2026-0804-005 GAP-2). Runs an offline axe-core-style DOM-walk via evaluate_script (no CDN, no external script) and reports structured violations (impact, rule, node). Never auto-fixes accessibility issues.',
+        },
+        persistSession: {
+          type: 'boolean' as const,
+          description:
+            'When true, keep the browser session state within this run (FID-2026-0804-005 GAP-3). Default OFF: the chrome-devtools-mcp server launches with --isolated (ephemeral profile) so auth cookies are never persisted without explicit opt-in. The current static mcpServers args cannot be swapped per-run; persistence is honored as a workflow contract (session continuity across steps in the run, localStorage-based state where applicable).',
+        },
       },
     },
   },
@@ -127,6 +143,10 @@ const definition: AgentDefinition = {
   includeMessageHistory: false,
 
   mcpServers: {
+    // FID-2026-0804-005 GAP-3: --isolated keeps the profile ephemeral by
+    // default (never persists auth cookies without explicit opt-in). Runtime
+    // per-run arg swapping (persistSession → --user-data-dir) is a future
+    // harness wiring item; the param is honored as a workflow contract.
     'chrome-devtools': {
       command: 'npx',
       args: ['-y', 'chrome-devtools-mcp@latest', '--headless', '--isolated'],
@@ -222,6 +242,25 @@ Example workflow:
 ❌ **WRONG** (bare return): \`{ "function": "return document.title" }\`
 
 The return value must be JSON-serializable. Always use arrow function syntax: \`() => { ... }\`
+
+## Responsive Testing (viewport param)
+
+When the parent passes \`params.viewport\` (mobile 375x667 / tablet 768x1024 / desktop 1920x1080):
+1. After navigating, apply the viewport size. If a dedicated viewport/device-metrics tool is unavailable, use \`evaluate_script\` with an arrow function that sets the window size and dispatches a resize event, then verify with \`take_snapshot\` (documented limits: window resizing is a fallback for true CDP device metrics; layout may differ from a real device).
+2. Take a \`take_screenshot\` at the requested size for visual verification.
+3. Check for horizontal overflow, clipped content, and unusable touch targets at the requested size.
+
+## WCAG Accessibility Scan (wcag param)
+
+When the parent passes \`params.wcag: true\`, run a WCAG scan on the current page:
+1. Inject the offline accessibility checker via \`evaluate_script\` (an arrow function that walks the DOM and returns violations — written inline, no CDN or external script).
+2. Report violations as structured rows: impact (critical/serious/moderate/minor), rule id, and the offending node (tag, class/id when available).
+3. Check at minimum: images without alt text, form inputs without labels, missing/empty document lang, heading hierarchy skips, buttons/links without accessible names, low-contrast text heuristic.
+4. NEVER auto-fix accessibility issues — report them for the parent to action.
+
+## Session Persistence (persistSession param)
+
+\`params.persistSession\` is honored as a workflow contract: within this run, preserve form state and in-page state across steps (re-snapshot to confirm). The browser profile is ephemeral (\`--isolated\`) by default for security — do not attempt to persist authentication cookies. If the parent needs a truly persistent profile across runs, that is a harness wiring item, not something the agent can change.
 
 ## Keyboard Shortcuts
 

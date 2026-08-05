@@ -145,7 +145,10 @@ export {
 } from './tools/run-terminal-command'
 export type { ActiveTerminalCommandProcess } from './tools/run-terminal-command'
 export { getInferenceBaseUrlFromEnv, getInferenceApiKeyFromEnv } from './env'
-export { resolveOpenRouterApiKey } from './impl/openrouter-key-resolver'
+export {
+  resolveOpenRouterApiKey,
+  resetOpenRouterApiKeyCache,
+} from './impl/openrouter-key-resolver'
 export {
   promptAiSdk,
   promptAiSdkStream,
@@ -153,7 +156,6 @@ export {
 } from './impl/llm'
 export {
   resetChatGptOAuthRateLimit,
-  resetOpenRouterApiKeyCache,
   isCloudflareModel,
   isCommandCodeModel,
 } from './impl/model-provider'

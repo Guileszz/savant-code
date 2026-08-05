@@ -2,6 +2,7 @@ import path from 'path'
 
 import { MAX_AGENT_STEPS_DEFAULT } from '@savant-code/common/constants/agents'
 
+import { loadFidInventory } from './fid-loader'
 import {
   createEventHandler,
   createStreamChunkHandler,
@@ -48,6 +49,9 @@ export type CreateRunConfigParams = {
   /** FID-2026-0803-004: turn identity for checkpoint grouping (the CLI's
    *  aiMessageId), so subagent writes land in the same turn's checkpoint. */
   checkpointTurnId?: string
+  /** FID-2026-0804-009: harness ECHO compliance override. Defaults to `warn`;
+   *  the CLI always passes active FID paths so FID-aware escalation is live. */
+  echoCompliance?: { mode?: 'warn' | 'off'; fidPaths?: string[] }
 }
 
 const SENSITIVE_EXTENSIONS = new Set([
@@ -93,6 +97,25 @@ const matchesPattern = (str: string) =>
 
 const ENV_TEMPLATE_SUFFIXES = ['.env.example', '.env.sample', '.env.template']
 
+// FID-2026-0804-009 (code-review finding): `loadFidInventory()` does synchronous
+// readdir + per-FID readFile, and `createRunConfig` runs on every message send.
+// Cache the active-FID path list with a short TTL — FIDs change rarely
+// mid-session, and the sidebar / fid-watcher own live freshness separately.
+const FID_PATHS_CACHE_TTL_MS = 30_000
+let fidPathsCache: { at: number; paths: string[] } | undefined
+
+function getActiveFidPaths(): string[] {
+  const now = Date.now()
+  if (fidPathsCache && now - fidPathsCache.at < FID_PATHS_CACHE_TTL_MS) {
+    return fidPathsCache.paths
+  }
+  const paths = loadFidInventory()
+    .active.map((fid) => fid.path)
+    .filter((p): p is string => typeof p === 'string')
+  fidPathsCache = { at: now, paths }
+  return paths
+}
+
 export const isEnvTemplateFile = (filePath: string) =>
   ENV_TEMPLATE_SUFFIXES.some((suffix) =>
     path.basename(filePath).endsWith(suffix),
@@ -130,6 +153,9 @@ export const createRunConfig = (params: CreateRunConfigParams) => {
     permissionMode,
     modelInfoText,
   } = params
+  // FID-2026-0804-009: hoisted so the mode const drives both the runtime
+  // option and the fidPaths load-skip decision.
+  const echoComplianceMode = params.echoCompliance?.mode ?? 'warn'
 
   return {
     logger,
@@ -151,6 +177,18 @@ export const createRunConfig = (params: CreateRunConfigParams) => {
     contextWindow: params.contextWindow,
     checkpointDir: params.checkpointDir,
     checkpointTurnId: params.checkpointTurnId,
+    // FID-2026-0804-009: harness ECHO compliance is ON by default in the CLI.
+    // Active (non-archived) FID file paths are loaded from `dev/fids/` so the
+    // runtime can escalate writes that touch open FIDs. Archived FIDs are
+    // intentionally excluded — closed work doesn't need review receipts. When
+    // the mode is `off`, the inventory load is skipped entirely (zero sync fs
+    // IO on that path; cached otherwise — see getActiveFidPaths above). The
+    // cache is process-local TTL state: FIDs created mid-session are picked up
+    // within 30s, and the sidebar/fid-watcher own live freshness separately.
+    echoCompliance: {
+      mode: echoComplianceMode,
+      fidPaths: echoComplianceMode === 'off' ? [] : getActiveFidPaths(),
+    },
     fileFilter: ((filePath: string) => {
       if (isSensitiveFile(filePath)) return { status: 'blocked' }
       if (isEnvTemplateFile(filePath)) return { status: 'allow-example' }

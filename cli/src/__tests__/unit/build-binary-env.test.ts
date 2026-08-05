@@ -1,0 +1,175 @@
+import { describe, test, expect } from 'bun:test'
+
+import {
+  CANONICAL_NEXT_PUBLIC_DEFAULTS,
+  evaluateBinaryEnvIntegrity,
+  findBinaryEnvLeaks,
+} from '../../../scripts/build-binary'
+
+// FID-2026-0805-002: a release build must never ship dev NEXT_PUBLIC_* values
+// (localhost URLs, personal emails, placeholder keys) inside the env.json
+// sibling. findBinaryEnvLeaks is the pure gate; these tests pin its contract.
+function canonicalEnv(): Record<string, string> {
+  return {
+    NODE_ENV: 'production',
+    SAVANT_CODE_IS_BINARY: 'true',
+    SAVANT_CODE_CLI_VERSION: '0.0.19',
+    ...CANONICAL_NEXT_PUBLIC_DEFAULTS,
+  }
+}
+
+describe('findBinaryEnvLeaks', () => {
+  test('clean canonical env yields zero leaks', () => {
+    expect(findBinaryEnvLeaks(canonicalEnv(), CANONICAL_NEXT_PUBLIC_DEFAULTS))
+      .toEqual([])
+  })
+
+  test('flags a dev NEXT_PUBLIC_* value (localhost / personal email / dummy key)', () => {
+    // Real-world leak vectors: the build shell and repo .env.local inject dev
+    // URLs, personal emails, and dummy keys. NEXT_PUBLIC_CB_ENVIRONMENT is
+    // deliberately absent here — main() force-sets it to prod before the
+    // overlay, so it can never reach env.json as a dev value.
+    const leaked = canonicalEnv()
+    leaked.NEXT_PUBLIC_SAVANT_CODE_APP_URL = 'http://localhost:3000'
+    leaked.NEXT_PUBLIC_SUPPORT_EMAIL = 'me@example.com'
+    leaked.NEXT_PUBLIC_POSTHOG_API_KEY = 'phc_dummy'
+    leaked.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY = 'pk_dummy'
+
+    const leaks = findBinaryEnvLeaks(leaked, CANONICAL_NEXT_PUBLIC_DEFAULTS)
+    expect(leaks).toHaveLength(4)
+    for (const leak of leaks) {
+      expect(leak.key).toStartWith('NEXT_PUBLIC_')
+      expect(leak.actual).not.toBe(leak.expected)
+    }
+    const byKey = Object.fromEntries(leaks.map((l) => [l.key, l]))
+    expect(byKey.NEXT_PUBLIC_SAVANT_CODE_APP_URL).toEqual({
+      key: 'NEXT_PUBLIC_SAVANT_CODE_APP_URL',
+      expected: 'https://savant-code.com',
+      actual: 'http://localhost:3000',
+    })
+    expect(byKey.NEXT_PUBLIC_SUPPORT_EMAIL.actual).toBe('me@example.com')
+  })
+
+  test('flags every canonical key when the env is entirely absent', () => {
+    const leaks = findBinaryEnvLeaks(
+      { NODE_ENV: 'production' },
+      CANONICAL_NEXT_PUBLIC_DEFAULTS,
+    )
+    expect(leaks).toHaveLength(Object.keys(CANONICAL_NEXT_PUBLIC_DEFAULTS).length)
+    for (const leak of leaks) {
+      expect(leak.actual).toBe('<unset>')
+    }
+  })
+
+  test('flags a canonical key that is missing entirely', () => {
+    const missing = canonicalEnv()
+    delete missing.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY
+
+    const leaks = findBinaryEnvLeaks(missing, CANONICAL_NEXT_PUBLIC_DEFAULTS)
+    expect(leaks).toHaveLength(1)
+    expect(leaks[0]).toEqual({
+      key: 'NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY',
+      expected: 'pk_release_placeholder',
+      actual: '<unset>',
+    })
+  })
+
+  test('flags an unexpected NEXT_PUBLIC_* key not in the canonical set', () => {
+    const extra = canonicalEnv()
+    extra.NEXT_PUBLIC_SOMETHING_NEW = 'whatever'
+
+    const leaks = findBinaryEnvLeaks(extra, CANONICAL_NEXT_PUBLIC_DEFAULTS)
+    expect(leaks).toHaveLength(1)
+    expect(leaks[0]).toEqual({
+      key: 'NEXT_PUBLIC_SOMETHING_NEW',
+      expected: '<none>',
+      actual: 'whatever',
+    })
+  })
+
+  test('ignores non-NEXT_PUBLIC_ keys entirely', () => {
+    const env = canonicalEnv()
+    env.SAVANT_CODE_CLI_VERSION = '0.0.99'
+    env.NODE_ENV = 'test'
+    env.PATH = '/usr/bin'
+
+    expect(findBinaryEnvLeaks(env, CANONICAL_NEXT_PUBLIC_DEFAULTS)).toEqual([])
+  })
+})
+
+describe('evaluateBinaryEnvIntegrity — escape hatches', () => {
+  function devLeakedEnv(): Record<string, string> {
+    const env = canonicalEnv()
+    env.NEXT_PUBLIC_SAVANT_CODE_APP_URL = 'http://localhost:3000'
+    env.NEXT_PUBLIC_SUPPORT_EMAIL = 'me@example.com'
+    return env
+  }
+
+  test('release gate blocks the build when leaks exist and no escape hatch is set', () => {
+    const decision = evaluateBinaryEnvIntegrity(
+      devLeakedEnv(),
+      CANONICAL_NEXT_PUBLIC_DEFAULTS,
+    )
+    expect(decision.block).toBe(true)
+    expect(decision.reason).toBeNull()
+    expect(decision.warning).toBeNull()
+    expect(decision.leaks.map((l) => l.key)).toEqual([
+      'NEXT_PUBLIC_SAVANT_CODE_APP_URL',
+      'NEXT_PUBLIC_SUPPORT_EMAIL',
+    ])
+  })
+
+  test('SAVANT_CODE_BUILD_ENV (dev build) skips the gate and warns', () => {
+    const decision = evaluateBinaryEnvIntegrity(
+      devLeakedEnv(),
+      CANONICAL_NEXT_PUBLIC_DEFAULTS,
+      { devBuild: true },
+    )
+    expect(decision.block).toBe(false)
+    expect(decision.reason).toBe('dev-build')
+    expect(decision.warning).toContain('2 NEXT_PUBLIC_* override(s) accepted')
+    expect(decision.warning).toContain('(dev build)')
+    expect(decision.warning).toContain(
+      'NEXT_PUBLIC_SAVANT_CODE_APP_URL = "http://localhost:3000"',
+    )
+    // The warning is what main() logs; the env still ships with the dev
+    // value — the escape hatch is explicit, not silent.
+    expect(decision.leaks).toHaveLength(2)
+  })
+
+  test('SAVANT_CODE_ALLOW_NEXT_PUBLIC_OVERRIDES=1 accepts overrides with an explicit-override warning', () => {
+    const decision = evaluateBinaryEnvIntegrity(
+      devLeakedEnv(),
+      CANONICAL_NEXT_PUBLIC_DEFAULTS,
+      { allowOverrides: true },
+    )
+    expect(decision.block).toBe(false)
+    expect(decision.reason).toBe('override')
+    expect(decision.warning).toContain('2 NEXT_PUBLIC_* override(s) accepted')
+    expect(decision.warning).toContain('(explicit override)')
+    expect(decision.warning).not.toContain('(dev build)')
+  })
+
+  test('dev build wins over the override label when both are set', () => {
+    const decision = evaluateBinaryEnvIntegrity(
+      devLeakedEnv(),
+      CANONICAL_NEXT_PUBLIC_DEFAULTS,
+      { devBuild: true, allowOverrides: true },
+    )
+    expect(decision.block).toBe(false)
+    expect(decision.reason).toBe('dev-build')
+    expect(decision.warning).toContain('(dev build)')
+  })
+
+  test('clean env with escape hatches set yields no warning', () => {
+    const decision = evaluateBinaryEnvIntegrity(
+      canonicalEnv(),
+      CANONICAL_NEXT_PUBLIC_DEFAULTS,
+      { devBuild: true },
+    )
+    expect(decision.block).toBe(false)
+    expect(decision.reason).toBeNull()
+    expect(decision.warning).toBeNull()
+    expect(decision.leaks).toEqual([])
+  })
+})

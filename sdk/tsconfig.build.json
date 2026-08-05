@@ -24,7 +24,8 @@
       "@savant-code/common/*": ["../common/src/*"],
       "@savant-code/agent-runtime/*": ["../packages/agent-runtime/src/*"],
       "@savant-code/code-map": ["../packages/code-map/src/index.ts"],
-      "@savant-code/code-map/*": ["../packages/code-map/src/*"]
+      "@savant-code/code-map/*": ["../packages/code-map/src/*"],
+      "bun:sqlite": ["types/bun-sqlite.d.ts"]
     }
   },
   "include": ["src/**/*"],

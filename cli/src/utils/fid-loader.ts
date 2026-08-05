@@ -30,42 +30,62 @@ import type { FidData } from '../components/savant-ui/echo/fid-list'
 const DEFAULT_FIDS_DIR = join('dev', 'fids')
 
 /**
- * Extract a `**Field:** value` metadata line from FID markdown content.
- * Returns the trimmed value, or `undefined` if the field is not found.
+ * Extract a metadata field from FID markdown content.
+ *
+ * Supports BOTH metadata formats the agent has produced in the wild:
+ *   legacy: `**ID:** FID-2026-0804-001`  (colon inside the bold span)
+ *   table:  `| **ID** | FID-2026-0804-005-semantic-caching-engine |`
+ *
+ * The `:?` is INSIDE the bold span so `**ID**` matches both `**ID**` (table)
+ * and `**ID:**` (legacy, where the colon is part of the bolded token).
+ * Whitespace before the value is bounded to `[ \t]` so it can never cross a
+ * line boundary; the value capture `[^\r\n|]+` stops at the pipe/end-of-line.
+ * Returns the trimmed value (backticks stripped), or `undefined`.
  */
 function extractField(content: string, field: string): string | undefined {
-  const match = content.match(new RegExp(`\\*\\*${field}:\\*\\*\\s*(.+)`, 'm'))
-  const value = match?.[1]?.trim()
+  const match = content.match(
+    new RegExp(`\\*\\*${field}:?\\*\\*[ \\t]*:?[ \\t]*\\|?[ \\t]*([^\\r\\n|]+)`),
+  )
+  const raw = match?.[1]
+  if (!raw) return undefined
+  const value = raw.replace(/`/g, '').trim()
   return value && value.length > 0 ? value : undefined
 }
 
 /**
- * Extract the FID summary from the `## Summary` section first.
+ * Extract the text of a `## <heading>` section up to the next heading or EOF.
+ */
+function extractSection(
+  normalized: string,
+  heading: string,
+): string | undefined {
+  const match = normalized.match(
+    new RegExp(`##\\s+${heading}\\s*\\n+([\\s\\S]*?)(?=\\n##\\s|$)`),
+  )
+  const section = match?.[1]?.trim()
+  return section && section.length > 0 ? section : undefined
+}
+
+/**
+ * Extract the FID summary.
  *
- * The template's `## Summary` section is intended to be a full paragraph, so
- * we prefer the first paragraph of that section over the short title fragment.
- * Falls back to the title fragment (`# FID-... — Summary Text`) when no
- * Summary section exists.
+ * Prefers the `## Summary` section (legacy template), then the
+ * `## Problem Statement` section (the format the agent writes in production),
+ * then falls back to the short title fragment after the em-dash.
  */
 function extractSummary(content: string): string | undefined {
   // Normalize line endings so CRLF files parse the same as LF files.
   const normalized = content.replace(/\r\n/g, '\n')
 
-  // Prefer the complete content of the `## Summary` section up to the next
-  // heading or end of file.
-  const summarySectionMatch = normalized.match(
-    /##\s+Summary\s*\n+([\s\S]*?)(?=\n##\s|$)/,
+  return (
+    extractSection(normalized, 'Summary') ??
+    extractSection(normalized, 'Problem Statement') ??
+    // Fallback to the short title fragment after the em-dash.
+    (() => {
+      const titleMatch = normalized.match(/^#\s+FID-[^\n]+[—-]\s*(.+)/m)
+      return titleMatch?.[1]?.trim()
+    })()
   )
-  if (summarySectionMatch) {
-    const summary = summarySectionMatch[1].trim()
-    if (summary) return summary
-  }
-
-  // Fallback to the short title fragment after the em-dash.
-  const titleMatch = normalized.match(/^#\s+FID-[^\n]+[—-]\s*(.+)/m)
-  if (titleMatch) return titleMatch[1].trim()
-
-  return undefined
 }
 
 /**
@@ -83,10 +103,77 @@ function parseFidFile(filePath: string): FidData | undefined {
 
     if (!id) return undefined
 
-    return { id, status, severity, summary }
+    return { id, status, severity, summary, path: filePath }
   } catch {
     // Law 14: per-file error isolation — one unreadable file doesn't block others
     return undefined
+  }
+}
+
+/**
+ * Complete FID inventory for the harness — active (top-level) plus archived
+ * (closed, in `archive/`). The sidebar uses both so a converged project with a
+ * rich FID history is visible instead of appearing FID-less.
+ */
+export interface FidInventory {
+  /** FIDs in `dev/fids/` (open/active). */
+  active: FidData[]
+  /** FIDs in `dev/fids/archive/` (closed). */
+  archived: FidData[]
+}
+
+const SEVERITY_ORDER: Record<string, number> = {
+  critical: 0,
+  high: 1,
+  medium: 2,
+  low: 3,
+}
+
+/** Sort FIDs by severity (critical first), then by ID. */
+function sortFids(fids: FidData[]): FidData[] {
+  return fids.sort((a, b) => {
+    const sevDiff =
+      (SEVERITY_ORDER[a.severity] ?? 99) - (SEVERITY_ORDER[b.severity] ?? 99)
+    if (sevDiff !== 0) return sevDiff
+    return a.id.localeCompare(b.id)
+  })
+}
+
+/**
+ * Read every `FID-*.md` in a directory (Law 14: never throws — missing or
+ * unreadable directories yield an empty list; malformed files are skipped).
+ */
+function readFidDir(dir: string): FidData[] {
+  if (!existsSync(dir)) return []
+
+  let entries: string[]
+  try {
+    entries = readdirSync(dir)
+  } catch {
+    return []
+  }
+
+  return entries
+    .filter((name) => name.startsWith('FID-') && name.endsWith('.md'))
+    .map((name) => parseFidFile(join(dir, name)))
+    .filter((fid): fid is FidData => fid !== undefined)
+}
+
+/**
+ * Load the complete FID inventory: active FIDs from `dev/fids/` plus archived
+ * FIDs from `dev/fids/archive/`. Harness-driven — no agent involvement.
+ *
+ * @param fidsDir - Optional override for the FIDs directory (defaults to
+ *   `cwd/dev/fids`). Used by tests to point at a fixture directory.
+ * @returns `{ active, archived }`, each sorted by severity then ID. Never
+ *   throws — missing directories yield empty lists (Law 14).
+ */
+export function loadFidInventory(
+  fidsDir: string = join(process.cwd(), DEFAULT_FIDS_DIR),
+): FidInventory {
+  return {
+    active: sortFids(readFidDir(fidsDir)),
+    archived: sortFids(readFidDir(join(fidsDir, 'archive'))),
   }
 }
 
@@ -102,34 +189,5 @@ function parseFidFile(filePath: string): FidData | undefined {
 export function loadFids(
   fidsDir: string = join(process.cwd(), DEFAULT_FIDS_DIR),
 ): FidData[] {
-  if (!existsSync(fidsDir)) return []
-
-  let entries: string[]
-  try {
-    entries = readdirSync(fidsDir)
-  } catch {
-    return []
-  }
-
-  const fidFiles = entries.filter(
-    (name) => name.startsWith('FID-') && name.endsWith('.md'),
-  )
-
-  const fids = fidFiles
-    .map((name) => parseFidFile(join(fidsDir, name)))
-    .filter((fid): fid is FidData => fid !== undefined)
-
-  const SEVERITY_ORDER: Record<string, number> = {
-    critical: 0,
-    high: 1,
-    medium: 2,
-    low: 3,
-  }
-
-  return fids.sort((a, b) => {
-    const sevDiff =
-      (SEVERITY_ORDER[a.severity] ?? 99) - (SEVERITY_ORDER[b.severity] ?? 99)
-    if (sevDiff !== 0) return sevDiff
-    return a.id.localeCompare(b.id)
-  })
+  return loadFidInventory(fidsDir).active
 }

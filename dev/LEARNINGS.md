@@ -1,5 +1,41 @@
 # LEARNINGS
 
+## Session 2026-08-04: MCP Feature Integration Closeout (FID-2026-0804-002..006)
+
+**Key Learnings:**
+
+- **"Ideas, not 1:1 ports" is a licensing + architecture discipline, not just a style choice.** The four
+  `resources/mcp/` reference repos (deep-research MCP, github-mcp-server, local-deep-research, mcp-toolbox) were
+  sources of *ideas*: the deep_research query fan-out, the GitHub remote-HTTP MCP route, the SQL safety adapter,
+  the browser-viewport contract. Each was rebuilt on Savant's own harness — no AI SDK (the harness already runs
+  the model), no new dependencies, `bun:sqlite` in-tree. The license audit (MIT×3 + Apache-2.0, no GPL) is a
+  hard gate before any reference-repo adoption; run it in RED, not after implementation.
+- **No-second-LLM is a greppable invariant.** `grep -rn 'generateObject|from .ai.|@ai-sdk'` over new handler
+  code must return zero production hits. This caught nothing this round (the one hit was a comment), but the
+  grep is the cheap, mechanical proof that a "mechanical tool" stayed mechanical — put it in the master FID's
+  gates so every child inherits it.
+- **Safety contracts belong in the adapter, not the prompt.** The database tools' read-only default, LIMIT
+  injection, redaction, and destructive-DDL block are enforced in `sqlite-adapter.ts` code paths, so a
+  misbehaving model cannot bypass them by ignoring instructions. Prompt-level safety is a fallback, never the
+  contract. Nova's audit specifically verified this — "adapter-enforced (not prompt-only)".
+- **A read-only helper default is a product decision, not an implementation detail.** `github` ships
+  read-only (review, comment, scan — never merge/approve/push) and `browser-use` keeps `--isolated` by
+  default. Documenting the read-only contract in the agent's systemPrompt makes it testable and auditable.
+- **Citation precision is load-bearing when a third-party auditor re-greps.** The A-Z results report
+  initially cited line numbers that exceeded the target file's actual length (1118 lines) and pointed at
+  unrelated content; a post-run re-grep corrected six citations (slash-command lines, free-agents line 167,
+  bundled-agents line 616, `research_depth` enum). Cross-Agent Claim Rule: every line-number claim must be
+  verified against the working tree before it becomes evidence — Nova will re-grep.
+- **Nova signoff closes the loop but does not replace local re-verification.** Nova PASSED the audit with one
+  ⚠️ ("verification gates plausible but not independently re-run" — she can't run the dev environment). The
+  acknowledgment re-ran the full battery at verdict time (636/0, 523/0, 3/0, typecheck ×5, ESLint 0) and
+  logged real tool output into the outbox. Always answer an auditor's ⚠️ with fresh evidence, not argument.
+
+**Files touched:** agents/{github,database,browser-use,researcher,savant}/, common/src/tools/ (deep-research,
+database params, constants, list, safety-registry), packages/agent-runtime/src/tools/handlers/tool/ (deep-research,
+database/), cli/src/commands/export-conversation.ts + constants/, cli/src/utils/run-state-storage.ts, CHANGELOG.md,
+ARCHITECTURE.md, ECHO.md, README.md, dev/test-prompts/, dev/nova/, dev/fids/archive/.
+
 ## Session 2026-08-03: Release-Readiness Audit (FID-2026-0803-012)
 
 **Key Learnings:**
@@ -303,6 +339,100 @@ tracking doc).
   integration — this dependency was never documented.
 - Process fixes (ECHO.md, FID template, LEARNINGS.md) are as important as code fixes. The ground-truth verification gap
   would recur indefinitely without a process rule.
+
+---
+
+## Session 2026-08-04: Harness ECHO Compliance Layer + Diff-Viewer Highlighting (FID-2026-0804-009 + 010)
+
+**Key Learnings:**
+
+- **Soft triggers are not enforcement.** The Verifier-criteria and Hybrid-vs-Full-loop rules lived only in
+  `savant.ts` prompt text, so the model — optimized toward the frictionless default — never escalated. The fix
+  (FID-009) made Law 1 (read-before-write), Law 3 (verify-after-write), and the Verifier criteria deterministic in
+  the harness (`EchoComplianceTracker`): recorded from the tool-executor hot path, evaluated at the step boundary,
+  non-blocking `compliance_warning` receipts + corrective steering pushed into message history. Prompt text for the
+  model, deterministic tracker for the harness — future rules should follow the same split.
+- **Harness layers must be reconciled with the prompt constants they supersede.** After FID-009 warned at 10 lines,
+  the prompt's 75-line Full-ECHO-Loop bar was a 7.5× contradiction. FID-010 lowered the ceremony threshold to 20
+  lines and kept the two layers bracketed (harness warns at 10, model escalates at 20). Whenever a deterministic
+  enforcement layer lands, re-grep the prompt constants it renders stale.
+- **Terminals have no alpha.** "50% opacity" for diff line tinting is a 50/50 linear RGB blend of the neon color
+  against the theme background (`blendHex`) — deterministic and unit-testable. Renderers claiming per-line styling
+  must own the full row: OpenTUI `<text>` has no background option, so each diff row is a box-wrapped text (boxes
+  own `backgroundColor`).
+- **A code-block renderer that advertises `filetype` support should style every filetype it advertises.** The diff
+  renderer regressed because syntax-theme token scopes covered code but never `diff` grammar — zero `diff.added`/
+  `diff.removed` styles existed. The line-by-line renderer (FID-010) sidesteps the highlighter entirely for diffs.
+
+---
+
+## Session 2026-08-05: Mode Execution-Scope Relabel + STRICT Mode + Hover Descriptions (FID-2026-0805-001)
+
+**Key Learnings:**
+
+- **Labels are contracts — a mode name should describe what the harness + prompt actually deliver.** The `EDIT` label
+  asserted a strict-ECHO-loop contract while the prompt it selected ran Hybrid Mode by default — the same
+  documented-intent vs. implemented-behavior gap FID-009 closed at the enforcement layer, here closed at the naming
+  layer. After the rename, a ceremony mode (STRICT) is an explicit opt-in rather than a threshold the model may or may
+  not escalate past. Re-grep prompt constants whenever a label and a behavior drift apart.
+- **A data-driven mode axis makes a rename nearly free.** `AGENT_MODES` cascades to the toggle, `/mode` commands, the
+  keyboard cycle, and settings validation — the rename needed only two deliberate touch points (the settings migration
+  and the new `savant-strict` prompt variant) plus the alias preservation (`mode:edit` → `mode:hybrid`).
+- **A stateful mode (STRICT) needs its own prompt contract, not the default's boilerplate.** The strict variant
+  initially inherited the "Hybrid Mode (Default)" section — misleading for a mode whose whole point is no hybrid
+  fallback. The ECHO-Phase-Gating section was made mode-aware so STRICT replaces it with the mandatory-loop contract.
+- **"OpenTUI has no tooltip" is not "tooltips are impossible."** The pinned 0.2.2 bundle has zero tooltip/hovertip
+  matches, but every primitive for the standard floating-tip pattern is present (`position: 'absolute'` via the
+  status-bar precedent, `zIndex`, `MouseEvent.x/y`). A ~15-line non-interactive component covers it. Verify the
+  claimed primitives against the installed bundle (not upstream docs) before the FID commits to a design.
+- **Headless frame-buffer verification of TUI UI is possible — with two non-obvious harness quirks.**
+  `@opentui/core/testing`'s `createTestRenderer` + `MockMouse` assert against the real rendered cells. Quirk 1:
+  `footerHeight` defaults to 12, so a `height: 12` renderer has a zero-row content area (empty frame) — set
+  `footerHeight: 0`. Quirk 2: the paint is async — one `renderOnce()` loop does not land the frame; loop, wait
+  (~50 ms), loop, wait again. Both were found empirically, not in the .d.ts.
+
+---
+
+## Session 2026-08-05: 0.0.19 Binary Rebuild — NEXT_PUBLIC Leak (release gate)
+
+**Key Learnings:**
+
+- **Local dev env bleeds into release binaries unless the build shell is clean.** `build-binary.ts` deliberately merges
+  any `NEXT_PUBLIC_*` from `process.env` over its canonical prod defaults in the sibling `env.json`. A local rebuild
+  therefore ships dev values (`localhost:3000`, a personal support email, placeholder keys) into what looks like a
+  release artifact. The leak has two sources that both must be neutralized: (1) the surrounding shell/runtime can
+  inject `NEXT_PUBLIC_*` (verified: a bare shell in `/tmp` had all 10), and (2) Bun auto-loads the repo-root
+  `.env.local`. Fix used: `unset NEXT_PUBLIC_*` + move `.env.local` aside for the build (gitignored + untracked,
+  so safe), restore after, then diff `env.json` against the canonical defaults. Release builds should run from a
+  clean env — add an env.json canonical-value check to the release gate.
+- **Grep the binary for feature markers as the packaged-artifact smoke.** `grep -c 'savant-strict' savant-code.exe`
+  proves the new agent definition is actually embedded (3 hits), alongside `STRICT mode` (5) and the bare `/mode`
+  menu description (1) — cheaper than a full interactive session and catches stale-build regressions.
+
+---
+
+## Session 2026-08-05: Release-Binary Env-Integrity Gate + E2E Proof (FID-2026-0805-002)
+
+**Key Learnings:**
+
+- **A build gate that writes a sibling env.json must block, not warn, on dev-value leaks.** `build-binary.ts` merges
+  every `NEXT_PUBLIC_*` from `process.env` over canonical prod defaults, so a dirty shell or repo `.env.local`
+  silently ships `localhost:3000` + personal emails in what looks like a release artifact. The fix is a pure,
+  exported decision function (`evaluateBinaryEnvIntegrity`: block / accepted-with-warning / clean) called from
+  `main()` under an `import.meta.main` guard — gate logic is unit-testable (11 tests) without ever running a
+  multi-minute compile. Escape hatches are explicit env flags (`SAVANT_CODE_BUILD_ENV` for dev binaries,
+  `SAVANT_CODE_ALLOW_NEXT_PUBLIC_OVERRIDES=1` for CI with real prod keys), and accepted overrides always print a
+  labeled warning (`(dev build)` vs `(explicit override)`) so the escape is never silent.
+- **Prove gate behavior against the real build, not just the pure function.** Two e2e runs sealed the wiring:
+  (1) a release build from a dirty shell aborted exit 1 with all 7 leaked keys listed (the personal support email
+  included) and left the shipped binary + env.json byte-identical — the gate fires before any artifact is written;
+  (2) `SAVANT_CODE_BUILD_ENV=dev` completed the build with the `⚠️ 8 override(s) accepted (dev build)` warning and
+  the dev binary booted (`Using environment: dev`). One discipline difference: the abort test needs no backup, but
+  the success-path test OVERWRITES the artifacts — back up `cli/bin/{savant-code.exe,env.json,tree-sitter.wasm}`
+  first, restore byte-identical after, then `diff` to prove it.
+- **Deterministic side effects make a failed build safe to run.** The abort test still executed `prebuild-agents`
+  + the SDK build before the gate; both regenerate identically, so the tree stayed clean (verified via `git status`
+  + byte-diff against the backup).
 
 ---
 

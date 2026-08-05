@@ -74,5 +74,8 @@ dev/releases/*.md
 .freebuff/
 .savant-code/
 
+# CommandCode CLI local state (settings + taste config)
+.commandcode/
+
 # Evals v2 test-generated artifacts
 **/evals/v2/tests/.test-*/

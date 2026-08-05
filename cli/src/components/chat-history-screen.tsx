@@ -15,6 +15,16 @@ import {
 import { isPlainEnterKey } from '../utils/terminal-enter-detection'
 
 import type { SelectableListItem } from './selectable-list'
+import type { ChatHistoryEntry } from '../utils/chat-history'
+
+/**
+ * True when every listed chat is explicitly marked interrupted (completed ===
+ * false) and at least one chat exists. Unreadable chats carry undefined and
+ * suppress the hint — corruption is not the same as an interrupted session.
+ */
+export function allChatsInterrupted(chats: ChatHistoryEntry[]): boolean {
+  return chats.length > 0 && chats.every((c) => c.completed === false)
+}
 
 const LAYOUT = {
   CONTENT_PADDING: 4,
@@ -284,6 +294,14 @@ export const ChatHistoryScreen: React.FC<ChatHistoryScreenProps> = ({
             >
               Select a chat to resume
             </text>
+            {allChatsInterrupted(chats) && (
+              <text
+                style={{ fg: theme.muted, marginTop: 1 }}
+              >
+                All sessions show as interrupted — this may be a display quirk;
+                resume one to verify.
+              </text>
+            )}
           </box>
         )}
 

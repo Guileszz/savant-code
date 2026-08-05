@@ -30,7 +30,7 @@ FID-2026-0803-001 ECHO-4.
 | 5 | **Recorder** | FID | Create, track, archive FIDs. Update CHANGELOG. Ensure no FID closes without AUDIT evidence | write_file, read_files, glob, code_search, set_output |
 | 6 | **Thinker** | Planning | Deep reasoning via sequential thinking engine. Critiques specs, plans, implementations | sequentialthinking, end_turn |
 | 7 | **Scout** | Explore | File/code search, glob, read subtrees, context gathering | glob, list_directory, read_files, read_subtree, set_output |
-| 8 | **Researcher** | Research | Web search, documentation lookup, external API research | web_search, read_url (web); read_docs (docs) |
+| 8 | **Researcher** | Research | Web search, documentation lookup, external API research | web_search, read_url (web); read_docs (docs); deep_research (FID-2026-0804-002) |
 | 9 | **Scribe** | Docs | Session summaries, LESSONS.md, knowledge files, end-of-session capture | read_files, write_file, glob, code_search, set_output |
 
 > **Note on Orchestrator write tools:** Per FID-2026-0718-008, the Orchestrator has `write_file` + `str_replace` in its
@@ -220,6 +220,8 @@ but do NOT constitute independent conversational agents:
 | Helper Dir | Consumed By | Notes |
 |------------|-------------|-------|
 | `browser-use/` | `agents/savant/savant.ts:132`, `agents/context-pruner.ts`, `common/src/constants/free-agents.ts`, `common/src/__tests__/free-agents.test.ts` | Browser automation helper used by Orchestrator + context-pruner |
+| `database/` | `agents/savant/savant.ts`, `common/src/constants/free-agents.ts`, `common/src/__tests__/free-agents.test.ts` | SQLite schema inspection + safe queries (FID-2026-0804-004) — native handlers with adapter-enforced read-only/write-approval guardrails |
+| `github/` | `agents/savant/savant.ts`, `common/src/constants/free-agents.ts`, `common/src/__tests__/free-agents.test.ts`, `agents/github/github.test.ts` | GitHub PR/issue/CI/code-search via the official MCP server (FID-2026-0804-003) — remote HTTP route, read-only default |
 | `editor/` | `cli/src/utils/implementor-helpers.ts`, `agents/editor/best-of-n/*` | Editor scaffolding/best-of-N helper agents used by the CLI implementor flow |
 | `file-explorer/` | `common/src/constants/agents.ts`, `agents/file-explorer/*` | File listing helpers (`directory-lister`, `glob-matcher`) |
 | `librarian/` | `agents/context-pruner.ts` | Knowledge/context helper used by context-pruner |
@@ -229,9 +231,11 @@ but do NOT constitute independent conversational agents:
 **Hierarchy:**
 
 - 9 canonical ECHO runtime roles (Orchestrator + 8 specialists)
-- + 6 helper tool libraries (above; `debug/` is a transient trace-output dir)
-- = 15 directories in `agents/` (FID-2026-0803-001 ECHO-9 reconciled the count
-  after the `savant-deep`/`e2e`/`__tests__` removals)
+- + 8 helper tool libraries (above; `debug/` is a transient trace-output dir;
+  `database/` + `github/` added per FID-2026-0804-006)
+- = 17 directories in `agents/` (FID-2026-0803-001 ECHO-9 reconciled the count
+  after the `savant-deep`/`e2e`/`__tests__` removals; FID-2026-0804-006 added
+  `database/` + `github/`)
 
 These two counts are NOT in conflict: the 9-agent roster represents runtime conversation entities; the 14-dir count
 represents filesystem entries. Future checklists/audits should not confuse them.

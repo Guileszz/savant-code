@@ -14,7 +14,7 @@ const inputSchema = z
       .describe('Optional short summary of what the scaffold completed.'),
   })
   .describe(
-    'Declare that the current scaffold session is complete. This seals the umbrella FID and reverts the CLI to EDIT mode. Only available in SCAFFOLD mode.',
+    'Declare that the current scaffold session is complete. This seals the umbrella FID and reverts the CLI to HYBRID mode. Only available in SCAFFOLD mode.',
   )
 
 const description = `

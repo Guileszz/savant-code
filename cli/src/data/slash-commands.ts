@@ -1,6 +1,10 @@
 import { CHATGPT_OAUTH_ENABLED } from '@savant-code/common/constants/chatgpt-oauth'
 
-import { AGENT_MODES, IS_SAVANT_FREE } from '../utils/constants'
+import {
+  AGENT_MODES,
+  IS_SAVANT_FREE,
+  MODE_DESCRIPTIONS,
+} from '../utils/constants'
 
 import type { SkillsMap } from '@savant-code/common/types/skill'
 
@@ -22,14 +26,31 @@ export interface SlashCommand {
 }
 
 // Generate mode commands from the AGENT_MODES constant (excluded in SavantFree)
+// FID-2026-0805-001: HYBRID keeps the legacy `mode:edit` alias so muscle memory
+// and scripts that use the pre-rename command keep working.
+// The descriptions are the MODE_DESCRIPTIONS one-line contracts (single source
+// of truth shared with the mode-toggle hovertip), so the STRICT ceremony
+// contract is visible in the slash menu, not just on hover.
 const MODE_COMMANDS: SlashCommand[] = IS_SAVANT_FREE
   ? []
-  : AGENT_MODES.map((mode) => ({
-      id: `mode:${mode.toLowerCase()}`,
-      label: `mode:${mode.toLowerCase()}`,
-      description: `Switch to ${mode} mode`,
-      aliases: [`model:${mode.toLowerCase()}`],
-    }))
+  : [
+      {
+        id: 'mode',
+        label: 'mode',
+        description:
+          'List execution modes with their contracts, or switch: /mode <name>',
+      },
+      ...AGENT_MODES.map((mode) => ({
+        id: `mode:${mode.toLowerCase()}`,
+        label: `mode:${mode.toLowerCase()}`,
+        description: MODE_DESCRIPTIONS[mode],
+        aliases: [
+          `model:${mode.toLowerCase()}`,
+          // Legacy pre-rename spellings still resolve to HYBRID.
+          ...(mode === 'HYBRID' ? ['mode:edit', 'model:edit'] : []),
+        ],
+      })),
+    ]
 
 // FID-007 D1: `init` was listed here (menu-only removal) while the command
 // registry still registered it in free builds — free users could run an
@@ -151,7 +172,14 @@ const ALL_SLASH_COMMANDS: SlashCommand[] = [
     label: 'copy',
     description:
       'Copy the full conversation (messages + tool results) to the clipboard',
-    aliases: ['copy-chat', 'export'],
+    aliases: ['copy-chat'],
+  },
+  {
+    id: 'export',
+    label: 'export',
+    description:
+      'Write a self-contained branded HTML report of the conversation',
+    aliases: ['save'],
   },
 
   {

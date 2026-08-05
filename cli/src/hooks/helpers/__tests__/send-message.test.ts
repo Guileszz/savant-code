@@ -364,7 +364,7 @@ describe('handleRunCompletion', () => {
       handleRunCompletion({
         runState,
         actualCredits: undefined,
-        agentMode: 'EDIT',
+        agentMode: 'HYBRID',
         timerController,
         updater,
         aiMessageId: 'ai-1',
@@ -466,7 +466,7 @@ describe('handleRunCompletion', () => {
       handleRunCompletion({
         runState,
         actualCredits: undefined,
-        agentMode: 'EDIT',
+        agentMode: 'HYBRID',
         timerController,
         updater,
         aiMessageId: 'ai-1',
@@ -1036,7 +1036,7 @@ describe('CLI-level race condition: abort run A, attempt run B before A resolves
     handleRunCompletion({
       runState,
       actualCredits: undefined,
-      agentMode: 'EDIT',
+      agentMode: 'HYBRID',
       timerController,
       updater,
       aiMessageId: 'ai-1',
@@ -1343,7 +1343,7 @@ describe('CLI-level race condition: abort run A, attempt run B before A resolves
     handleRunCompletion({
       runState: runStateA,
       actualCredits: undefined,
-      agentMode: 'EDIT',
+      agentMode: 'HYBRID',
       timerController: timerA,
       updater: updaterA,
       aiMessageId: 'ai-run-a',
@@ -1387,7 +1387,7 @@ describe('CLI-level race condition: abort run A, attempt run B before A resolves
     handleRunCompletion({
       runState: runStateB,
       actualCredits: 5,
-      agentMode: 'EDIT',
+      agentMode: 'HYBRID',
       timerController: timerB,
       updater: updaterB,
       aiMessageId: 'ai-run-b',
@@ -1831,7 +1831,7 @@ describe('savant-free gate errors', () => {
     handleRunCompletion({
       runState,
       actualCredits: undefined,
-      agentMode: 'EDIT',
+      agentMode: 'HYBRID',
       timerController: createMockTimerController(),
       updater,
       aiMessageId: 'ai-1',

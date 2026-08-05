@@ -262,7 +262,7 @@ async function main(): Promise<void> {
     hasInitialPrompt: Boolean(initialPrompt),
     hasAgentOverride: hasAgentOverride,
     continueChat,
-    initialMode: initialMode ?? 'EDIT',
+    initialMode: initialMode ?? 'HYBRID',
     isSavantFree: IS_SAVANT_FREE,
   })
 

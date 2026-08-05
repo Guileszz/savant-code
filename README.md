@@ -10,15 +10,18 @@ touches your repo.**
 Built with TypeScript/Bun, governed by the ECHO Protocol, and designed for
 local-first use with Ollama.
 
-[![TypeScript](https://img.shields.io/badge/TypeScript-5.5-%23000000?style=flat-square&logo=typescript&logoColor=%2300fbff)](https://www.typescriptlang.org/)[![Bun](https://img.shields.io/badge/Bun-1.3.14-%23000000?style=flat-square&logo=bun&logoColor=%2300fbff)](https://bun.sh/)[![React](https://img.shields.io/badge/React-19-%23000000?style=flat-square&logo=react&logoColor=%2300fbff)](https://react.dev/)[![OpenTUI](https://img.shields.io/badge/OpenTUI-0.2.2-%23000000?style=flat-square&logo=github&logoColor=%2300fbff)](https://github.com/anomalyco/opentui)[![ECHO](https://img.shields.io/badge/ECHO-v0.2.0-%23000000?style=flat-square&logo=github&logoColor=%2300fbff)](ECHO.md)[![License](https://img.shields.io/badge/License-Apache_2.0-%23000000?style=flat-square&logo=apache&logoColor=%2300fbff)](LICENSE)[![Release](https://img.shields.io/badge/Release-v0.0.18-%23000000?style=flat-square&logo=semver&logoColor=%2300fbff)](CHANGELOG.md)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.5-%23000000?style=flat-square&logo=typescript&logoColor=%2300fbff)](https://www.typescriptlang.org/)[![Bun](https://img.shields.io/badge/Bun-1.3.14-%23000000?style=flat-square&logo=bun&logoColor=%2300fbff)](https://bun.sh/)[![React](https://img.shields.io/badge/React-19-%23000000?style=flat-square&logo=react&logoColor=%2300fbff)](https://react.dev/)[![OpenTUI](https://img.shields.io/badge/OpenTUI-0.2.2-%23000000?style=flat-square&logo=github&logoColor=%2300fbff)](https://github.com/anomalyco/opentui)[![ECHO](https://img.shields.io/badge/ECHO-v0.2.0-%23000000?style=flat-square&logo=github&logoColor=%2300fbff)](ECHO.md)[![License](https://img.shields.io/badge/License-Apache_2.0-%23000000?style=flat-square&logo=apache&logoColor=%2300fbff)](LICENSE)[![Release](https://img.shields.io/badge/Release-v0.0.20-%23000000?style=flat-square&logo=semver&logoColor=%2300fbff)](CHANGELOG.md)
 
 </div>
 
-> **v0.0.18** — Hotfix release: fixes the standalone npm binary footer showing `v0.0.0`,
-> synchronizes release metadata, and rebuilds the official binary artifacts so model
-> selection and routing use the published provider catalog consistently. It carries
-> forward Checkpoint & Rewind, provider setup, ECHO enforcement, and the prior
-> quality and build-hygiene work.
+> **v0.0.20** — MCP feature integration + ECHO enforcement release: ships the
+> mechanical `deep_research` tool on the Researcher role, `github` + `database`
+> infra helpers (read-only GitHub MCP, adapter-enforced SQL safety), browser-use
+> param upgrades (viewport / WCAG / persistence), a self-contained branded
+> `/export` HTML report, the completion-aware exit flush, a harness-side ECHO
+> compliance layer (deterministic Law 1/3 + Verifier-criteria enforcement with
+> corrective steering), readable edit diffs (neon-tinted added/removed lines +
+> `[-N/+M]` counters), and a lower 20-line ceremony threshold.
 
 ---
 
@@ -128,7 +131,8 @@ Savant-Code is a TypeScript monorepo that builds and ships the terminal-native
 AI coding assistant **Savant Code** and the public
 [`@savant-code/sdk`](https://www.npmjs.com/package/@savant-code/sdk). The CLI
 provides multi-agent orchestration, custom skills, MCP tool discovery, mode
-switching (`EDIT` / `ANALYZE` / `SCAFFOLD`), and local-first Ollama support. The
+switching (`HYBRID` / `SCAFFOLD` / `STRICT` / `ANALYZE`), and local-first Ollama
+support. The
 SDK, agent runtime, multi-agent orchestration engine, tool layer, and LLM
 provider shims are shared so both surfaces ship from one codebase.
 
@@ -210,14 +214,17 @@ hard 10-iteration cap and a 10% Levenshtein change-cap per pass.
   typechecks, or target one with `/verify sdk`, `/verify common`,
   `/verify agent-runtime`, or `/verify cli`. `/diagnostics` reports local
   process/resource information.
-- **Conversation utilities** — `/copy` (aliases `/copy-chat` and `/export`) copies
-  the full conversation, while `/image` (aliases `/img` and `/attach`) attaches
-  an image when the selected provider supports multimodal input.
+- **Conversation utilities** — `/copy` (alias `/copy-chat`) copies the full
+  conversation to the clipboard, `/export` (alias `/save`) writes a fully
+  self-contained branded HTML report of the conversation to disk, while `/image`
+  (aliases `/img` and `/attach`) attaches an image when the selected provider
+  supports multimodal input.
 - **Agent publishing** — `/publish` opens the agent publishing flow for
   templates with the required publisher metadata. It requires the Savant Code
   backend rather than direct-provider mode.
-- **Mode switching** — `EDIT` / `ANALYZE` / `SCAFFOLD` execution-scope modes,
-  togglable at runtime via UI.
+- **Mode switching** — `HYBRID` / `SCAFFOLD` / `STRICT` / `ANALYZE` execution-scope
+  modes with hover descriptions, togglable at runtime via UI. See
+  [Execution Modes](#execution-modes) for the STRICT-vs-HYBRID ceremony contract.
 - **Streaming & cancellation** — token-by-token SSE streaming with mid-stream
   cancellation, retry-with-backoff, and subagent streaming for parallel work.
 - **Knowledge files** — project-level `knowledge.md` plus per-user home-dir
@@ -226,6 +233,36 @@ hard 10-iteration cap and a 10% Levenshtein change-cap per pass.
   sent to the LLM, available as native tools.
 - **MCP tools** — Model Context Protocol servers discovered at startup, schemas
   published to the LLM API.
+- **`deep_research` tool** — the Researcher role's mechanical multi-query web
+  research tool (`question` + model-supplied `queries[]`, `research_depth`,
+  `max_sources`): max-3 concurrency, ≥1s query stagger, URL dedup, domain
+  scoring, citations + gaps + `truncated`/`incomplete` flags. Pure search
+  facade over the harness web-search API — no second LLM (FID-2026-0804-002).
+- **`github` infra helper** — read-only GitHub integration (PR/issue/CI review,
+  code search, secret scanning) via the official remote-HTTP MCP server, with
+  `Authorization: Bearer $SAVANT_CODE_GITHUB_TOKEN` interpolation
+  (FID-2026-0804-003).
+- **`database` infra helper + 4 native tools** — `list_tables`, `describe_table`,
+  `execute_query`, `analyze_query` over `bun:sqlite` with an adapter-enforced
+  safety contract: read-only default, LIMIT injection, SQL redaction,
+  destructive-DDL block, JSON-safe BLOB/bigint coercion (FID-2026-0804-004).
+- **Browser-use param upgrades** — `viewport` (mobile/tablet/desktop),
+  `wcag` (offline DOM-walk accessibility scan, no CDN), and `persistSession`
+  (default OFF) on the browser automation helper (FID-2026-0804-005).
+- **Self-contained `/export`** — writes the whole conversation to a branded,
+  offline HTML report (Savant logo + Neon Slate theme + Font Awesome inlined as
+  base64; zero network requests) with collapsible tool/thinking rows and
+  per-message / copy-all buttons (FID-2026-0804-007).
+- **Harness ECHO compliance layer** — deterministic Law 1 (read-before-write),
+  Law 3 (verify-after-write), and mechanical Verifier-criteria enforcement
+  (10+ lines / 2+ files / new API / security-sensitive / Forge) via a per-run
+  runtime tracker: non-blocking `compliance_warning` receipts plus corrective
+  steering so the running agent self-corrects, escalated to always-on when a
+  write touches an active FID (FID-2026-0804-009).
+- **Readable edit diffs** — edit blocks tint added lines 50% neon green and
+  removed lines 50% neon red (blended against the theme background) and show a
+  `[-N/+M]` add/remove counter beside the copy button; the full ECHO Perfection
+  Loop now triggers at 20 lines instead of 75 (FID-2026-0804-010).
 - **Context compaction** — 4-layer progressive auto-compaction: L0 (summarize
   old turns), L1 (compress tool results), L2 (prune stale context), L3
   (aggressive reduction). Preserves critical context while reducing token usage.
@@ -288,6 +325,63 @@ hard 10-iteration cap and a 10% Levenshtein change-cap per pass.
 - **Perfection Loop FSM** — RED → GREEN → AUDIT → SELF-CORRECT → COMPLETE
 - **Separation of Duties** — The agent that writes code cannot verify it
 - **15 Laws** — 4 immutable process + 11 extended code laws
+
+---
+
+## Execution Modes
+
+The mode toggle (bottom-left of the chat) sets the **execution scope** for the
+current session. Modes are switchable at runtime from the UI or with the `/mode` slash
+commands — the bare form lists every mode and its contract, while `/mode <name>`
+or `/mode:<name>` switches (e.g. `/mode strict`); hovering the toggle shows each
+mode's one-line contract.
+
+| Mode | Agent | Contract |
+| --- | --- | --- |
+| `HYBRID` (default) | `savant` | Direct, low-friction writing bounded by the harness: deterministic Law 1/3 + Verifier-criteria receipts at `warn`, with the full Perfection Loop auto-escalating past the 20-line ceremony threshold (FID-2026-0804-009/010). |
+| `SCAFFOLD` | `savant-scaffold` | Umbrella-FID project initialization; scaffolds once, then hands back to HYBRID. |
+| `STRICT` | `savant-strict` | Full ECHO ceremony for **every** code change — FID per change, Forge writes, Verifier audits, Law-4 greps. |
+| `ANALYZE` | `savant-analyze` | Read-only: search, inspect, and reason without writing files. |
+
+### STRICT mode: the full ceremony, on every change
+
+`STRICT` is the guaranteed-ceremony mode. Where `HYBRID` *allows* the agent to
+escalate to the full loop (and the harness *warns* when the criteria are met),
+`STRICT` *requires* it for every code change. Enforcement is the STRICT prompt
+contract itself — the harness compliance layer watches alongside it and emits
+`warn`-level receipts when a criterion is missed (hard blocking is deferred
+future work). In STRICT, the prompt contract mandates, for each change:
+
+1. **Recorder creates a FID** for the change
+   (`dev/fids/FID-YYYY-MMDD-NNN-{title}.md`), tracked automatically in the
+   sidebar's Active FIDs panel.
+2. **RED (Detective)** analyzes the codebase and converges the change plan.
+3. **GREEN (Forge)** writes the code — the only agent allowed to write during a
+   ceremony pass.
+4. **AUDIT (Verifier)** double-audits the result: run the tests, check the call
+   graph, and Law-4 reachability greps (grep the production entry points to
+   prove the new wiring is actually called).
+5. **Recorder archives** the FID and appends the CHANGELOG entry.
+
+No self-verification and no phase-skipping: the agent that writes code cannot
+verify it. Pure read-only Q&A (questions, explanations, analysis with no file
+writes) stays ceremony-free even in STRICT.
+
+### STRICT vs HYBRID: which should I use?
+
+| Consideration | `HYBRID` | `STRICT` |
+| --- | --- | --- |
+| Speed | Fastest — write freely; the full loop auto-engages past 20 lines | Slower — every change pays the full loop |
+| Friction | Minimal — the harness warns + steers, never blocks | Maximal — ceremony is required, not optional |
+| Audit trail | FIDs only for escalated changes | A FID per change, archived with a CHANGELOG entry |
+| Verification | Harness receipts at `warn` + self-escalation past 20 lines | Verifier + Law-4 greps on every change |
+| Best for | Day-to-day building, exploration, prototypes, quick iterations | Security-sensitive or long-lived code, paid-API surfaces, team review, anything needing a durable audit trail |
+
+**Rule of thumb:** if a change would hurt to get wrong — auth, payments,
+migrations, anything shipping to users — use `STRICT`. If you are exploring or
+iterating quickly, `HYBRID` is the right default: the harness still watches Law
+1/3 and the Verifier criteria, and the full loop still engages past the 20-line
+threshold.
 
 ---
 
@@ -435,7 +529,8 @@ commands.
 | `/help` (`/h`, `/?`) | Show command help and tips |
 | `/new` (`/clear`, `/reset`) | Start a fresh chat; optional text starts the first prompt |
 | `/history` (`/chats`) | Browse and resume previous conversations |
-| `/copy` (`/export`) | Copy the complete conversation |
+| `/copy` (`/copy-chat`) | Copy the complete conversation to the clipboard |
+| `/export` (`/save`) | Write a self-contained branded HTML report of the conversation |
 | `/interview` | Turn an idea into a structured specification |
 | `/plan` | Create an implementation plan |
 | `/review` | Review code changes |
@@ -447,6 +542,7 @@ commands.
 | `/health` (`/status`, `/check`) | Check Ollama, provider mode, model, and permission status |
 | `/diagnostics` (`/diag`, `/processes`) | Show local process and resource diagnostics |
 | `/provider` | Configure a hosted provider key with masked input |
+| `/mode` | List the four modes and their contracts, or switch: `/mode <name>` or `/mode:<name>` |
 | `/model` | Select or switch the active hosted model |
 | `/publish` | Publish agent templates through the Savant backend |
 | `/feedback` (`/bug`, `/report`) | Open the feedback flow |

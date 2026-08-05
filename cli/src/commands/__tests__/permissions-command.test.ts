@@ -10,7 +10,7 @@ const createMockParams = (
 ): RouterParams =>
   ({
     abortControllerRef: { current: null },
-    agentMode: 'EDIT',
+    agentMode: 'HYBRID',
     inputRef: { current: null },
     inputValue: '/permissions',
     isChainInProgressRef: { current: false },

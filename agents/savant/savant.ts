@@ -26,6 +26,7 @@ export function createSavant(
     noGravityIndex?: boolean
     analyzeOnly?: boolean
     scaffoldMode?: boolean
+    strictMode?: boolean
     noFIDPerChange?: boolean
     model?: SecretAgentDefinition['model']
     providerOptions?: SecretAgentDefinition['providerOptions']
@@ -39,6 +40,7 @@ export function createSavant(
     noGravityIndex = false,
     analyzeOnly = false,
     scaffoldMode = false,
+    strictMode = false,
     noFIDPerChange = false,
     model: modelOverride,
     providerOptions,
@@ -130,6 +132,8 @@ export function createSavant(
       'verifier',
       'tmux-cli',
       'browser-use',
+      'database',
+      'github',
       'context-pruner',
       'recorder',
       'scribe',
@@ -142,9 +146,11 @@ export function createSavant(
           ? 'plan'
           : scaffoldMode
             ? 'scaffold'
-            : isFree
-              ? 'free'
-              : 'default',
+            : strictMode
+              ? 'strict'
+              : isFree
+                ? 'free'
+                : 'default',
       {
         isFree,
         noGravityIndex,
@@ -159,7 +165,9 @@ export function createSavant(
         ? buildAnalyzeInstructionsPrompt({ noAskUser })
         : scaffoldMode
           ? buildScaffoldInstructionsPrompt({ noAskUser })
-          : buildImplementationInstructionsPrompt({
+          : strictMode
+            ? buildStrictInstructionsPrompt({ noAskUser })
+            : buildImplementationInstructionsPrompt({
               isFast,
               isDefault,
               isMax,
@@ -174,7 +182,9 @@ export function createSavant(
         ? buildAnalyzeStepPrompt({})
         : scaffoldMode
           ? buildScaffoldStepPrompt({})
-          : buildImplementationStepPrompt({
+          : strictMode
+            ? buildStrictStepPrompt({})
+            : buildImplementationStepPrompt({
               isDefault,
               isFast,
               isMax,
@@ -314,7 +324,7 @@ ${buildArray(
     `- For any task requiring 3+ steps, use the write_todos tool to write out your step-by-step implementation plan. Include ALL of the applicable tasks in the list.${isFast || noReview ? '' : ' You should include a step to review the changes after you have implemented the changes.'}:${hasNoValidation ? '' : ' You should include at least one step to validate/test your changes: be specific about whether to typecheck, run tests, run lints, etc.'} You may be able to do reviewing and validation in parallel in the same step. Skip write_todos for simple tasks like quick edits or answering questions.`,
   (isDefault || isMax || isFree) &&
     '- For complex problems, spawn the Thinker agent to help find the best solution. When the Thinker finishes, its report contains a structured result: `synthesis` (concise explanation of how the conclusion was reached), `payload.message` (the final answer), and `thoughts` (the stacked reasoning steps). Use `payload.message` as the answer when `status` is success.',
-  '- IMPORTANT: You have write_file and str_replace tools — write code directly for most tasks. Use the full ECHO Perfection Loop (spawn Forge) only for genuinely complex changes (touches > 75 lines AND requires new imports/APIs, OR novel architecture, OR verification fails twice, OR user explicitly requests Forge). For everything else, write the code yourself, then verify with typecheck/lint in parallel using bashers.',
+  '- IMPORTANT: You have write_file and str_replace tools — write code directly for most tasks. Use the full ECHO Perfection Loop (spawn Forge) only for genuinely complex changes (touches > 20 lines AND requires new imports/APIs, OR novel architecture, OR verification fails twice, OR user explicitly requests Forge). For everything else, write the code yourself, then verify with typecheck/lint in parallel using bashers.',
   "- **Parallel agent batching:** When spawning multiple agents that don't depend on each other, fire them ALL in a single spawn_agents call — they run in parallel via Promise.allSettled. Independent agents: Detective + Researcher + Thinker (no data dependency). Dependent agents: Scout waits for Detective; Forge waits for Thinker; Verifier waits for Forge. Batch all independent agents together; only wait for dependencies when required.",
   isFast &&
     '- For fast mode, skip verification if the change is very small (< 10 lines, no new imports). Otherwise, do a single typecheck.',
@@ -447,7 +457,7 @@ function buildScaffoldInstructionsPrompt({
 1. Create ONE umbrella FID in \`dev/fids/\` that tracks all scaffold decisions and files. Do NOT create a new FID for every individual file.
 2. Read any existing project files to avoid clobbering user work.
 3. Write only project-root or top-level files (configs, entry points, directory layout).
-4. When the user (or the \`set_scaffold_complete\` tool) declares the scaffold complete, call \`set_scaffold_complete\` so the CLI reverts to EDIT mode.
+4. When the user (or the \`set_scaffold_complete\` tool) declares the scaffold complete, call \`set_scaffold_complete\` so the CLI reverts to HYBRID mode.
 5. ${noAskUser ? 'Proceed with standard conventions.' : 'Use ask_user for non-obvious project decisions (language, framework, package manager, etc.).'}
 
 ## What you do NOT do
@@ -463,7 +473,42 @@ function buildScaffoldStepPrompt({}: {}) {
   return `Remain in SCAFFOLD mode. Continue laying down the initial project structure under the umbrella FID. Call set_scaffold_complete when the user says the scaffold is finished.`
 }
 
-type SystemPromptMode = 'default' | 'analyze' | 'scaffold' | 'plan' | 'free'
+// FID-2026-0805-001: STRICT mode mandates the full Perfection Loop per change.
+function buildStrictInstructionsPrompt({ noAskUser }: { noAskUser: boolean }) {
+  return `You are in **STRICT mode**. Every code change runs the full ECHO Perfection Loop — you do NOT write implementation code directly and you do NOT skip phases. Your job is to shepherd each change through the complete ceremony.
+
+## Mandatory workflow (per code change)
+
+1. **FID** — ensure a FID exists for the change. Spawn the Recorder to create or update it before implementation.
+2. **RED** — spawn the Detective to catalog the current state, grep call-graphs, and capture evidence.
+3. **GREEN** — spawn Forge to implement the change per the converged FID spec. You do not write implementation code yourself.
+4. **AUDIT** — spawn the Verifier to run tests/typechecks, check call-graph reachability, and reject hallucinated claims. You cannot verify your own work.
+5. **CLOSE** — the Recorder archives the FID and updates the CHANGELOG once AUDIT passes.
+6. Verify with typecheck/lint in parallel using bashers after every change batch (Law 3 is NEVER skipped).
+
+## What you do NOT do
+
+- Do NOT write or edit source files directly with write_file/str_replace/apply_patch — Forge implements.
+- Do NOT skip phases for code changes — the smart-phase table does not apply in STRICT mode.
+- Do NOT self-verify: the agent that writes code cannot verify it.
+- Pure Q&A stays read-only: if the user only asks a question, answer it without ceremony.
+
+${noAskUser ? 'Proceed without asking clarifying questions.' : 'Use ask_user for genuinely ambiguous scope decisions before the loop begins.'}
+
+${ECHO_PROTOCOL_INSTRUCTIONS}`
+}
+
+function buildStrictStepPrompt({}: {}) {
+  return `Remain in STRICT mode. Continue the Perfection Loop for the current change: RED (Detective) → GREEN (Forge) → AUDIT (Verifier) → Recorder archive. Do not write implementation code directly or skip phases.`
+}
+
+type SystemPromptMode =
+  | 'default'
+  | 'analyze'
+  | 'scaffold'
+  | 'plan'
+  | 'free'
+  | 'strict'
 
 function buildSystemPrompt(
   mode: SystemPromptMode,
@@ -491,6 +536,8 @@ function buildSystemPrompt(
       'You are in ANALYZE mode. Your role is read-only: answer questions, explore the codebase, perform research, and explain. Do NOT write source files, spawn Forge, transition ECHO phases for code changes, or create/update FIDs.',
     scaffold:
       'You are in SCAFFOLD mode. You are initializing a new project. Track all work under a single umbrella FID and only create top-level / project-root files. Do NOT implement open-ended features.',
+    strict:
+      'You are in STRICT mode. Every code change runs the full ECHO Perfection Loop: FID per change (Recorder), RED (Detective), GREEN (Forge), AUDIT (Verifier), archive (Recorder). No direct writes, no phase skipping, no self-verification.',
     plan: 'You are in PLAN mode. Gather context and produce a concise spec/plan. Ask clarifying questions when needed, but do NOT write implementation code or modify source files.',
   }
 
@@ -508,7 +555,7 @@ function buildDefaultSystemPrompt(context: {
   noAskUser: boolean
   noFIDPerChange: boolean
 }) {
-  const { isFree, noGravityIndex, noAskUser, noFIDPerChange } = context
+  const { mode, isFree, noGravityIndex, noAskUser, noFIDPerChange } = context
   return `You are Savant, an engineering agent bound by the ECHO Protocol. You are the AI agent behind the product, ${isFree ? 'SavantFree' : 'SavantCode'}, a tool where users can chat with you to code with AI${isFree ? ' for free' : ''}.
 
 Current date: ${PLACEHOLDER.CURRENT_DATE}.
@@ -537,6 +584,8 @@ The Savant agent roster consists of exactly **9 canonical ECHO roles**:
 - \`basher\` — terminal command executor
 - \`tmux-cli\` — CLI testing via tmux
 - \`browser-use\` — browser automation
+- \`database\` — SQLite schema inspection + safe queries (read-only default)
+- \`github\` — GitHub PR/issue/CI/code-search via the official MCP server (read-only default)
 - \`context-pruner\` — context summarization between steps
 
 These helpers are spawnable but do not represent independent conversational agents in the ECHO roster.
@@ -588,7 +637,18 @@ Use markdown formatting in your responses to improve readability in the terminal
 
 You begin every conversation in the \`idle\` phase.
 
-## Hybrid Mode (Default — use for most tasks)
+${mode === 'strict'
+  ? `## Strict Mode (Full ECHO Loop for every change)
+
+Every code change runs the complete Perfection Loop — no hybrid fallback, no phase skipping:
+1. Ensure a FID exists for the change (Recorder creates/updates it).
+2. transition_phase(red) → spawn the Detective to catalog evidence and grep call-graphs.
+3. transition_phase(green) → spawn Forge to implement per the converged FID spec.
+4. transition_phase(audit) → spawn the Verifier to run tests/typechecks and verify call-graph reachability.
+5. The Recorder archives the FID and updates the CHANGELOG.
+
+**You do not write implementation code directly and you do not verify your own work.** Law 3 is NEVER skipped — verification always happens via the Verifier + build commands. Pure Q&A stays read-only: answer questions without ceremony.`
+  : `## Hybrid Mode (Default — use for most tasks)
 
 You are the primary coder. For most tasks:
 1. Read the relevant files to understand the codebase
@@ -600,7 +660,7 @@ You are the primary coder. For most tasks:
 ## Full ECHO Loop (Complex Tasks — only when criteria below are met)
 
 Use the full Perfection Loop ONLY when ALL of these apply:
-- Touches > 75 lines AND requires new imports/APIs, OR
+- Touches > 20 lines AND requires new imports/APIs, OR
 - Novel architecture or patterns not in the codebase, OR
 - Verification fails twice with direct fixes, OR
 - User explicitly requests Forge
@@ -615,11 +675,12 @@ Skip phases when appropriate to reduce overhead:
 
 | Phase | Skip When | Still Required |
 |-------|-----------|----------------|
-| RED | Issues already known from prior analysis, creating new files, or < 75 lines with no existing code to audit | Law 2 (Present Before Act) — present your plan before writing |
+| RED | Issues already known from prior analysis, creating new files, or < 20 lines with no existing code to audit | Law 2 (Present Before Act) — present your plan before writing |
 | GREEN deliberation | Fix is obvious (typo, missing import, constant change) or user provided exact code | Law 2 |
 | Full AUDIT | Change is < 10 lines AND single file AND typecheck/lint already pass inline | Law 3 (Verify Before Proceed) — verification always happens |
 
-**Law 3 is NEVER skipped** — verification always happens. What changes is whether you transition through AUDIT phase or verify inline during GREEN.
+**Law 3 is NEVER skipped** — verification always happens. What changes is whether you transition through AUDIT phase or verify inline during GREEN.`
+}
 
 # Spawning agents guidelines
 

@@ -22,7 +22,7 @@ describe('command factory pattern', () => {
   ): RouterParams =>
     ({
       abortControllerRef: { current: null },
-      agentMode: 'EDIT',
+      agentMode: 'HYBRID',
       inputRef: { current: null },
       inputValue: '/test',
       isChainInProgressRef: { current: false },
@@ -185,8 +185,10 @@ describe('command factory pattern', () => {
         'image',
         'publish',
         'new',
-        'mode:edit',
+        'mode',
+        'mode:hybrid',
         'mode:scaffold',
+        'mode:strict',
         'mode:analyze',
       ]
       for (const name of expectedWithArgs) {
@@ -240,7 +242,7 @@ describe('command factory pattern', () => {
       expect(setCanProcessQueue).toHaveBeenCalledWith(true)
       expect(sendMessage).toHaveBeenCalledWith({
         content: 'hello world',
-        agentMode: 'EDIT',
+        agentMode: 'HYBRID',
       })
     })
 

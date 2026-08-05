@@ -1,6 +1,7 @@
 import path from 'path'
 
 import { callMainPrompt } from '@savant-code/agent-runtime/main-prompt'
+import { EchoComplianceTracker } from '@savant-code/agent-runtime/util/echo-compliance'
 import {
   buildUserMessageContent,
   withSystemTags,
@@ -38,6 +39,7 @@ import {
 } from '@savant-code/common/util/param-helpers'
 import { toJSONValue } from '@savant-code/common/util/type-narrowing'
 import { cloneDeep } from 'lodash'
+
 
 import { executeComposioToolViaServer } from './composio'
 import { getErrorStatusCode } from './error-utils'
@@ -220,6 +222,17 @@ export type RunOptions = {
    *   captures. Defaults to the run's clientSessionId; hosts (e.g. the CLI)
    *   pass their own id so they can open/close the matching turn. */
   checkpointTurnId?: string
+  /** FID-2026-0804-009: harness ECHO compliance. Defaults to `warn` — the
+   *   runtime deterministically enforces Law 1 (read-before-write), Law 3
+   *   (verify-before-proceed), and the mechanical Verifier-criteria flag,
+   *   emitting non-blocking `compliance_warning` events + corrective steering.
+   *   Set mode `off` to disable. `fidPaths` (absolute paths of active FIDs in
+   *   `dev/fids/`) enables FID-aware escalation: writes touching active FIDs
+   *   always flag for independent review. */
+  echoCompliance?: {
+    mode?: 'warn' | 'off'
+    fidPaths?: string[]
+  }
 }
 
 /** How often onStateSnapshot fires while a run is in flight. */
@@ -351,6 +364,7 @@ async function runOnce({
   modelInfoText,
   checkpointDir,
   checkpointTurnId,
+  echoCompliance,
 }: RunExecutionOptions): Promise<RunState> {
   const fsSourceValue = typeof fsSource === 'function' ? fsSource() : fsSource
   const fs = await fsSourceValue
@@ -426,6 +440,19 @@ async function runOnce({
     }
   } catch (error) {
     return errorRunStateFrom(error)
+  }
+
+  // FID-2026-0804-009: create the per-run ECHO compliance tracker and attach it
+  // to the main agent state. `off` disables it; default is `warn`. A fresh
+  // tracker is created every run (never inherited from a restored session).
+  if (echoCompliance?.mode !== 'off') {
+    sessionState.mainAgentState.echoCompliance = new EchoComplianceTracker({
+      mode: echoCompliance?.mode ?? 'warn',
+      fidPaths: echoCompliance?.fidPaths,
+      userPrompt: prompt,
+    })
+  } else {
+    sessionState.mainAgentState.echoCompliance = undefined
   }
 
   // Ensure devMode reflects the current CLI state (may have changed since last run)

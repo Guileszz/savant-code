@@ -2,7 +2,49 @@ import fs from 'fs'
 import os from 'os'
 import path from 'path'
 
-import { Database } from 'bun:sqlite'
+import type { Database } from 'bun:sqlite'
+
+// bun:sqlite is Bun-only. The database connection is opened lazily (see
+// getDb) so importing this module never requires bun:sqlite — the package
+// stays loadable under Node.js, and only an actual database call resolves it
+// (failing with a clear error outside Bun). Same hardening as
+// agent-runtime's sqlite-adapter (FID-2026-0804-004); the small
+// getRuntimeRequire/resolveBunSqliteDatabaseModule helpers are deliberately
+// duplicated here rather than extracted to common — packages/database has
+// zero dependencies and adding one for a ~20-line helper is not worth the
+// edge.
+
+/** The module-scope `require` when it exists; `undefined` under Node ESM. */
+function getRuntimeRequire(): ((id: string) => unknown) | undefined {
+  // `typeof` is safe even where `require` is undeclared (Node ESM) — it
+  // evaluates to 'undefined' without throwing a ReferenceError.
+  return typeof require === 'function' ? require : undefined
+}
+
+/**
+ * Resolve the bun:sqlite Database constructor, or throw a clear error when
+ * the runtime cannot provide it (Node.js CJS/ESM consumers). `requireFn` is
+ * injectable for tests; pass explicit `null` to simulate an environment
+ * without `require` (Node ESM).
+ */
+export function resolveBunSqliteDatabaseModule(
+  requireFn: ((id: string) => unknown) | null | undefined = getRuntimeRequire(),
+): { Database: typeof Database } {
+  if (typeof requireFn !== 'function') {
+    throw new Error(
+      'The database package requires the Bun runtime: bun:sqlite is only available under Bun. Run the CLI/agent with Bun (e.g. `bun run savant-code`) instead of Node.js.',
+    )
+  }
+  try {
+    return requireFn('bun:sqlite') as { Database: typeof Database }
+  } catch (error) {
+    throw new Error(
+      `The database package requires the Bun runtime: failed to load bun:sqlite (${
+        error instanceof Error ? error.message : String(error)
+      }). Run the CLI/agent with Bun instead of Node.js.`,
+    )
+  }
+}
 
 // Database path. SAVANT_DB_PATH is an escape hatch for tests (e.g. ':memory:'
 // or a temp file) so the module can be imported against an isolated database
@@ -93,7 +135,8 @@ function createSchema(connection: Database): void {
  */
 function initDatabase(dbPath: string): Database {
   const initialize = (pathToOpen: string): Database => {
-    const connection = new Database(pathToOpen)
+    const DatabaseCtor = resolveBunSqliteDatabaseModule().Database
+    const connection = new DatabaseCtor(pathToOpen)
     // Enable WAL mode for better performance
     connection.exec('PRAGMA journal_mode = WAL')
     connection.exec('PRAGMA foreign_keys = ON')
@@ -125,15 +168,31 @@ function initDatabase(dbPath: string): Database {
   }
 }
 
-// Create database connection (guarded, see initDatabase)
-const db = initDatabase(DB_PATH)
+// The database connection is opened lazily on first use (FID-2026-0803-002
+// DB-1 fail-open semantics preserved — initDatabase still falls back to an
+// in-memory database on open failure), so importing this module never touches
+// bun:sqlite. This keeps the package loadable under Node.js; only an actual
+// database call resolves bun:sqlite and throws a clear error outside Bun.
+let db: Database | undefined
+
+/**
+ * Returns the lazily-opened database connection, initializing it (and the
+ * schema) on first use. The open is guarded by initDatabase's fail-open
+ * fallback.
+ */
+export function getDb(): Database {
+  if (db === undefined) {
+    db = initDatabase(DB_PATH)
+  }
+  return db
+}
 
 /**
  * Returns the highest applied schema version. Future schema changes must bump
  * the version here and guard with `if (getSchemaVersion() < N) { ... }`.
  */
 export function getSchemaVersion(): number {
-  const row = db
+  const row = getDb()
     .prepare('SELECT MAX(version) as version FROM schema_version')
     .get() as { version: number | null } | null
   return row?.version ?? 0
@@ -142,5 +201,4 @@ export function getSchemaVersion(): number {
 // Export database and types
 // FID-2026-0803-002 DB-4: `getDatabase`/`closeDatabase` had zero callers and
 // duplicated the `db` export; removed.
-export { db }
-export type DatabaseType = typeof db
+export type DatabaseType = Database

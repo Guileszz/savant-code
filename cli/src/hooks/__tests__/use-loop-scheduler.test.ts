@@ -94,7 +94,7 @@ describe('use-loop-scheduler', () => {
       params.onRunOutcome?.('success')
     }
     unregisterHandler = registerLoopDueHandler(
-      createLoopRunHandler(sendMessage, 'EDIT'),
+      createLoopRunHandler(sendMessage, 'HYBRID'),
     )
 
     startLoop(0, '0s', 'run the scheduled task')

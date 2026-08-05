@@ -499,6 +499,33 @@ const handleToolResult = (
   }
   updateStreamingAgents(state, { remove: event.toolCallId })
 }
+/**
+ * FID-2026-0804-009: render a harness ECHO compliance receipt as a muted
+ * transcript line. Non-blocking by design — the receipt informs, it never
+ * blocks the stream or opens a modal. The runtime also injects corrective
+ * steering into the agent's own context, so the model sees the same notice.
+ */
+const COMPLIANCE_LABELS: Record<string, string> = {
+  law1: 'ECHO Law 1 (read-before-write)',
+  law3: 'ECHO Law 3 (verify-before-proceed)',
+  verifier_criteria: 'ECHO Verifier trigger',
+  fid: 'ECHO active-FID review',
+}
+const handleComplianceWarning = (
+  state: EventHandlerState,
+  event: Extract<SDKEvent, { type: 'compliance_warning' }>,
+) => {
+  const label = COMPLIANCE_LABELS[event.law] ?? 'ECHO compliance'
+  const marker = event.severity === 'info' ? 'ℹ️' : '⚖️'
+  const line = `\n${marker} **${label}:** ${event.message}${event.path ? ` \`${event.path}\`` : ''}`
+  state.logger.warn(
+    { law: event.law, severity: event.severity, path: event.path },
+    `[${label}] ${event.message}`,
+  )
+  state.message.updater.updateAiMessageBlocks((blocks) =>
+    appendTextToRootStream(blocks, { type: 'text', text: line }),
+  )
+}
 const handleFinish = (state: EventHandlerState, event: PrintModeFinish) => {
   if (typeof event.totalCost === 'number' && state.onTotalCost) {
     state.onTotalCost(event.totalCost)
@@ -581,6 +608,11 @@ export const createEventHandler =
         // union — so we cast at the boundary.
         .with({ type: 'activity' }, (e) =>
           useChatStore.getState().setActivity(e.activity as AgentActivity),
+        )
+        // FID-2026-0804-009: muted transcript receipt for harness ECHO
+        // compliance warnings (Law 1 / Law 3 / Verifier trigger / FID review).
+        .with({ type: 'compliance_warning' }, (e) =>
+          handleComplianceWarning(state, e),
         )
         .otherwise(() => undefined)
     )

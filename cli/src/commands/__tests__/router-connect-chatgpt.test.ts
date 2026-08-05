@@ -42,7 +42,7 @@ describe('routeUserPrompt connect:chatgpt mode', () => {
 
     const params = {
       abortControllerRef: { current: null },
-      agentMode: 'EDIT',
+      agentMode: 'HYBRID',
       inputRef: { current: null },
       inputValue: 'auth-code-123',
       isChainInProgressRef: { current: false },

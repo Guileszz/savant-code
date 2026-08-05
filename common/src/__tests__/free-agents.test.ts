@@ -177,6 +177,8 @@ describe('free mode agent model allowlist', () => {
       'researcher-web',
       'researcher-docs',
       'browser-use',
+      'database',
+      'github',
       'basher',
       'tmux-cli',
       'context-pruner',

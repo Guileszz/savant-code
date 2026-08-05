@@ -35,7 +35,7 @@ function findScaffoldCompletion(messages: ChatMessage[]): boolean {
 
 /**
  * Watches for the orchestrator's `set_scaffold_complete` tool result and
- * automatically reverts the agent mode from SCAFFOLD back to EDIT.
+ * automatically reverts the agent mode from SCAFFOLD back to HYBRID.
  * Idempotent: only reverts once per scaffold session.
  */
 export function useScaffoldRevertSubscriber() {
@@ -60,7 +60,7 @@ export function useScaffoldRevertSubscriber() {
 
     if (findScaffoldCompletion(messages)) {
       revertedForModeRef.current = true
-      setAgentMode('EDIT')
+      setAgentMode('HYBRID')
     }
   }, [messages, agentMode, setAgentMode])
 }

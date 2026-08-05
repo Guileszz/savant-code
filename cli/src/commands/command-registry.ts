@@ -3,6 +3,7 @@ import { runTerminalCommand } from '@savant-code/sdk'
 
 import { handleAdsEnable, handleAdsDisable } from './ads'
 import { handleCopyConversationCommand } from './copy-conversation'
+import { handleExportConversationCommand } from './export-conversation'
 import { handleGoalCommand } from './goal'
 import { handleHealthCommand } from './health-command'
 import { handleHelpCommand } from './help'
@@ -37,6 +38,7 @@ import {
   AGENT_MODES,
   END_SESSION_MESSAGE,
   IS_SAVANT_FREE,
+  MODE_DESCRIPTIONS,
 } from '../utils/constants'
 import { resetUiToIdle as _resetUiToIdle } from '../utils/finish-logic'
 import { getSystemMessage, getUserMessage } from '../utils/message-history'
@@ -296,10 +298,15 @@ const ALL_COMMANDS: CommandDefinition[] = [
   }),
   defineCommand({
     name: 'copy',
-    aliases: ['copy-chat', 'export'],
+    aliases: ['copy-chat'],
     handler: async (params) => {
       await handleCopyConversationCommand(params)
     },
+  }),
+  defineCommandWithArgs({
+    name: 'export',
+    aliases: ['save'],
+    handler: handleExportConversationCommand,
   }),
   defineCommandWithArgs({
     name: 'feedback',
@@ -644,11 +651,86 @@ const ALL_COMMANDS: CommandDefinition[] = [
       clearInput(params)
     },
   }),
+  // Bare /mode — lists every mode with its one-line contract (MODE_DESCRIPTIONS,
+  // the same single source the toggle hovertip uses) and marks the active one;
+  // with an argument, switches mode. FID-2026-0805-001.
+  ...(IS_SAVANT_FREE
+    ? []
+    : [
+        defineCommandWithArgs({
+          name: 'mode',
+          handler: (params, args) => {
+            const trimmedArgs = args.trim()
+            const currentMode = useChatStore.getState().agentMode
+
+            if (!trimmedArgs) {
+              const lines = AGENT_MODES.map((m) => {
+                const marker = m === currentMode ? ' (current)' : ''
+                return `**${m}**${marker} — ${MODE_DESCRIPTIONS[m]}`
+              }).join('\n')
+              params.setMessages((prev) => [
+                ...prev,
+                getUserMessage(params.inputValue.trim()),
+                getSystemMessage(`Execution modes:\n\n${lines}`),
+              ])
+              params.saveToHistory(params.inputValue.trim())
+              clearInput(params)
+              return
+            }
+
+            // First word is the mode name; any trailing text is sent as the
+            // first message in the new mode (parity with /mode:<name>).
+            const [rawMode, ...restArgs] = trimmedArgs.split(/\s+/)
+            const target = rawMode.toUpperCase()
+            if (!AGENT_MODES.includes(target as AgentMode)) {
+              params.setMessages((prev) => [
+                ...prev,
+                getUserMessage(params.inputValue.trim()),
+                getSystemMessage(
+                  `Unknown mode: "${rawMode}". Use "/mode" to list modes, or "/mode:<name>".`,
+                ),
+              ])
+              params.saveToHistory(params.inputValue.trim())
+              clearInput(params)
+              return
+            }
+            const targetMode = target as AgentMode
+
+            useChatStore.getState().setAgentMode(targetMode)
+            params.setMessages((prev) => [
+              ...prev,
+              getUserMessage(params.inputValue.trim()),
+              getSystemMessage(
+                `Switched to ${targetMode} mode.\n\n${MODE_DESCRIPTIONS[targetMode]}`,
+              ),
+            ])
+            params.saveToHistory(params.inputValue.trim())
+            clearInput(params)
+
+            const trailingMessage = restArgs.join(' ').trim()
+            if (trailingMessage) {
+              params.setCanProcessQueue(true)
+              params.sendMessage({
+                content: trailingMessage,
+                agentMode: targetMode,
+              })
+              setTimeout(() => {
+                params.scrollToLatest()
+              }, 0)
+            }
+          },
+        }),
+      ]),
   // Mode commands generated from AGENT_MODES (excluded in SavantFree)
+  // FID-2026-0805-001: HYBRID keeps the legacy `mode:edit` alias.
   ...(IS_SAVANT_FREE ? [] : AGENT_MODES).map((mode) =>
     defineCommandWithArgs({
       name: `mode:${mode.toLowerCase()}`,
-      aliases: [`model:${mode.toLowerCase()}`],
+      aliases: [
+        `model:${mode.toLowerCase()}`,
+        // Legacy pre-rename spellings still resolve to HYBRID.
+        ...(mode === 'HYBRID' ? ['mode:edit', 'model:edit'] : []),
+      ],
       handler: (params, args) => {
         const trimmedArgs = args.trim()
 
@@ -656,7 +738,9 @@ const ALL_COMMANDS: CommandDefinition[] = [
         params.setMessages((prev) => [
           ...prev,
           getUserMessage(params.inputValue.trim()),
-          getSystemMessage(`Switched to ${mode} mode.`),
+          getSystemMessage(
+            `Switched to ${mode} mode.\n\n${MODE_DESCRIPTIONS[mode]}`,
+          ),
         ])
         params.saveToHistory(params.inputValue.trim())
         clearInput(params)

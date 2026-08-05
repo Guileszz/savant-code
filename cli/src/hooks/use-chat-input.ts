@@ -52,14 +52,14 @@ export const useChatInput = ({
   const inputWidth = Math.max(1, availableContentWidth - estimatedToggleWidth)
 
   const handleBuild = useCallback(() => {
-    setAgentMode('EDIT')
+    setAgentMode('HYBRID')
     setInputValue({
       text: BUILD_IT_TEXT,
       cursorPosition: BUILD_IT_TEXT.length,
       lastEditDueToNav: true,
     })
     setTimeout(() => {
-      onSubmitPrompt(BUILD_IT_TEXT, 'EDIT')
+      onSubmitPrompt(BUILD_IT_TEXT, 'HYBRID')
       setInputValue({ text: '', cursorPosition: 0, lastEditDueToNav: false })
     }, 0)
   }, [setAgentMode, setInputValue, onSubmitPrompt])
@@ -78,7 +78,7 @@ export const useChatInput = ({
   return {
     inputWidth,
     handleBuild,
-    // Legacy build-mode button aliases — all map to the single EDIT-mode
+    // Legacy build-mode button aliases — all map to the single HYBRID-mode
     // build handler now that the old DEFAULT/MAX/LITE axes are collapsed.
     handleBuildFast: handleBuild,
     handleBuildMax: handleBuild,

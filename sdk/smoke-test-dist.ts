@@ -202,6 +202,10 @@ const runTest = async () => {
     
     if (foundTokens.length > 0) {
       console.log(\`✅ Found expected tokens: \${foundTokens.join(', ')}\`);
+      // Let libuv async handles (web-tree-sitter wasm) finish closing before
+      // exit — without this, Node on Windows can hit a UV_HANDLE_CLOSING
+      // assertion in src/win/async.c at process.exit(0).
+      await new Promise((r) => setTimeout(r, 50));
       process.exit(0);
     } else {
       console.warn('⚠ Warning: No expected tokens found. Found tokens:', tokens.slice(0, 10));

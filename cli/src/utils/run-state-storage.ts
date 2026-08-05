@@ -10,6 +10,7 @@ import {
 import {
   CHAT_MESSAGES_FILENAME,
   CHAT_META_FILENAME,
+  readChatMeta,
   writeChatMeta,
 } from './chat-meta'
 import { saveChatStateToDb, loadChatStateFromDb } from './db-storage'
@@ -60,6 +61,18 @@ export function clearLiveChatStateProvider(ownerId: string): void {
 }
 
 /**
+ * Resolve the completion flag an exit flush should write for a chat dir:
+ * preserve an already-complete sidecar (the turn-end save marked it done) and
+ * only mark incomplete when the chat genuinely never completed (sidecar says
+ * false, is missing, or is stale). Without this, the exit flush downgrades
+ * every chat it touches to `completed: false` — /history then shows every
+ * finished session as interrupted (FID-2026-0804-008).
+ */
+function flushCompletionForChatDir(chatDir: string): boolean {
+  return readChatMeta(chatDir)?.completed ?? false
+}
+
+/**
  * Synchronously persist the in-flight chat state, if any. Safe to call from
  * process exit/signal handlers (saveChatState uses writeFileSync).
  */
@@ -71,7 +84,13 @@ export function flushLiveChatState(): void {
     // overwrite one of these with strictly newer state — that order is
     // intentional.
     for (const [chatDir, state] of pendingCheckpoints) {
-      saveChatState(state.runState, state.messages, chatDir, '', false)
+      saveChatState(
+        state.runState,
+        state.messages,
+        chatDir,
+        '',
+        flushCompletionForChatDir(chatDir),
+      )
     }
     pendingCheckpoints.clear()
 
@@ -89,7 +108,13 @@ export function flushLiveChatState(): void {
     }
     const state = provider.provide()
     if (state) {
-      saveChatState(state.runState, state.messages, provider.chatDir, '', false)
+      saveChatState(
+        state.runState,
+        state.messages,
+        provider.chatDir,
+        '',
+        flushCompletionForChatDir(provider.chatDir),
+      )
     }
   } catch {
     // Best-effort - never block process exit.

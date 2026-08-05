@@ -1,6 +1,6 @@
 import crypto from 'crypto'
 
-import { db } from './index'
+import { getDb } from './index'
 
 // Types
 export interface Session {
@@ -74,13 +74,16 @@ function requireRow<T>(row: T | null, label: string): T {
 // FID-2026-0803-010 DB-C: bun:sqlite statements are reusable — prepare once
 // per SQL string and memoize instead of re-preparing on every call. Lazy (not
 // import-time) so the fail-open initDatabase and the ':memory:' test escape
-// hatch are unaffected.
-const statementCache = new Map<string, ReturnType<typeof db.prepare>>()
+// hatch are unaffected. Statements are prepared via getDb(), which resolves
+// bun:sqlite on first actual use.
+type SqliteStatement = ReturnType<ReturnType<typeof getDb>['prepare']>
 
-function prepare(sql: string): ReturnType<typeof db.prepare> {
+const statementCache = new Map<string, SqliteStatement>()
+
+function prepare(sql: string): SqliteStatement {
   let stmt = statementCache.get(sql)
   if (!stmt) {
-    stmt = db.prepare(sql)
+    stmt = getDb().prepare(sql)
     statementCache.set(sql, stmt)
   }
   return stmt

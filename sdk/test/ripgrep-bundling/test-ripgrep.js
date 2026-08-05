@@ -121,7 +121,8 @@ try {
     throw new Error('Still using @vscode/ripgrep instead of bundled binary!')
   }
 
-  if (!rgPath.includes('vendor/ripgrep')) {
+  // Windows returns backslash-separated paths; accept both separators.
+  if (!/vendor[\\/]ripgrep/.test(rgPath)) {
     throw new Error(
       `Expected bundled ripgrep path to contain 'vendor/ripgrep', got: ${rgPath}`,
     )

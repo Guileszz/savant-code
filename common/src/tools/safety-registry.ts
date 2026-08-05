@@ -71,6 +71,35 @@ export const toolSafetyRegistry: Record<ToolName, ToolSafety> = {
     permission: allow,
     reason: 'Searches third-party service catalog.',
   },
+  deep_research: {
+    effect: network,
+    permission: allow,
+    reason: 'Runs multi-query web research (mechanical executor, no second LLM).',
+  },
+
+  // Database tools (FID-2026-0804-004) — read-only by default; writes are
+  // gated by the adapter (allowWrite + per-statement approval) and the
+  // sandbox marks them mixed/prompt so the permission layer sees them too.
+  list_tables: {
+    effect: read,
+    permission: allow,
+    reason: 'Lists database tables (read-only).',
+  },
+  describe_table: {
+    effect: read,
+    permission: allow,
+    reason: 'Describes a database table schema (read-only).',
+  },
+  analyze_query: {
+    effect: read,
+    permission: allow,
+    reason: 'Returns a query plan without executing (read-only).',
+  },
+  execute_query: {
+    effect: mixed,
+    permission: prompt,
+    reason: 'Executes SQL; read-only by default, writes require explicit approval.',
+  },
 
   // Write tools
   write_file: {

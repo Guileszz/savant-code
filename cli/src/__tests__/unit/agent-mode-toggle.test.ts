@@ -12,13 +12,14 @@ import { createHoverToggleControllerForTest } from '../mocks/hover-toggle-contro
 import type { AgentMode } from '../../utils/constants'
 
 describe('AgentModeToggle - buildExpandedSegments', () => {
-  const modes: AgentMode[] = ['EDIT', 'SCAFFOLD', 'ANALYZE']
+  // FID-2026-0805-001: four-position axis HYBRID / SCAFFOLD / STRICT / ANALYZE.
+  const modes: AgentMode[] = ['HYBRID', 'SCAFFOLD', 'STRICT', 'ANALYZE']
 
   for (const mode of modes) {
     test(`returns segments with active indicator for ${mode}`, () => {
       const segs = buildExpandedSegments(mode)
-      // 3 mode options (EDIT, SCAFFOLD, ANALYZE) + 1 active indicator
-      expect(segs.length).toBe(4)
+      // 4 mode options + 1 active indicator
+      expect(segs.length).toBe(5)
 
       // Current mode is disabled among the choices
       const current = segs.find((s) => s.id === mode)
@@ -31,21 +32,29 @@ describe('AgentModeToggle - buildExpandedSegments', () => {
       expect(active?.defaultHighlighted).toBe(true)
     })
   }
+
+  test('every segment carries a description for the hovertip', () => {
+    const segs = buildExpandedSegments('HYBRID')
+    expect(segs.length).toBe(5)
+    for (const seg of segs) {
+      expect(seg.description).toBeTruthy()
+    }
+  })
 })
 
 describe('AgentModeToggle - resolveAgentModeClick', () => {
   test('clicking active indicator returns closeActive', () => {
-    const action = resolveAgentModeClick('EDIT', 'active-EDIT', true)
+    const action = resolveAgentModeClick('HYBRID', 'active-HYBRID', true)
     expect(action).toEqual({ type: 'closeActive' })
   })
 
   test('with onSelectMode provided, clicking different mode selects it', () => {
-    const action = resolveAgentModeClick('EDIT', 'SCAFFOLD', true)
+    const action = resolveAgentModeClick('HYBRID', 'SCAFFOLD', true)
     expect(action).toEqual({ type: 'selectMode', mode: 'SCAFFOLD' })
   })
 
   test('without onSelectMode, clicking different mode toggles', () => {
-    const action = resolveAgentModeClick('EDIT', 'ANALYZE', false)
+    const action = resolveAgentModeClick('HYBRID', 'ANALYZE', false)
     expect(action).toEqual({ type: 'toggleMode', mode: 'ANALYZE' })
   })
 })

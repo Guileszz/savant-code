@@ -52,6 +52,9 @@ interface RightSidebarProps {
   fsmPhase: string
 }
 
+/** Max active FIDs rendered before a "+N more active" overflow line. */
+const MAX_VISIBLE_FIDS = 4
+
 /**
  * Format a token count for display, e.g. 1200 -> "1.2k".
  */
@@ -95,8 +98,10 @@ export const RightSidebar = React.memo(function RightSidebar({
   const devMode = useChatStore((s) => s.devMode)
 
   // FID-2026-0720-033c Phase C: live FID data from dev/fids/ — wires the
-  // useFids hook (production consumer of loadFids) into the sidebar.
-  const { fids: activeFids } = useFids()
+  // useFids hook (production consumer of loadFids) into the sidebar. The
+  // harness watcher keeps it live; archived FIDs are surfaced so a converged
+  // project's FID history stays visible.
+  const { fids: activeFids, archived: archivedFids } = useFids()
 
   // Resolve the model label based on mode.
   const displayModel = IS_SAVANT_FREE
@@ -105,6 +110,7 @@ export const RightSidebar = React.memo(function RightSidebar({
 
   // Pass full FID summaries so the card can display the complete description.
   const fids = activeFids
+  const archivedCount = archivedFids.length
 
   return (
     <box
@@ -249,13 +255,33 @@ export const RightSidebar = React.memo(function RightSidebar({
         />
       </SidebarSection>
 
-      {/* Active FIDs */}
+      {/* Active FIDs — live from dev/fids/ via the harness watcher; the
+          archived count keeps a converged project's FID history visible. */}
       <SidebarSection title="Active FIDs">
         {fids.length > 0 ? (
-          <FidList fids={fids.slice(0, 3)} sortBy="severity" />
+          <box
+            flexDirection="column"
+            gap={1}
+            focusable={false}
+            selectable={false}
+          >
+            <FidList fids={fids.slice(0, MAX_VISIBLE_FIDS)} sortBy="severity" />
+            {fids.length > MAX_VISIBLE_FIDS && (
+              <text fg={theme.muted} wrapMode="none" selectable={false}>
+                {`+${fids.length - MAX_VISIBLE_FIDS} more active`}
+              </text>
+            )}
+          </box>
         ) : (
           <text fg={theme.muted} wrapMode="none" selectable={false}>
-            (none — loop converged)
+            {archivedCount > 0
+              ? '(none active — all closed)'
+              : '(none — loop converged)'}
+          </text>
+        )}
+        {archivedCount > 0 && (
+          <text fg={theme.muted} wrapMode="none" selectable={false}>
+            {`${archivedCount} archived (closed)`}
           </text>
         )}
       </SidebarSection>

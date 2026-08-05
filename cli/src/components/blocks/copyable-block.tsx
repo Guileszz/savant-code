@@ -11,6 +11,11 @@ interface CopyableBlockProps {
   children: React.ReactNode
   /** If true, the copy button is hidden (e.g. while streaming) */
   isStreaming?: boolean
+  /**
+   * FID-2026-0804-010: optional node rendered in the bottom-right footer row,
+   * immediately left of the copy button (e.g. the edit `[-N/+M]` counter).
+   */
+  footerLeft?: React.ReactNode
 }
 
 /**
@@ -27,6 +32,7 @@ export const CopyableBlock = memo(function CopyableBlock({
   copyButtonIcon,
   children,
   isStreaming = false,
+  footerLeft,
 }: CopyableBlockProps) {
   return (
     <box style={{ flexDirection: 'column', width: '100%' }}>
@@ -39,6 +45,7 @@ export const CopyableBlock = memo(function CopyableBlock({
             width: '100%',
           }}
         >
+          {footerLeft}
           <CopyButton getCopyText={getCopyText} icon={copyButtonIcon} />
         </box>
       )}

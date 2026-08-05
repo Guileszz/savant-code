@@ -15,21 +15,24 @@ export const DEFAULT_SAVANT_CODE_MODEL_ID = 'opencode-go/mimo-v2.5' as const
 export const DEFAULT_SAVANT_CODE_MODEL_PROVIDER: ModelProvider = 'opencode-go'
 
 const DEFAULT_SETTINGS: Settings = {
-  mode: 'EDIT' as const,
+  mode: 'HYBRID' as const,
   adsEnabled: false,
   analyticsEnabled: true,
   savantCodeModelPreference: DEFAULT_SAVANT_CODE_MODEL_ID,
   savantCodeModelProviderPreference: DEFAULT_SAVANT_CODE_MODEL_PROVIDER,
 }
 
-// Legacy mode migration map (FID-031). Old DEFAULT/LITE/MAX/PLAN/FREE values
-// all collapse to EDIT now that the toggle drives an execution-scope axis.
+// Legacy mode migration map (FID-031 + FID-2026-0805-001). Old
+// DEFAULT/LITE/MAX/PLAN/FREE values collapse to HYBRID; EDIT is renamed to
+// HYBRID (the label now describes the actual harness-bounded direct-write
+// behavior) now that the toggle drives an execution-scope axis.
 const LEGACY_MODE_MIGRATION: Record<string, AgentMode> = {
-  DEFAULT: 'EDIT',
-  LITE: 'EDIT',
-  MAX: 'EDIT',
-  PLAN: 'EDIT',
-  FREE: 'EDIT',
+  DEFAULT: 'HYBRID',
+  LITE: 'HYBRID',
+  MAX: 'HYBRID',
+  PLAN: 'HYBRID',
+  FREE: 'HYBRID',
+  EDIT: 'HYBRID',
 }
 
 /**
@@ -272,11 +275,11 @@ export const saveSettings = (newSettings: Partial<Settings>): void => {
 
 /**
  * Load the saved agent mode preference
- * @returns The saved mode, or 'EDIT' if not found or invalid
+ * @returns The saved mode, or 'HYBRID' if not found or invalid
  */
 export const loadModePreference = (): AgentMode => {
   const settings = loadSettings()
-  return settings.mode ?? 'EDIT'
+  return settings.mode ?? 'HYBRID'
 }
 
 /**

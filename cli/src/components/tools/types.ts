@@ -24,6 +24,12 @@ export type ToolRenderConfig = {
   content?: ReactNode
   /** Preview text to show when the tool is collapsed */
   collapsedPreview?: string
+  /**
+   * FID-2026-0804-010: optional node rendered in the block's bottom-right
+   * footer row, immediately left of the copy button. Used by the edit tools
+   * to surface the `[-N/+M]` add/remove counter.
+   */
+  footerLeft?: ReactNode
 }
 
 /**

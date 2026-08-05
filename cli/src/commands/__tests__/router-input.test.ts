@@ -1,6 +1,7 @@
 import { describe, test, expect } from 'bun:test'
 
 import { SLASH_COMMANDS } from '../../data/slash-commands'
+import { MODE_DESCRIPTIONS } from '../../utils/constants'
 import { findCommand, COMMAND_REGISTRY } from '../command-registry'
 import {
   parseCommand,
@@ -211,9 +212,14 @@ describe('command-registry', () => {
       expect(credits).toBeDefined()
       expect(credits?.name).toBe('usage')
 
+      // Legacy pre-rename aliases (model:edit / mode:edit) resolve to HYBRID
+      // (FID-2026-0805-001 renamed EDIT → HYBRID).
       const modelEdit = findCommand('model:edit')
       expect(modelEdit).toBeDefined()
-      expect(modelEdit?.name).toBe('mode:edit')
+      expect(modelEdit?.name).toBe('mode:hybrid')
+      const modeEdit = findCommand('mode:edit')
+      expect(modeEdit).toBeDefined()
+      expect(modeEdit?.name).toBe('mode:hybrid')
 
       const quit = findCommand('quit')
       expect(quit).toBeDefined()
@@ -285,6 +291,27 @@ describe('command-registry', () => {
         const modeName = command.id.slice('mode:'.length)
         expect(command.aliases).toContain(`model:${modeName}`)
       }
+    })
+
+    test('mode commands carry the MODE_DESCRIPTIONS contracts as descriptions', () => {
+      // The slash menu shows each mode's contract (shared single source with
+      // the toggle hovertip) so STRICT's ceremony is visible without hovering
+      // (FID-2026-0805-001).
+      const modeCommands = SLASH_COMMANDS.filter((cmd) =>
+        cmd.id.startsWith('mode:'),
+      )
+      expect(modeCommands.length).toBe(4)
+
+      for (const command of modeCommands) {
+        const modeName = command.id
+          .slice('mode:'.length)
+          .toUpperCase() as keyof typeof MODE_DESCRIPTIONS
+        expect(command.description).toBe(MODE_DESCRIPTIONS[modeName])
+      }
+
+      // The bare /mode entry is present for menu discovery.
+      const bareMode = SLASH_COMMANDS.find((cmd) => cmd.id === 'mode')
+      expect(bareMode).toBeDefined()
     })
 
     test('connect command is not available in savant-code (savant-free-only)', () => {

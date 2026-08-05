@@ -11,6 +11,11 @@ import {
   handleComposioSearchTools,
 } from './tool/composio'
 import { handleCreatePlan } from './tool/create-plan'
+import { handleAnalyzeQuery } from './tool/database/analyze-query'
+import { handleDescribeTable } from './tool/database/describe-table'
+import { handleExecuteQuery } from './tool/database/execute-query'
+import { handleListTables } from './tool/database/list-tables'
+import { handleDeepResearch } from './tool/deep-research'
 import { handleEndTurn } from './tool/end-turn'
 import { handleFindFiles } from './tool/find-files'
 import { handleGlob } from './tool/glob'
@@ -61,6 +66,7 @@ export const savantCode$1: {
 } = {
   add_message: handleAddMessage,
   add_subgoal: handleAddSubgoal,
+  analyze_query: handleAnalyzeQuery,
   apply_patch: handleApplyPatch,
   ask_user: handleAskUser,
   browser_logs: handleBrowserLogs,
@@ -70,11 +76,15 @@ export const savantCode$1: {
   composio_search_tools: handleComposioSearchTools,
   composio_get_tool_schemas: handleComposioGetToolSchemas,
   create_plan: handleCreatePlan,
+  deep_research: handleDeepResearch,
+  describe_table: handleDescribeTable,
   end_turn: handleEndTurn,
+  execute_query: handleExecuteQuery,
   find_files: handleFindFiles,
   glob: handleGlob,
   gravity_index: handleGravityIndex,
   list_directory: handleListDirectory,
+  list_tables: handleListTables,
   lookup_agent_info: handleLookupAgentInfo,
   propose_str_replace: handleProposeStrReplace,
   propose_write_file: handleProposeWriteFile,

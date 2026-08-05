@@ -337,6 +337,11 @@ export function createAgentState(
     contextTokenCount: parentAgentState.contextTokenCount,
     fsmPhase: parentAgentState.fsmPhase,
     iterationCount: parentAgentState.iterationCount,
+    // FID-2026-0804-009: thread the run's ECHO compliance tracker into subagent
+    // states so subagent writes/verification/spawns record against the same
+    // run and the Verifier criteria see the full picture (L-001: Forge wrote
+    // without the parent spawning a Verifier).
+    echoCompliance: parentAgentState.echoCompliance,
   }
 }
 

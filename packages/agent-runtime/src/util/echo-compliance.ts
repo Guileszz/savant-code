@@ -1,0 +1,375 @@
+/**
+ * Harness ECHO compliance tracker — FID-2026-0804-009.
+ *
+ * Deterministic, harness-side enforcement of the ECHO laws that previously
+ * lived only as prompt text in `agents/savant/savant.ts`:
+ *
+ *   - **Law 1 (read-before-write):** a write to a path that was never read
+ *     this run (and carries no content-knowledge signal) emits a
+ *     `compliance_warning` receipt at write time.
+ *   - **Law 3 (verify-before-proceed):** at turn end, writes with no
+ *     subsequent verification command (typecheck/test/lint) emit a receipt.
+ *   - **Verifier criteria (mechanical):** at turn end, the savant.ts:326
+ *     objective criteria are evaluated as booleans; any hit without a
+ *     Verifier spawn (and without equivalent verification evidence) emits a
+ *     receipt and a corrective steering notice.
+ *   - **FID-aware escalation:** writes that touch paths referenced by active
+ *     FIDs upgrade the Verifier flag from advisory to always-on.
+ *
+ * All output is non-blocking (`warn` mode). `off` disables the tracker.
+ * Hard `block` mode is future work. Steering is budgeted so a non-compliant
+ * agent is nudged a bounded number of times, never looped forever.
+ */
+
+import type {
+  ComplianceViolation,
+  EchoComplianceTrackerLike,
+} from '@savant-code/common/types/echo-compliance'
+
+/** Verification commands that satisfy Law 3 (verify-after-write). */
+const VERIFICATION_COMMAND_PATTERN =
+  /(typecheck|tsc|eslint|markdownlint|lint:md|\btest\b|\blint\b|cargo\s+(check|test|build|clippy)|go\s+(test|build|vet|fmt)|pytest|npm\s+(test|run\s+(test|lint|check|build))|pnpm\s+(test|run\s+(test|lint|check|build))|yarn\s+(test|run\s+(test|lint|check|build))|bun\s+(test|run\s+(test|lint|typecheck|check)))/i
+
+/** Security-sensitive path keywords (Verifier criterion 4). */
+const SECURITY_SENSITIVE_PATH_PATTERN =
+  /(auth|login|password|token|secret|credential|api[_-]?key|payment|billing|checkout|stripe|webhook|money|amount|balance|wallet|crypto|signature|encrypt|decrypt|sanitize|guardrail|rate[_-]?limit|\.env|\.pem|\.key|id_rsa|ssh)/i
+
+/** New-API heuristic: any of these declarations in written content. */
+const NEW_API_PATTERN =
+  /(export\s+(async\s+)?function\s+\w+|export\s+(const|let|class|interface|type|enum)\s+\w+|^(async\s+)?function\s+\w+\s*\(|^\s*class\s+\w+)/m
+
+/** User-prompt keywords that count as "explicitly request review". */
+const USER_REQUESTED_REVIEW_PATTERN =
+  /\b(review|audit|verify|double-check|check\s+my\s+work)\b/i
+
+/** Steering budget — bounded nudges per run so the agent can never loop. */
+const MAX_STEERING_TOTAL = 3
+const MAX_STEERING_PER_LAW: Record<ComplianceViolation['law'], number> = {
+  law1: 1,
+  law3: 1,
+  verifier_criteria: 2,
+  fid: 1,
+}
+
+export type EchoComplianceTrackerOptions = {
+  mode?: 'warn' | 'off'
+  /** Absolute paths of active (non-archived) FID files in `dev/fids/`. */
+  fidPaths?: string[]
+  /** The run's user prompt — used for the "user requested review" criterion. */
+  userPrompt?: string
+}
+
+/**
+ * Pure evaluator: does a terminal command look like a verification command
+ * (typecheck / test / lint / build-verify)?
+ */
+export function detectsVerificationCommand(command: string): boolean {
+  return VERIFICATION_COMMAND_PATTERN.test(command)
+}
+
+/** Pure evaluator: does a path match security-sensitive keywords? */
+export function isSecuritySensitivePath(path: string): boolean {
+  return SECURITY_SENSITIVE_PATH_PATTERN.test(path)
+}
+
+/** Pure evaluator: does written content contain a new function/API/type? */
+export function hasNewApiDeclaration(content: string): boolean {
+  return NEW_API_PATTERN.test(content)
+}
+
+/** Pure evaluator: did the user explicitly request review in the prompt? */
+export function userRequestedReview(prompt: string | undefined): boolean {
+  return prompt ? USER_REQUESTED_REVIEW_PATTERN.test(prompt) : false
+}
+
+/** Pure evaluator: does the write set meet any Verifier-trigger criterion? */
+export function meetsVerifierCriteria(params: {
+  linesAdded: number
+  filesTouched: number
+  newApiHint: boolean
+  securitySensitive: boolean
+  forgeUsed: boolean
+  userRequestedReview: boolean
+}): boolean {
+  const { linesAdded, filesTouched, newApiHint, securitySensitive, forgeUsed } =
+    params
+  return (
+    linesAdded >= 10 ||
+    filesTouched >= 2 ||
+    newApiHint ||
+    securitySensitive ||
+    forgeUsed ||
+    params.userRequestedReview
+  )
+}
+
+type WriteRecord = {
+  path: string
+  lineDelta: number
+  contentKnowledge: boolean
+  isNewFile: boolean
+  content?: string
+  securitySensitive: boolean
+}
+
+export class EchoComplianceTracker implements EchoComplianceTrackerLike {
+  readonly mode: 'warn' | 'off'
+
+  private readonly readPaths = new Set<string>()
+  private readonly readDirs = new Set<string>()
+  private readonly readPatterns: string[] = []
+  private readonly writes: WriteRecord[] = []
+  private readonly spawned = new Set<string>()
+  private readonly fidPaths: string[]
+  private readonly userPrompt: string | undefined
+
+  /** True once a verification command has been recorded after the last write. */
+  private verifiedAfterLastWrite = true
+  /** Violations emitted at the most recent step boundary (for steering). */
+  private pendingSteering: ComplianceViolation[] = []
+  private steeringCount = 0
+  private readonly steeringPerLaw: Record<
+    ComplianceViolation['law'],
+    number
+  > = { law1: 0, law3: 0, verifier_criteria: 0, fid: 0 }
+  private lastEvaluatedStep = -1
+  private readonly emittedKeys = new Set<string>()
+  private readonly steeredKeys = new Set<string>()
+
+  constructor(options: EchoComplianceTrackerOptions = {}) {
+    this.mode = options.mode ?? 'warn'
+    this.fidPaths = options.fidPaths ?? []
+    this.userPrompt = options.userPrompt
+  }
+
+  /** Record a set of exact file paths read this run. */
+  recordRead(paths: string[]): void {
+    if (this.mode === 'off') return
+    for (const p of paths) {
+      if (typeof p === 'string' && p.length > 0) {
+        this.readPaths.add(normalizePath(p))
+      }
+    }
+  }
+
+  /** Record a directory read (list_directory) — a prefix read for Law 1. */
+  recordDirectoryRead(path: string): void {
+    if (this.mode === 'off' || !path) return
+    this.readDirs.add(normalizePath(path))
+  }
+
+  /** Record a search pattern (glob/code_search) — a weak prefix read. */
+  recordPatternRead(pattern: string): void {
+    if (this.mode === 'off' || !pattern) return
+    this.readPatterns.push(pattern)
+  }
+
+  /** Record a write and evaluate Law 1. Returns a violation (non-blocking). */
+  recordWrite(params: {
+    path: string
+    lineDelta: number
+    contentKnowledge: boolean
+    isNewFile: boolean
+    content?: string
+    securitySensitive: boolean
+  }): ComplianceViolation | null {
+    if (this.mode === 'off') return null
+
+    const normalized = normalizePath(params.path)
+    const record: WriteRecord = {
+      path: normalized,
+      lineDelta: params.lineDelta,
+      contentKnowledge: params.contentKnowledge,
+      isNewFile: params.isNewFile,
+      content: params.content,
+      securitySensitive: params.securitySensitive,
+    }
+    this.writes.push(record)
+    // A write invalidates "verified after last write" until a verification
+    // command lands after it.
+    this.verifiedAfterLastWrite = false
+
+    // Law 1 (read-before-write): new files can't be read (exempt); writes with
+    // content knowledge (exact oldString / patch) demonstrably knew the file.
+    if (record.isNewFile || record.contentKnowledge) {
+      return null
+    }
+    if (this.hasRead(normalized)) {
+      return null
+    }
+    const severity = this.promptMentions(normalized) ? 'info' : 'warning'
+    return {
+      law: 'law1',
+      severity,
+      message: `ECHO Law 1: wrote \`${params.path}\` without reading it first. Read the file 0-EOF before modifying it.`,
+      path: params.path,
+    }
+  }
+
+  /** Record a terminal command; detects verification commands for Law 3. */
+  recordVerification(command: string): void {
+    if (this.mode === 'off') return
+    if (detectsVerificationCommand(command)) {
+      this.verifiedAfterLastWrite = true
+    }
+  }
+
+  /** Record a spawned agent type (verifier/forge/recorder detection). */
+  recordSpawn(agentType: string): void {
+    if (this.mode === 'off' || !agentType) return
+    this.spawned.add(agentType)
+  }
+
+  /**
+   * Evaluate Law 3 + mechanical Verifier criteria + FID escalation at a step
+   * boundary. Only fires on `endingTurn` so the batch-writes-then-verify
+   * pattern is never flagged mid-batch. Dedupes per step.
+   */
+  evaluateAtStepBoundary(params: {
+    stepNumber: number
+    endingTurn: boolean
+  }): ComplianceViolation[] {
+    if (this.mode === 'off') return []
+    if (!params.endingTurn) return []
+    if (params.stepNumber <= this.lastEvaluatedStep) return []
+    this.lastEvaluatedStep = params.stepNumber
+
+    const violations: ComplianceViolation[] = []
+    const writes = this.writes
+
+    // Law 3 (verify-before-proceed): writes happened but no verification
+    // command ran after the last write.
+    if (writes.length > 0 && !this.verifiedAfterLastWrite) {
+      violations.push({
+        law: 'law3',
+        severity: 'warning',
+        message: `ECHO Law 3: made ${writes.length} file change(s) without running verification (typecheck/test/lint) after writing. Run the project's verification commands before finishing.`,
+        stepNumber: params.stepNumber,
+      })
+    }
+
+    // Mechanical Verifier-criteria flag (savant.ts:326).
+    const linesAdded = writes.reduce((sum, w) => sum + w.lineDelta, 0)
+    const filesTouched = new Set(writes.map((w) => w.path)).size
+    const newApiHint = writes.some(
+      (w) => w.content !== undefined && hasNewApiDeclaration(w.content),
+    )
+    const securitySensitive = writes.some((w) => w.securitySensitive)
+    const forgeUsed = this.spawned.has('forge')
+    const verifierSpawned = this.spawned.has('verifier')
+    const requestedReview = userRequestedReview(this.userPrompt)
+    const criteriaMet = meetsVerifierCriteria({
+      linesAdded,
+      filesTouched,
+      newApiHint,
+      securitySensitive,
+      forgeUsed,
+      userRequestedReview: requestedReview,
+    })
+
+    // FID-aware escalation: writes touching active FID paths always flag.
+    const fidTouched = writes.some((w) => this.matchesFidPath(w.path))
+    const fidId = fidTouched ? this.getTouchedFidId(writes) : undefined
+
+    // Flag only when the Verifier was NOT spawned AND no verification evidence
+    // (typecheck/test/lint) exists — the prompt's approved direct-write path
+    // (verify with bashers) must not be noisy.
+    const needsIndependentReview =
+      !verifierSpawned && !this.verifiedAfterLastWrite
+
+    if (needsIndependentReview && (criteriaMet || (fidTouched && writes.length > 0))) {
+      const reasons: string[] = []
+      if (linesAdded >= 10) reasons.push('10+ lines added')
+      if (filesTouched >= 2) reasons.push(`${filesTouched} files touched`)
+      if (newApiHint) reasons.push('new function/API added')
+      if (securitySensitive) reasons.push('security-sensitive code touched')
+      if (forgeUsed) reasons.push('Forge was used to implement')
+      if (requestedReview) reasons.push('user requested review')
+      if (fidTouched) reasons.push('touches an active FID')
+      violations.push({
+        law: fidTouched ? 'fid' : 'verifier_criteria',
+        severity: 'warning',
+        fidId,
+        message: `ECHO: this change meets Verifier trigger criteria (${reasons.join(', ')}); spawn the Verifier agent to review it before marking complete.`,
+        stepNumber: params.stepNumber,
+      })
+    }
+
+    // Dedupe event emission across steps: a violation already surfaced in a
+    // prior turn-end is not re-emitted (steering keeps its own dedup set).
+    const fresh = violations.filter((v) => {
+      const key = `${v.law}:${v.path ?? ''}`
+      if (this.emittedKeys.has(key)) return false
+      this.emittedKeys.add(key)
+      return true
+    })
+    this.pendingSteering = fresh
+    return fresh
+  }
+
+  /** Drain corrective steering notices (budgeted — bounded per law/run). */
+  takeSteeringMessages(): string[] {
+    if (this.mode === 'off') return []
+    const messages: string[] = []
+    for (const v of this.pendingSteering) {
+      if (this.steeringCount >= MAX_STEERING_TOTAL) break
+      if (this.steeringPerLaw[v.law] >= MAX_STEERING_PER_LAW[v.law]) continue
+      const key = `${v.law}:${v.path ?? ''}`
+      if (this.steeredKeys.has(key)) continue
+      this.steeredKeys.add(key)
+      this.steeringPerLaw[v.law] += 1
+      this.steeringCount += 1
+      messages.push(
+        `[ECHO compliance] ${v.message} ${v.law === 'verifier_criteria' || v.law === 'fid' ? 'Spawn the Verifier agent now.' : v.law === 'law3' ? 'Run the project verification commands now.' : 'Read the file first, then rewrite it.'}`,
+      )
+    }
+    this.pendingSteering = []
+    return messages
+  }
+
+  private hasRead(path: string): boolean {
+    if (this.readPaths.has(path)) return true
+    for (const dir of this.readDirs) {
+      if (path.startsWith(`${dir}/`) || path === dir) return true
+    }
+    const pathLower = path.toLowerCase()
+    for (const pattern of this.readPatterns) {
+      const p = pattern.toLowerCase()
+      // Exact pattern match, or the pattern is a path prefix (dir-ish search),
+      // or the searched name appears in the written path (weak signal).
+      if (pathLower === p || pathLower.includes(p)) return true
+    }
+    return false
+  }
+
+  private promptMentions(path: string): boolean {
+    if (!this.userPrompt) return false
+    const base = path.split('/').pop() ?? ''
+    return (
+      base.length > 0 && this.userPrompt.toLowerCase().includes(base.toLowerCase())
+    )
+  }
+
+  private matchesFidPath(path: string): boolean {
+    const normalized = normalizePath(path)
+    for (const fidPath of this.fidPaths) {
+      if (normalizePath(fidPath) === normalized) return true
+    }
+    // Also treat any write under the active FID directory (dev/fids/, non-archive)
+    // as FID-touching.
+    return /(^|\/)dev\/fids\/FID-[^/]+\.md$/i.test(normalized)
+  }
+
+  private getTouchedFidId(writes: WriteRecord[]): string | undefined {
+    for (const w of writes) {
+      const match = w.path.match(/(FID-\d{4}-\d{4}-\d{3})/i)
+      if (match) return match[1].toUpperCase()
+    }
+    return undefined
+  }
+}
+
+/** Normalize a path for comparison: forward slashes, case-insensitive. */
+function normalizePath(path: string): string {
+  return path.replace(/\\/g, '/').toLowerCase()
+}

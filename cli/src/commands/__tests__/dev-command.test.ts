@@ -11,7 +11,7 @@ describe('/dev command', () => {
   ): RouterParams =>
     ({
       abortControllerRef: { current: null },
-      agentMode: 'EDIT',
+      agentMode: 'HYBRID',
       inputRef: { current: null },
       inputValue: '/dev on',
       isChainInProgressRef: { current: false },

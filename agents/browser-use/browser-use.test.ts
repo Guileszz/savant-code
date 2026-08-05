@@ -24,6 +24,8 @@ interface TaskDefinition {
   name: string
   prompt: string
   url?: string
+  /** FID-2026-0804-005: optional agent params (viewport/wcag/persistSession). */
+  params?: Record<string, unknown>
 }
 
 const TASKS: TaskDefinition[] = [
@@ -44,6 +46,27 @@ const TASKS: TaskDefinition[] = [
     prompt:
       'Navigate to https://httpbin.org/forms/post and fill out the form with: customer name "Test User", telephone "555-1234", size "Medium", topping "Bacon", and submit the form. Report what the server response shows.',
     url: 'https://httpbin.org/forms/post',
+  },
+  // FID-2026-0804-005 (browser-use capability enhancements):
+  // responsive testing task (viewport param) — mobile preset must be applied
+  // and verified via screenshot/snapshot before reporting.
+  {
+    name: 'responsive-mobile',
+    prompt:
+      'Navigate to https://example.com and verify how it renders at a MOBILE viewport (375x667). Apply the mobile viewport first, take a screenshot to confirm, and report whether the page has horizontal overflow or clipped content at that size.',
+    url: 'https://example.com',
+    params: { viewport: 'mobile' },
+  },
+  // FID-2026-0804-005 (browser-use capability enhancements):
+  // WCAG accessibility scan task (wcag param) — the agent must run the
+  // bundled offline checker via evaluate_script and report structured
+  // violations (impact, rule, node), never auto-fixing them.
+  {
+    name: 'wcag-scan',
+    prompt:
+      'Navigate to https://example.com and run a WCAG accessibility scan on the page. Report violations as structured rows with impact, rule id, and the offending node. Do NOT attempt to fix any issues.',
+    url: 'https://example.com',
+    params: { wcag: true },
   },
 ]
 
@@ -70,7 +93,7 @@ async function runTask(
   const runState = await client.run({
     agent: 'browser-use',
     prompt: task.prompt,
-    params: task.url ? { url: task.url } : undefined,
+    params: { ...(task.url ? { url: task.url } : {}), ...task.params },
     agentDefinitions,
     maxAgentSteps: 30,
     handleEvent: (event) => {

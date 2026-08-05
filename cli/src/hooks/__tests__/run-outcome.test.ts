@@ -85,12 +85,12 @@ describe('createRunOutcomeReporter', () => {
       goalCondition: 'no new failures',
     }
 
-    await createLoopRunHandler(sendMessage, 'EDIT')(schedule)
+    await createLoopRunHandler(sendMessage, 'HYBRID')(schedule)
 
     expect(sent?.content).toBe(
       'run tests\n\nGoal condition to evaluate after this run: no new failures',
     )
-    expect(sent?.agentMode).toBe('EDIT')
+    expect(sent?.agentMode).toBe('HYBRID')
   })
 
   test('rejects a scheduled send when the send reports failure', async () => {
@@ -101,7 +101,7 @@ describe('createRunOutcomeReporter', () => {
     await expect(
       createLoopRunHandler(
         sendMessage,
-        'EDIT',
+        'HYBRID',
       )({
         id: 'loop-test',
         cadenceMs: 30_000,
@@ -122,7 +122,7 @@ describe('createRunOutcomeReporter', () => {
     await expect(
       createLoopRunHandler(
         sendMessage,
-        'EDIT',
+        'HYBRID',
       )({
         id: 'loop-test',
         cadenceMs: 30_000,
@@ -141,7 +141,7 @@ describe('createRunOutcomeReporter', () => {
     await expect(
       createLoopRunHandler(
         sendMessage,
-        'EDIT',
+        'HYBRID',
       )({
         id: 'loop-test',
         cadenceMs: 30_000,
@@ -163,7 +163,7 @@ describe('createRunOutcomeReporter', () => {
     await expect(
       createLoopRunHandler(
         sendMessage,
-        'EDIT',
+        'HYBRID',
       )({
         id: 'loop-test',
         cadenceMs: 30_000,

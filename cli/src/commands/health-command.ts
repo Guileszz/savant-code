@@ -2,6 +2,10 @@ import { detectOllama } from '@savant-code/llm-providers/ollama'
 
 import { getSystemMessage } from '../utils/message-history'
 import {
+  getConfiguredProviderKey,
+  getProviderSetupInfo,
+} from '../utils/provider-setup'
+import {
   loadAnalyticsEnabled,
   loadPermissionModePreference,
   loadSavantCodeModelPreference,
@@ -40,9 +44,22 @@ export async function handleHealthCommand(params: RouterParams): Promise<void> {
       `  Models: ${ollama.models.length > 0 ? ollama.models.join(', ') : '*none*'}`
     : `🔴 **Ollama** — not detected\n  ${ollama.error ?? 'Start with: \`ollama serve\`'}`
 
+  // When running against a direct provider, report the required credential
+  // variable and whether a key is configured (shell or stored).
+  const providerName = directProvider ?? (inferenceBaseUrl ? 'custom' : undefined)
+  const providerInfo = providerName ? getProviderSetupInfo(providerName) : undefined
+  const requiredEnvVar = providerInfo?.envVar
+  const keyConfigured = Boolean(
+    (requiredEnvVar && process.env[requiredEnvVar]?.trim()) ||
+      (providerName ? getConfiguredProviderKey(providerName) : undefined),
+  )
+
   const providerSection = isDirectProvider
-    ? `**Provider mode:** direct (${directProvider ?? 'INFERENCE_BASE_URL'})\n` +
-      `**Base URL:** ${inferenceBaseUrl ?? 'n/a'}`
+    ? `**Provider mode:** direct (${providerName ?? 'INFERENCE_BASE_URL'})\n` +
+      `**Base URL:** ${inferenceBaseUrl ?? 'n/a'}` +
+      (requiredEnvVar
+        ? `\n**Required key env var:** ${requiredEnvVar}\n**Key configured:** ${keyConfigured ? 'yes' : 'no'}`
+        : '')
     : '**Provider mode:** SavantCode backend'
 
   const lines = [

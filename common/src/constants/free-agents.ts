@@ -160,6 +160,12 @@ export const FREE_MODE_AGENT_MODELS: Record<string, Set<string>> = {
   // Browser automation
   'browser-use': SAVANT_FREE_SUBAGENT_MODELS,
 
+  // Database inspection (FID-2026-0804-004)
+  database: SAVANT_FREE_SUBAGENT_MODELS,
+
+  // GitHub automation (FID-2026-0804-003)
+  github: SAVANT_FREE_SUBAGENT_MODELS,
+
   // Command execution
   basher: SAVANT_FREE_SUBAGENT_MODELS,
   'tmux-cli': SAVANT_FREE_SUBAGENT_MODELS,

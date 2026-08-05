@@ -212,7 +212,7 @@ describe('SavantFree CLI Argument Parsing', () => {
 
     expect(result.initialPrompt).toBeNull()
     expect(result.command).toBe('login')
-    expect(result.initialMode).toBe('EDIT')
+    expect(result.initialMode).toBe('HYBRID')
   })
 
   test('allows cwd before the login command', () => {

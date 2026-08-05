@@ -3,6 +3,7 @@ import { z } from 'zod/v4'
 import { jsonValueSchema } from './json'
 import { MAX_AGENT_STEPS_DEFAULT } from '../constants/agents'
 
+import type { EchoComplianceTrackerLike } from './echo-compliance'
 import type { JSONValue } from './json'
 import type { Message } from './messages/savant-code-message'
 import type { ProjectFileContext } from '../util/file'
@@ -143,6 +144,16 @@ export type AgentState = {
    * Set by parsing <goal condition="..."> from message history.
    */
   goalCondition?: string
+
+  /**
+   * @internal — FID-2026-0804-009: per-run harness ECHO compliance tracker.
+   * Created at the SDK run() entry; threaded to subagent states so subagent
+   * writes record against the same run. NOT serialized — JSON round-trips in
+   * cloneSessionState drop the instance (same as activityIdleTimer), and a
+   * fresh tracker is created per run, so restored sessions never inherit a
+   * stale/foreign tracker.
+   */
+  echoCompliance?: EchoComplianceTrackerLike
 }
 
 export const AgentOutputSchema = z.discriminatedUnion('type', [

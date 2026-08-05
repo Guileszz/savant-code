@@ -8,13 +8,14 @@
 
 基于 TypeScript/Bun 构建，受 ECHO 协议治理，并针对本地优先的 Ollama 使用场景设计。
 
-[![TypeScript](https://img.shields.io/badge/TypeScript-5.5-%23000000?style=flat-square&logo=typescript&logoColor=%2300fbff)](https://www.typescriptlang.org/)[![Bun](https://img.shields.io/badge/Bun-1.3.14-%23000000?style=flat-square&logo=bun&logoColor=%2300fbff)](https://bun.sh/)[![React](https://img.shields.io/badge/React-19-%23000000?style=flat-square&logo=react&logoColor=%2300fbff)](https://react.dev/)[![OpenTUI](https://img.shields.io/badge/OpenTUI-0.2.2-%23000000?style=flat-square&logo=opentui&logoColor=%2300fbff)](https://github.com/anomalyco/opentui)[![ECHO](https://img.shields.io/badge/ECHO-v0.2.0-%23000000?style=flat-square&logo=github&logoColor=%2300fbff)](ECHO.md)[![License](https://img.shields.io/badge/License-Apache_2.0-%23000000?style=flat-square&logo=apache&logoColor=%2300fbff)](LICENSE)[![Release](https://img.shields.io/badge/Release-v0.0.18-%23000000?style=flat-square&logo=semver&logoColor=%2300fbff)](CHANGELOG.md)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.5-%23000000?style=flat-square&logo=typescript&logoColor=%2300fbff)](https://www.typescriptlang.org/)[![Bun](https://img.shields.io/badge/Bun-1.3.14-%23000000?style=flat-square&logo=bun&logoColor=%2300fbff)](https://bun.sh/)[![React](https://img.shields.io/badge/React-19-%23000000?style=flat-square&logo=react&logoColor=%2300fbff)](https://react.dev/)[![OpenTUI](https://img.shields.io/badge/OpenTUI-0.2.2-%23000000?style=flat-square&logo=opentui&logoColor=%2300fbff)](https://github.com/anomalyco/opentui)[![ECHO](https://img.shields.io/badge/ECHO-v0.2.0-%23000000?style=flat-square&logo=github&logoColor=%2300fbff)](ECHO.md)[![License](https://img.shields.io/badge/License-Apache_2.0-%23000000?style=flat-square&logo=apache&logoColor=%2300fbff)](LICENSE)[![Release](https://img.shields.io/badge/Release-v0.0.20-%23000000?style=flat-square&logo=semver&logoColor=%2300fbff)](CHANGELOG.md)
 
 </div>
 
-> **v0.0.18** — 热修复版本：修复官方 npm 二进制底部显示 `v0.0.0` 的问题，
-> 同步发布元数据，并重新构建官方二进制，使模型选择与路由始终使用一致的已发布提供商目录。
-> 同时延续此前版本的检查点与回退、提供商设置、ECHO 强制执行、质量修复与构建卫生改进。
+> **v0.0.20** — MCP 功能集成版本：为 Researcher 角色新增机械式
+> `deep_research` 工具、`github` 与 `database` 基础架构辅助（只读 GitHub MCP、
+> 适配器强制的 SQL 安全）、browser-use 参数升级（viewport / WCAG / 持久化）、
+> 自包含品牌化 `/export` HTML 报告，以及完成感知的退出刷新。
 
 ---
 
@@ -114,7 +115,7 @@ OpenRouter 凭据优先级如下：
 
 Savant-Code 是一个 TypeScript monorepo，用于构建并发布终端原生的 AI 编程助手 **Savant Code** 以及公开的
 [`@savant-code/sdk`](https://www.npmjs.com/package/@savant-code/sdk)。CLI 提供多智能体编排、自定义技能、
-MCP 工具发现、模式切换（`EDIT` / `ANALYZE` / `SCAFFOLD`）以及本地优先的 Ollama 支持。SDK、agent
+MCP 工具发现、模式切换（`HYBRID` / `SCAFFOLD` / `STRICT` / `ANALYZE`）以及本地优先的 Ollama 支持。SDK、agent
 运行时、多智能体编排引擎、工具层与 LLM 提供商适配层共享，因此两个产品面从同一套代码发布。
 
 整个项目基于 [ECHO 协议 v0.2.0](ECHO.md) 发布——即治理 Savant 生态的同一套 15 条定律 agent 纪律。每项
@@ -172,15 +173,37 @@ MCP 工具发现、模式切换（`EDIT` / `ANALYZE` / `SCAFFOLD`）以及本地
   专注的代码审查流程。
 - **聊天内验证** —— `/verify` 运行四个受支持的核心工作区类型检查，也可以使用 `/verify sdk`、`/verify common`、
   `/verify agent-runtime` 或 `/verify cli` 指定目标。`/diagnostics` 报告本地进程与资源信息。
-- **会话工具** —— `/copy`（别名 `/copy-chat`、`/export`）复制完整对话；`/image`（别名 `/img`、`/attach`）
+- **会话工具** —— `/copy`（别名 `/copy-chat`）将完整对话复制到剪贴板；`/export`（别名 `/save`）将对话写入完全自包含的品牌化 HTML 报告；`/image`（别名 `/img`、`/attach`）
   在所选提供商支持多模态输入时附加图片。
 - **智能体发布** —— `/publish` 为包含必要 publisher 元数据的模板打开智能体发布流程。它需要 Savant Code 后端，
   不能在直接提供商模式下使用。
-- **模式切换** —— `EDIT` / `ANALYZE` / `SCAFFOLD` 执行范围模式，可在运行时通过 UI 切换。
+- **模式切换** —— `HYBRID` / `SCAFFOLD` / `STRICT` / `ANALYZE` 执行范围模式（带悬停说明），
+  可在运行时通过 UI 切换。详见[「执行模式」](#执行模式)中的 STRICT 与 HYBRID 仪式契约。
 - **流式与取消** —— 逐 token 的 SSE 流式输出，支持流中取消、退避重试，以及并行工作的子智能体流式输出。
 - **知识文件** —— 项目级 `knowledge.md` 外加每用户主目录知识，自动载入 agent 上下文。
 - **技能（Skills）** —— 启动时发现 OpenClaw 格式的 `SKILL.md` 文件，schema 发送给 LLM，作为原生工具使用。
 - **MCP 工具** —— 启动时发现 Model Context Protocol 服务器，schema 发布给 LLM API。
+- **`deep_research` 工具** —— Researcher 角色的机械式多查询网络研究工具（`question` + 模型提供的
+  `queries[]`、`research_depth`、`max_sources`）：最大 3 并发、查询间隔 ≥1 秒、URL 去重、域名评分、引用 +
+  gaps + `truncated`/`incomplete` 标志。纯搜索门面，基于 harness 的 web-search API —— 不依赖第二个
+  LLM（FID-2026-0804-002）。
+- **`github` 基础设施辅助** —— 通过官方远程 HTTP MCP 服务器实现只读 GitHub 集成（PR/issue/CI 审查、
+  代码搜索、密钥扫描），支持 `Authorization: Bearer $SAVANT_CODE_GITHUB_TOKEN` 插值
+  （FID-2026-0804-003）。
+- **`database` 基础设施辅助 + 4 个原生工具** —— 基于 `bun:sqlite` 的 `list_tables`、
+  `describe_table`、`execute_query`、`analyze_query`，带适配器强制的安全契约：默认只读、LIMIT 注入、
+  SQL 脱敏、破坏性 DDL 拦截、JSON 安全的 BLOB/bigint 转换（FID-2026-0804-004）。
+- **Browser-use 参数升级** —— 在浏览器辅助上新增 `viewport`（mobile/tablet/desktop）、`wcag`
+  （离线 DOM 遍历无障碍扫描，无 CDN）与 `persistSession`（默认关闭）（FID-2026-0804-005）。
+- **自包含 `/export`** —— 将整个对话写入品牌化、完全离线的 HTML 报告（Savant 徽标 + Neon Slate 主题
+  + 内联为 base64 的 Font Awesome 图标；零网络请求），支持可折叠的工具/思考行以及逐条消息 / 全部复制
+  按钮（FID-2026-0804-007）。
+- **Harness ECHO 合规层** —— 以每次运行的运行时追踪器实现确定性的 Law 1（先读后写）、Law 3（写后验证）
+  与机械式 Verifier 判据（10+ 行 / 2+ 文件 / 新 API / 安全敏感 / Forge）：非阻塞 `compliance_warning`
+  收据 + 纠正性引导，让运行中的智能体自行修正；当写入触及活动 FID 时升级为始终启用（FID-2026-0804-009）。
+- **可读的编辑 diff** —— 编辑块将新增行染成 50% 霓虹绿、删除行染成 50% 霓虹红（与主题背景混合），并在
+  复制按钮旁显示 `[-N/+M]` 增删计数器；完整 ECHO Perfection Loop 的触发门槛从 75 行降至 20 行
+  （FID-2026-0804-010）。
 - **上下文压缩** —— 4 层渐进式自动压缩：L0（总结旧轮次）、L1（压缩工具结果）、L2（裁剪过期上下文）、
   L3（激进缩减）。在保留关键上下文的同时降低 token 用量。
 - **上下文窗口解析** —— 网关模型（例如 `opencode-go/mimo-v2.5`）在运行时从 OpenRouter 目录解析其真实
@@ -225,6 +248,51 @@ MCP 工具发现、模式切换（`EDIT` / `ANALYZE` / `SCAFFOLD`）以及本地
 - **完美循环状态机** —— RED → GREEN → AUDIT → SELF-CORRECT → COMPLETE
 - **职责分离** —— 写代码的智能体不能验证它
 - **15 条定律** —— 4 条不可变流程定律 + 11 条扩展代码定律
+
+---
+
+## 执行模式
+
+聊天窗口左下角的模式切换器用于设置当前会话的**执行范围**。可在运行时通过 UI 或 `/mode` 斜杠命令切换——
+裸命令列出每种模式及其契约，而 `/mode <名称>` 或 `/mode:<名称>` 用于切换（例如 `/mode strict`）；
+悬停切换器会显示每种模式的一行说明。
+
+| 模式 | 智能体 | 契约 |
+| --- | --- | --- |
+| `HYBRID`（默认） | `savant` | 直接、低摩擦地编写，受 harness 约束：以 `warn` 级别产生确定性的 Law 1/3 + Verifier 判据收据，超过 20 行仪式阈值时完整 Perfection Loop 自动升级（FID-2026-0804-009/010）。 |
+| `SCAFFOLD` | `savant-scaffold` | 伞形 FID 项目初始化；搭建一次后交还 HYBRID。 |
+| `STRICT` | `savant-strict` | **每一次**代码改动都执行完整 ECHO 仪式——每次改动建 FID、Forge 编写、Verifier 审计、Law-4 grep。 |
+| `ANALYZE` | `savant-analyze` | 只读：搜索、检查与推理，不写文件。 |
+
+### STRICT 模式：每一次改动都执行完整仪式
+
+`STRICT` 是保证仪式的模式。`HYBRID` *允许*智能体升级到完整循环（并且 harness 在判据满足时*警告*），而
+`STRICT` 对每一次代码改动都*要求*它。强制手段是 STRICT 提示词契约本身——harness 合规层会在一旁监视，并在
+漏掉某个判据时发出 `warn` 级收据（硬性拦截属于后续工作）。在 STRICT 中，提示词契约对每次改动规定：
+
+1. **Recorder 为改动创建 FID**（`dev/fids/FID-YYYY-MMDD-NNN-{title}.md`），由侧栏的「活动 FID」面板自动跟踪。
+2. **RED（Detective）** 分析代码库并收敛改动方案。
+3. **GREEN（Forge）** 编写代码——仪式流程中唯一允许写入的智能体。
+4. **AUDIT（Verifier）** 双重审计结果：运行测试、检查调用图，并执行 Law-4 可达性 grep（grep 生产入口点，
+   证明新接线确实被调用）。
+5. **Recorder 归档** FID 并追加 CHANGELOG 条目。
+
+不允许自我验证、不允许跳过阶段：编写代码的智能体不能验证它。纯只读问答（提问、解释、不写文件的分析）即使在
+STRICT 下也保持无仪式。
+
+### STRICT 还是 HYBRID：我该用哪个？
+
+| 考量 | `HYBRID` | `STRICT` |
+| --- | --- | --- |
+| 速度 | 最快——自由编写；超过 20 行时完整循环自动介入 | 较慢——每次改动都要付出完整循环的代价 |
+| 摩擦 | 最小——harness 只警告与引导，从不阻塞 | 最大——仪式是强制的，而非可选 |
+| 审计轨迹 | 仅升级的改动有 FID | 每次改动一个 FID，附带 CHANGELOG 条目归档 |
+| 验证 | `warn` 级 harness 收据 + 超过 20 行时自我升级 | 每次改动都有 Verifier + Law-4 grep |
+| 最适合 | 日常构建、探索、原型、快速迭代 | 安全敏感或长期维护的代码、付费 API 面、团队审查、任何需要持久审计轨迹的场景 |
+
+**经验法则：** 如果改动出错会带来损失——认证、支付、迁移、任何要交付给用户的东西——请使用 `STRICT`。
+如果是在探索或快速迭代，`HYBRID` 是正确的默认：harness 仍然监视 Law 1/3 与 Verifier 判据，超过 20 行阈值
+时完整循环仍然会介入。
 
 ---
 
@@ -364,7 +432,8 @@ savant-code
 | `/help`（`/h`、`/?`） | 显示命令帮助与提示 |
 | `/new`（`/clear`、`/reset`） | 开始新聊天；可附带文本直接开始第一条提示 |
 | `/history`（`/chats`） | 浏览并恢复历史对话 |
-| `/copy`（`/export`） | 复制完整对话 |
+| `/copy`（`/copy-chat`） | 将完整对话复制到剪贴板 |
+| `/export`（`/save`） | 将对话写入自包含的品牌化 HTML 报告 |
 | `/interview` | 将想法整理为结构化规格 |
 | `/plan` | 创建实现计划 |
 | `/review` | 审查代码改动 |
@@ -376,6 +445,7 @@ savant-code
 | `/health`（`/status`、`/check`） | 检查 Ollama、提供商模式、模型与权限状态 |
 | `/diagnostics`（`/diag`、`/processes`） | 显示本地进程与资源诊断信息 |
 | `/provider` | 使用遮罩输入配置托管提供商密钥 |
+| `/mode` | 列出四种模式及其契约，或切换：`/mode <名称>` 或 `/mode:<名称>` |
 | `/model` | 选择或切换当前托管模型 |
 | `/publish` | 通过 Savant 后端发布智能体模板 |
 | `/feedback`（`/bug`、`/report`） | 打开反馈流程 |

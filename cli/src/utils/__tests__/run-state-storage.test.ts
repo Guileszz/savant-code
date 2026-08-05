@@ -11,6 +11,7 @@ import {
   mock as _mock,
 } from 'bun:test'
 
+import { readChatMeta } from '../chat-meta'
 import {
   getAllToggleIdsFromMessages,
   getRunStatePath as _getRunStatePath,
@@ -499,6 +500,63 @@ describe('live chat state provider', () => {
       throw new Error('boom')
     })
     expect(() => flushLiveChatState()).not.toThrow()
+  })
+  // FID-2026-0804-008: the exit flush must not downgrade a chat the turn-end
+  // save already marked complete, or /history shows every session as
+  // interrupted.
+  test('flush preserves completed:true for a chat the turn-end save completed', () => {
+    // Turn-end authoritative save marks the chat complete.
+    saveChatState(testRunState('final'), testMessages('final prompt'))
+    expect(readChatMeta(chatDir)?.completed).toBe(true)
+
+    // A later process exit flushes a still-registered live provider. It must
+    // preserve the existing completion flag, not rewrite completed:false.
+    setLiveChatStateProvider('run-a', () => ({
+      runState: testRunState('checkpoint'),
+      messages: testMessages('in-flight prompt'),
+    }))
+    flushLiveChatState()
+    expect(readChatMeta(chatDir)?.completed).toBe(true)
+  })
+  test('flush preserves completed:true across queued checkpoint writes', () => {
+    // Completed chat whose chat dir still holds a queued checkpoint (e.g. an
+    // abort-then-switch queued a final checkpoint for the original chat).
+    saveChatState(testRunState('final'), testMessages('final prompt'))
+    scheduleCheckpointSave(
+      testRunState('checkpoint'),
+      testMessages('checkpoint prompt'),
+      chatDir,
+    )
+    flushLiveChatState()
+    expect(readChatMeta(chatDir)?.completed).toBe(true)
+  })
+  test('flush keeps completed:false for genuinely interrupted chats', () => {
+    // Mid-run chat with no turn-end save: the exit flush must keep it
+    // incomplete so the /history interrupted marker stays meaningful.
+    saveChatState(
+      testRunState('checkpoint'),
+      testMessages('in-flight prompt'),
+      chatDir,
+      '',
+      false,
+    )
+    expect(readChatMeta(chatDir)?.completed).toBe(false)
+
+    setLiveChatStateProvider('run-a', () => ({
+      runState: testRunState('checkpoint'),
+      messages: testMessages('in-flight prompt'),
+    }))
+    flushLiveChatState()
+    expect(readChatMeta(chatDir)?.completed).toBe(false)
+  })
+  test('flush keeps a brand-new in-flight chat incomplete (no sidecar yet)', () => {
+    // No prior save at all: the first exit-flush write marks it incomplete.
+    setLiveChatStateProvider('run-a', () => ({
+      runState: testRunState('checkpoint'),
+      messages: testMessages('in-flight prompt'),
+    }))
+    flushLiveChatState()
+    expect(readChatMeta(chatDir)?.completed).toBe(false)
   })
 })
 describe('atomic save and resilient load', () => {

@@ -75,6 +75,42 @@ describe('settings telemetry defaults', () => {
     expect(settings.adsEnabled).toBe(true)
   })
 
+  test('default mode is HYBRID on first run (FID-2026-0805-001)', async () => {
+    const { loadModePreference, loadSettings } = await import('../settings')
+    expect(loadModePreference()).toBe('HYBRID')
+    expect(loadSettings().mode).toBe('HYBRID')
+
+    // Verify the persisted file also reflects the default.
+    const settingsPath = path.join(getConfigDir(), 'settings.json')
+    expect(fs.existsSync(settingsPath)).toBe(true)
+    const persisted = JSON.parse(fs.readFileSync(settingsPath, 'utf8'))
+    expect(persisted.mode).toBe('HYBRID')
+  })
+
+  test('legacy EDIT mode migrates to HYBRID on load (FID-2026-0805-001)', async () => {
+    fs.mkdirSync(getConfigDir(), { recursive: true })
+    fs.writeFileSync(
+      path.join(getConfigDir(), 'settings.json'),
+      JSON.stringify({ mode: 'EDIT' }, null, 2),
+    )
+
+    const { loadModePreference, loadSettings } = await import('../settings')
+    expect(loadSettings().mode).toBe('HYBRID')
+    expect(loadModePreference()).toBe('HYBRID')
+  })
+
+  test('legacy DEFAULT/LITE/MAX/PLAN/FREE modes migrate to HYBRID', async () => {
+    for (const legacy of ['DEFAULT', 'LITE', 'MAX', 'PLAN', 'FREE']) {
+      fs.mkdirSync(getConfigDir(), { recursive: true })
+      fs.writeFileSync(
+        path.join(getConfigDir(), 'settings.json'),
+        JSON.stringify({ mode: legacy }, null, 2),
+      )
+      const { loadModePreference } = await import('../settings')
+      expect(loadModePreference()).toBe('HYBRID')
+    }
+  })
+
   test('default savant-code model preference is MiMo 2.5 from OpenCode Go on first run', async () => {
     const { loadSettings } = await import('../settings')
     const settings = loadSettings()

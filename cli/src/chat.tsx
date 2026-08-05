@@ -235,7 +235,7 @@ export const Chat = ({
   // Subscribe to ask_user bridge to trigger form display
   useAskUserBridge()
 
-  // Auto-revert from SCAFFOLD to EDIT when the orchestrator declares the
+  // Auto-revert from SCAFFOLD to HYBRID when the orchestrator declares the
   // scaffold complete via the set_scaffold_complete tool.
   useScaffoldRevertSubscriber()
 

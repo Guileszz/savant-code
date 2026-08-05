@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import stringWidth from 'string-width'
 
 import { Button } from './button'
@@ -13,6 +13,8 @@ export interface Segment {
   isSelected?: boolean
   defaultHighlighted?: boolean // Highlighted when nothing else is hovered
   disabled?: boolean // Gray out and de-emphasize disabled items
+  /** Optional one-line description surfaced by a parent hovertip (FID-2026-0805-001). */
+  description?: string
 }
 
 /**
@@ -26,6 +28,9 @@ interface SegmentedControlProps {
   onSegmentClick?: (id: string) => void
   onMouseOver?: () => void
   onMouseOut?: () => void
+  /** Fired with the hovered segment id (or null on leave) so a parent can
+   *  render a hovertip (FID-2026-0805-001). */
+  onHoverChange?: (id: string | null) => void
 }
 
 export const SegmentedControl = ({
@@ -33,10 +38,24 @@ export const SegmentedControl = ({
   onSegmentClick,
   onMouseOver,
   onMouseOut,
+  onHoverChange,
 }: SegmentedControlProps) => {
   const theme = useTheme()
   const [hoveredId, setHoveredId] = useState<string | null>(null)
   const [hasHoveredSinceOpen, setHasHoveredSinceOpen] = useState(false)
+  // Hover-intent grace: delay clearing the parent's hover notification so a
+  // hovertip (which sits ABOVE this control) does not flicker away when the
+  // cursor leaves the segment cells toward the tip (FID-2026-0805-001).
+  const hoverGraceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const HOVER_GRACE_MS = 150
+
+  useEffect(() => {
+    return () => {
+      if (hoverGraceRef.current) {
+        clearTimeout(hoverGraceRef.current)
+      }
+    }
+  }, [])
 
   const processedSegments = processSegments(
     segments,
@@ -58,6 +77,12 @@ export const SegmentedControl = ({
       onMouseOver={onMouseOver}
       onMouseOut={() => {
         setHoveredId(null)
+        if (hoverGraceRef.current) {
+          clearTimeout(hoverGraceRef.current)
+        }
+        hoverGraceRef.current = setTimeout(() => {
+          onHoverChange?.(null)
+        }, HOVER_GRACE_MS)
         onMouseOut && onMouseOut()
       }}
     >
@@ -85,8 +110,12 @@ export const SegmentedControl = ({
             <Button
               onClick={() => onSegmentClick && onSegmentClick(seg.id)}
               onMouseOver={() => {
+                if (hoverGraceRef.current) {
+                  clearTimeout(hoverGraceRef.current)
+                }
                 setHoveredId(seg.id)
                 setHasHoveredSinceOpen(true)
+                onHoverChange?.(seg.id)
               }}
               style={{
                 flexDirection: 'column',

@@ -53,11 +53,13 @@ Each agent owns a specific phase and has restricted tools. No agent may perform
 another agent's role.
 
 > **Note:** The 9-agent table above covers the canonical ECHO runtime roles. The
-> Orchestrator's `spawnableAgents` also includes 4 infrastructure helpers
-> (`basher`, `tmux-cli`, `browser-use`, `context-pruner`) that are NOT independent
-> ECHO conversation roles. `browser-use` is a helper tool library; `basher`,
-> `tmux-cli`, `context-pruner` are infra agent definitions — see ARCHITECTURE.md
-> → "Agent Roster" / "Helper Tool Libraries" for the full distinction.
+> Orchestrator's `spawnableAgents` also includes 6 infrastructure helpers
+> (`basher`, `tmux-cli`, `browser-use`, `context-pruner`, `github`, `database`)
+> that are NOT independent ECHO conversation roles. `browser-use` is a helper
+> tool library; `basher`, `tmux-cli`, `context-pruner`, `github`, `database` are
+> infra agent definitions (FID-2026-0804-006 added `github` + `database`) — see
+> ARCHITECTURE.md → "Agent Roster" / "Helper Tool Libraries" for the full
+> distinction.
 
 | # | Agent | Phase | Responsibility | Tools | Restricted Tools |
 |---|-------|-------|----------------|-------|------------------|
@@ -68,7 +70,7 @@ another agent's role.
 | 5 | **Recorder** | FID | Create, track, archive FIDs. Update CHANGELOG. | write_file, read_files, glob, code_search, set_output | str_replace, bash |
 | 6 | **Thinker** | Planning | Deep reasoning via sequential thinking engine | sequentialthinking, end_turn | write_file, str_replace, bash |
 | 7 | **Scout** | Explore | File/code search, glob, read subtrees, context gathering | glob, list_directory, read_files, read_subtree, set_output | write_file, str_replace, bash, spawn |
-| 8 | **Researcher** | Research | Web search, documentation lookup, external API research | web_search, read_url (web); read_docs (docs) | write_file, str_replace, bash |
+| 8 | **Researcher** | Research | Web search, documentation lookup, external API research | web_search, read_url (web); read_docs (docs); deep_research (FID-2026-0804-002) | write_file, str_replace, bash |
 | 9 | **Scribe** | Docs | Session summaries, LESSONS.md, knowledge files | read_files, write_file, glob, code_search, set_output | str_replace, bash, spawn |
 
 ### Separation of Duties (Non-Negotiable)

@@ -138,6 +138,10 @@ COMMAND_CODE_API_KEY=dummy-commandcode-key-replace-me
 # Local Ollama override (optional)
 # OLLAMA_HOST=http://localhost:11434
 
+# GitHub MCP helper (read-only) and database helper
+# SAVANT_CODE_GITHUB_TOKEN=dummy-github-token-replace-me
+# SAVANT_CODE_DATABASE_URL=sqlite://./local.db
+
 # Optional backend and advanced integrations
 # SAVANT_CODE_API_KEY=backend-dummy-replace-me
 # CLOUDFLARE_API_TOKEN=cloudflare-dummy-replace-me
@@ -146,6 +150,15 @@ AMAZON_WORKER=amazon-worker-dummy-replace-me
 ```
 
 `AMAZON_WORKER` is retained for local deployment integrations. `GITHUB_TOKEN` and `NPM_PUBLISH` are intentionally not part of the public template because they are private release credentials.
+
+### Building release binaries
+
+Release binaries ship a sibling `env.json` with the canonical production `NEXT_PUBLIC_*` defaults (prod environment, `https://savant-code.com`, `support@savant-code.com`, release placeholders). `cli/scripts/build-binary.ts` fails the build if any dev `NEXT_PUBLIC_*` value — localhost URLs, personal emails, or dummy keys from the build shell or a repo `.env.local` — leaks into that file. Two escape hatches exist for intentional deviations:
+
+- `SAVANT_CODE_BUILD_ENV=<env>` — build a local dev binary (skips the integrity check).
+- `SAVANT_CODE_ALLOW_NEXT_PUBLIC_OVERRIDES=1` — CI/release override when injecting real production keys (for example PostHog or Stripe) that intentionally differ from the canonical placeholders.
+
+Build release artifacts from a clean shell (no dev `NEXT_PUBLIC_*` exports, no `.env.local` loaded) so `env.json` matches the canonical defaults exactly.
 
 ## What Makes Savant-Code Different
 
@@ -160,7 +173,7 @@ Savant-Code is a multi-agent system rather than a single model guessing at your 
 | **Recorder** | Manages FID lifecycle and release tracking |
 | **Thinker** | Performs deep sequential reasoning for complex problems |
 | **Scout** | Explores files and code to gather context |
-| **Researcher** | Performs web search and documentation lookup |
+| **Researcher** | Performs web search, documentation lookup, and multi-query `deep_research` |
 | **Scribe** | Captures session summaries and durable knowledge |
 
 Infrastructure helpers such as terminal execution, browser automation, and web/docs tool libraries support these roles; they are not additional roster members.
@@ -214,7 +227,7 @@ Retention is bounded to the most recent 20 turns, restore paths are revalidated,
 - `--permission-mode safe|prompt|unsafe` selects the startup policy.
 - `/permissions` (aliases `/sandbox` and `/safety`) views or changes the policy.
 - `safe` denies risky tools; `prompt` currently also denies them because interactive confirmations are not yet implemented; `unsafe` allows them explicitly.
-- `EDIT`, `ANALYZE`, and `SCAFFOLD` modes change the execution scope at runtime.
+- `HYBRID`, `SCAFFOLD`, `STRICT`, and `ANALYZE` modes change the execution scope at runtime (hovering the toggle shows each mode's contract). `HYBRID` (default) is the frictionless flow: you write directly while the harness deterministically enforces Law 1/3 and the Verifier criteria at `warn`, and the full Perfection Loop auto-engages past the 20-line threshold. `STRICT` guarantees the full ceremony on **every** code change: Recorder creates a FID, RED (Detective) analyzes, GREEN (Forge) writes, AUDIT (Verifier) double-checks with Law-4 reachability greps, and Recorder archives the FID with a CHANGELOG entry. Use `STRICT` for security-sensitive or long-lived code (auth, payments, migrations); use `HYBRID` for day-to-day building and exploration.
 
 ### Planning, review, and goals
 
@@ -231,7 +244,21 @@ Retention is bounded to the most recent 20 turns, restore paths are revalidated,
 - User-level knowledge can be loaded alongside project knowledge.
 - OpenClaw-format `SKILL.md` files are discovered and exposed as native skills.
 - MCP servers are discovered at startup and their tools are published to the model.
+- The Researcher role ships a mechanical `deep_research` tool: multi-query web research
+  with concurrency limits, URL dedup, domain scoring, citations, and graceful
+  degradation (`incomplete` + gaps) — a pure search facade, no second LLM.
+- A read-only `github` helper connects to the official GitHub MCP server
+  (`SAVANT_CODE_GITHUB_TOKEN`) for PR/issue/CI review, code search, and secret scanning.
+- A `database` helper exposes `list_tables`, `describe_table`, `execute_query`, and
+  `analyze_query` over `bun:sqlite` with an adapter-enforced safety contract:
+  read-only by default, LIMIT injection, SQL redaction, and destructive-DDL blocking.
+- Browser automation supports `viewport` presets (mobile/tablet/desktop), an offline
+  WCAG accessibility scan, and optional session persistence.
 - Gateway model context lengths can be resolved from the live catalog.
+- A harness-side ECHO compliance layer enforces Law 1 (read-before-write) and Law 3
+  (verify-after-write) deterministically, mechanically flags the Verifier-criteria
+  (10+ lines / 2+ files / new API / security-sensitive / Forge), and escalates when a
+  write touches an active FID — non-blocking receipts plus corrective steering.
 
 ### Terminal UI
 
@@ -244,6 +271,10 @@ Retention is bounded to the most recent 20 turns, restore paths are revalidated,
 - Masked provider setup and health diagnostics.
 - Telemetry consent controls through `/telemetry status|enable|disable`.
 - Optional image attachments for multimodal providers.
+- `/export` writes a fully self-contained branded HTML report of the conversation
+  (offline fonts, collapsible tool rows, per-message and copy-all buttons).
+- Edit diffs tint added lines 50% neon green and removed lines 50% neon red, with a
+  `[-N/+M]` add/remove counter beside the copy button.
 
 ### SDK and runtime
 
@@ -266,7 +297,8 @@ Commands can be entered with `/`; aliases are shown in parentheses. Some command
 | `/help` (`/h`, `/?`) | Show command help and tips |
 | `/new` (`/clear`, `/reset`) | Start a fresh conversation |
 | `/history` (`/chats`) | Browse and resume previous sessions |
-| `/copy` (`/export`) | Copy the complete conversation |
+| `/copy` (`/copy-chat`) | Copy the complete conversation to the clipboard |
+| `/export` (`/save`) | Write a self-contained branded HTML report of the conversation |
 | `/interview` | Create a structured specification |
 | `/plan` | Create an implementation plan |
 | `/review` | Review code changes |
@@ -278,6 +310,7 @@ Commands can be entered with `/`; aliases are shown in parentheses. Some command
 | `/health` (`/status`, `/check`) | Check provider, Ollama, model, and permission status |
 | `/diagnostics` (`/diag`, `/processes`) | Show local process and resource diagnostics |
 | `/provider` | Configure a hosted provider key with masked input |
+| `/mode` | List the four modes and their contracts, or switch: `/mode <name>` or `/mode:<name>` |
 | `/model` | Select or switch the active model |
 | `/publish` | Publish agent templates through the Savant backend |
 | `/feedback` (`/bug`, `/report`) | Open the feedback flow |

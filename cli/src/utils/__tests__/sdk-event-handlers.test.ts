@@ -108,7 +108,7 @@ const createStreamRefs = (): {
   return { controller, state }
 }
 
-const createTestContext = (agentMode: AgentMode = 'EDIT') => {
+const createTestContext = (agentMode: AgentMode = 'HYBRID') => {
   let messages: ChatMessage[] = [
     {
       id: 'ai-1',
@@ -545,6 +545,31 @@ describe('sdk-event-handlers', () => {
       content: 'Here is the analysis result.',
     })
     expect(getStreamingAgents().size).toBe(0)
+  })
+
+  test('renders a compliance_warning as a muted transcript receipt', () => {
+    const { ctx, getMessages } = createTestContext()
+    const handleEvent = createEventHandler(ctx)
+
+    // FID-2026-0804-009: harness ECHO compliance receipt — non-blocking,
+    // appended to the AI message's text blocks.
+    handleEvent({
+      type: 'compliance_warning',
+      law: 'verifier_criteria',
+      severity: 'warning',
+      message: 'this change meets Verifier trigger criteria (10+ lines)',
+      path: 'src/a.ts',
+      stepNumber: 2,
+    })
+
+    const blocks = getMessages()[0].blocks ?? []
+    const textBlock = blocks.find((b) => b.type === 'text') as
+      | { content: string }
+      | undefined
+    expect(textBlock).toBeDefined()
+    expect(textBlock!.content).toContain('ECHO Verifier trigger')
+    expect(textBlock!.content).toContain('10+ lines')
+    expect(textBlock!.content).toContain('src/a.ts')
   })
 
   test('preserves streamed text content and skips duplicate final content', () => {
