@@ -1,3 +1,7 @@
+// Must evaluate before any module that imports common/env (analytics below):
+// pins NEXT_PUBLIC_CB_ENVIRONMENT away from prod so the config-dir override
+// stays effective even when tests run under the release-gate profile.
+import './test-env'
 import { beforeEach } from 'bun:test'
 
 import { disableAnalytics } from './utils/analytics'
