@@ -15,6 +15,7 @@ import {
 } from './chat-meta'
 import { saveChatStateToDb, loadChatStateFromDb } from './db-storage'
 import { logger } from './logger'
+import { safeStringify } from './safe-stringify'
 import { writeFileAtomic, writeFileAtomicAsync } from './write-file-atomic'
 
 import type { ChatMessage, ContentBlock } from '../types/chat'
@@ -222,8 +223,10 @@ export function saveChatState(
     const messagesPath = path.join(chatDir, CHAT_MESSAGES_FILENAME)
 
     fs.mkdirSync(chatDir, { recursive: true })
-    writeFileAtomic(runStatePath, JSON.stringify(runState))
-    writeFileAtomic(messagesPath, JSON.stringify(messages))
+    // FID-2026-0806-012: cyclic-safe serialization — a circular reference in
+    // the run state must never throw and lose the whole checkpoint.
+    writeFileAtomic(runStatePath, safeStringify(runState))
+    writeFileAtomic(messagesPath, safeStringify(messages))
     writeChatMeta(chatDir, messages, completed)
   } catch (error) {
     logger.error(
@@ -249,8 +252,10 @@ async function saveChatStateAsync(
     const messagesPath = path.join(chatDir, CHAT_MESSAGES_FILENAME)
 
     await fs.promises.mkdir(chatDir, { recursive: true })
-    await writeFileAtomicAsync(runStatePath, JSON.stringify(runState))
-    await writeFileAtomicAsync(messagesPath, JSON.stringify(messages))
+    // FID-2026-0806-012: cyclic-safe serialization — a circular reference in
+    // the run state must never throw and lose the whole checkpoint.
+    await writeFileAtomicAsync(runStatePath, safeStringify(runState))
+    await writeFileAtomicAsync(messagesPath, safeStringify(messages))
     // Sidecar summary so /history can list this chat without parsing the
     // (unbounded) chat-messages.json. Written after the messages file: it
     // records that file's size/mtime to detect staleness. The meta write is

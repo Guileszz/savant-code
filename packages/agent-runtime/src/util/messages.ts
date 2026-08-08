@@ -6,7 +6,11 @@ import { systemMessage, userMessage } from '@savant-code/common/util/messages'
 import { closeXml } from '@savant-code/common/util/xml'
 import { cloneDeep, isEqual } from 'lodash'
 
-import { simplifyTerminalCommandResults } from './simplify-tool-results'
+import {
+  simplifyTerminalCommandResults,
+  simplifyVerboseToolResults,
+  VERBOSE_TOOL_NAMES,
+} from './simplify-tool-results'
 import { countTokensMessages } from './token-counter'
 
 import type { System } from '../llm-api/claude'
@@ -19,6 +23,7 @@ import type { JSONValue } from '@savant-code/common/types/json'
 import type {
   TextPart,
   ImagePart,
+  ToolResultOutput,
 } from '@savant-code/common/types/messages/content-part'
 import type { Message } from '@savant-code/common/types/messages/savant-code-message'
 
@@ -205,6 +210,18 @@ export function trimMessagesToFitTokenLimit(params: {
     if (m.role === 'system' || m.role === 'user' || m.role === 'assistant') {
       shortenedMessages.push(m)
     } else if (m.role === 'tool') {
+      // P2c (FID-2026-0806-003): cheap deterministic pre-pass for the verbose
+      // tool set (grep/glob/search/URL/db results) — truncate before any
+      // budget walk so oversized payloads never crowd out real history.
+      if (VERBOSE_TOOL_NAMES.has(m.toolName)) {
+        shortenedMessages.push({
+          ...m,
+          content: simplifyVerboseToolResults({
+            messageContent: m.content as ToolResultOutput[],
+          }),
+        })
+        continue
+      }
       if (m.toolName !== 'run_terminal_command') {
         shortenedMessages.push(m)
         continue

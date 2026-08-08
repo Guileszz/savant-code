@@ -40,7 +40,8 @@ describe('handleHealthCommand provider reporting', () => {
       if (value === undefined) delete process.env[key]
       else process.env[key] = value
     }
-    if (originalConfigDir === undefined) delete process.env.SAVANT_CODE_CONFIG_DIR
+    if (originalConfigDir === undefined)
+      delete process.env.SAVANT_CODE_CONFIG_DIR
     else process.env.SAVANT_CODE_CONFIG_DIR = originalConfigDir
     fs.rmSync(tempDir, { recursive: true, force: true })
   })

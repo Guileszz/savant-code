@@ -13,6 +13,10 @@ import { loopAgentSteps } from '../../../run-agent-step'
 import { getAgentTemplate } from '../../../templates/agent-registry'
 import { formatValueForError } from '../../../util/format-value'
 import {
+  buildGraphInjectionMessage,
+  buildGraphInjectionUserMessage,
+} from '../../../util/graph-injection'
+import {
   filterUnfinishedToolCalls,
   withSystemTags,
 } from '../../../util/messages'
@@ -294,6 +298,7 @@ export function createAgentState(
   agentTemplate: AgentTemplate,
   parentAgentState: AgentState,
   agentContext: Record<string, Subgoal>,
+  graphInjectionProjectRoot?: string,
 ): AgentState {
   const agentId = generateCompactId()
 
@@ -304,6 +309,20 @@ export function createAgentState(
 
   if (agentTemplate.includeMessageHistory) {
     messageHistory = filterUnfinishedToolCalls(parentAgentState.messageHistory)
+    // FID-2026-0806-002 Phase 3c: harness-injected knowledge-graph evidence.
+    // Zero-tool agents (Verifier) and restricted agents (Thinker) may not call
+    // the graph query tools; the harness computes the evidence and injects it
+    // into message history instead. Best-effort — null evidence is skipped.
+    if (graphInjectionProjectRoot) {
+      const evidence = buildGraphInjectionMessage({
+        projectRoot: graphInjectionProjectRoot,
+        agentType,
+        parentMessageHistory: parentAgentState.messageHistory,
+      })
+      if (evidence) {
+        messageHistory.push(buildGraphInjectionUserMessage(evidence))
+      }
+    }
     messageHistory.push({
       role: 'user',
       content: [

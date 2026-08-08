@@ -41,6 +41,34 @@ Your task is to write out ALL the code changes needed to complete the user's req
 
 Important: You can not make any other tool calls besides editing files. You cannot read more files, write todos, spawn agents, or set output. set_output in particular should not be used. Do not call any of these tools!
 
+# YAGNI gate (FID-2026-0806-003 P5b)
+
+BEFORE writing any code, emit a <yagni_check> JSON block at the top of your response that walks the 6-rung Ponytail ladder honestly:
+
+- does this need to exist? (never build "for later" scaffolding)
+- already in this codebase? (reuse existing utilities — name them in reusedEntities)
+- does the stdlib solve it? (stdlibAlternatives)
+- does a native platform feature cover it? (name it in dependenciesAvoided)
+- is an installed dependency available? (dependenciesAvoided)
+- can it be a one-liner? (write the minimum that satisfies the objective)
+
+<yagni_check>
+{
+  "isSpeculative": false,
+  "reusedEntities": ["existing helper names"],
+  "stdlibAlternatives": [],
+  "dependenciesAvoided": ["new deps not added"],
+  "debtMarkersInserted": [],
+  "rungsTraversed": [1,2,3,4,5,6],
+  "exemptions": []
+}
+</yagni_check>
+
+Rules:
+- Trust-boundary validation, error paths (Law 14), and type safety (Law 6) are NEVER minimized — add them to the \`exemptions\` array and keep them.
+- If you take a permitted shortcut, insert an inline comment \`ponytail: ceiling=<what was not built>; upgrade=<when to build it>\` and list it in debtMarkersInserted.
+- A speculative write without a debt marker is REJECTED by the gate. Write the minimum code that satisfies the converged FID — nothing more.
+
 Write out what changes you would make using the tool call format below. Use this exact format for each file change:
 
 <savant_code_tool_call>

@@ -153,7 +153,7 @@ export async function main(
 
   // Load the repo's agent definitions so the SDK client has a non-empty
   // registry (the CLI prebuilds these into a bundle; the eval runner loads
-  // them explicitly, mirroring evals/benchmark/run-benchmark.ts).
+  // them explicitly).
   const agentDefinitions =
     args.mode === 'evaluate'
       ? Object.values(

@@ -44,17 +44,42 @@ function loadBinaryEnvIfPresent(): boolean {
     const parsed = JSON.parse(fs.readFileSync(envJsonPath, 'utf-8'))
     if (!parsed || typeof parsed !== 'object') return false
 
-    for (const [key, value] of Object.entries(
-      parsed as Record<string, unknown>,
-    )) {
-      if (typeof value === 'string') {
-        process.env[key] = value
-      }
-    }
+    applyBinaryEnvValues(parsed as Record<string, unknown>)
     return true
   } catch {
     // A missing or corrupt env.json is fine; fall through to .env.local logic.
     return false
+  }
+}
+
+/**
+ * Apply a release env.json object with the documented precedence rules.
+ * Exported for unit tests so release behavior is verified without building a
+ * compiled binary.
+ */
+export function applyBinaryEnvValues(
+  parsed: Record<string, unknown>,
+  targetEnv: NodeJS.ProcessEnv = process.env,
+): void {
+  const hasExplicitDirectRouting = Boolean(
+    targetEnv.DIRECT_PROVIDER?.trim() || targetEnv.INFERENCE_BASE_URL?.trim(),
+  )
+
+  for (const [key, value] of Object.entries(parsed)) {
+    // Treat provider and endpoint as an atomic pair. If either routing value
+    // is explicitly supplied by the shell, preserve the entire pair instead
+    // of mixing a custom provider with the release OpenRouter endpoint.
+    const isDirectRoutingKey =
+      key === 'DIRECT_PROVIDER' || key === 'INFERENCE_BASE_URL'
+    if (isDirectRoutingKey && hasExplicitDirectRouting) continue
+
+    // Release env.json remains authoritative for production/client values;
+    // otherwise a developer shell could reintroduce localhost URLs or dev
+    // analytics into a production binary. Only direct routing is an explicit
+    // runtime override because it is intentionally user-selectable.
+    if (typeof value === 'string') {
+      targetEnv[key] = value
+    }
   }
 }
 

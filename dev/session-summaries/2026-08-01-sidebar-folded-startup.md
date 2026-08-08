@@ -25,7 +25,7 @@
 ### Dependencies
 
 - No external service or package dependency required.
-- FreeBuff ECHO Protocol v0.1.2 and Savant ECHO v0.2.0 active.
+- Savant ECHO Protocol v0.1.2 and Savant ECHO v0.2.0 active.
 
 ---
 

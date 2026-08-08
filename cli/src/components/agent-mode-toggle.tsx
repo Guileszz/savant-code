@@ -247,12 +247,12 @@ export const AgentModeToggle = ({
             borderColor: isCollapsedHovered ? theme.foreground : theme.border,
           }}
           customBorderChars={BORDER_CHARS}
-        onClick={() => {
-          if (!inputFocused) return
-          setHoveredSegmentId(null)
-          hoverToggle.clearAllTimers()
-          hoverToggle.openNow()
-        }}
+          onClick={() => {
+            if (!inputFocused) return
+            setHoveredSegmentId(null)
+            hoverToggle.clearAllTimers()
+            hoverToggle.openNow()
+          }}
           onMouseOver={() => {
             if (collapsedHoverGraceRef.current) {
               clearTimeout(collapsedHoverGraceRef.current)

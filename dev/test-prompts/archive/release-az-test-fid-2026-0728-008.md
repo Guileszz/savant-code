@@ -104,22 +104,22 @@
 ### T3.1 — `FREEREADME.md` exists and is clear
 - Read `FREEREADME.md`
 - Verify it states Savant agents must NOT use `ECHO.md`
-- Verify it points to `dev/nova/specs/echo-v0.1.2-freebuff.md`
+- Verify it points to `dev/nova/specs/echo-v0.1.2-single-agent.md`
 - **Expected:** root-level directive is unambiguous
 
-### T3.2 — `ECHO-freebuff.md` is a protocol marker
-- Read `ECHO-freebuff.md`
-- Verify it points to the canonical Savant protocol at `dev/nova/specs/echo-v0.1.2-freebuff.md`
-- **Expected:** a session bootstrapping with `ECHO-freebuff.md` lands at the right protocol
+### T3.2 — `ECHO-single-agent.md` is a protocol marker
+- Read `ECHO-single-agent.md`
+- Verify it points to the canonical Savant protocol at `dev/nova/specs/echo-v0.1.2-single-agent.md`
+- **Expected:** a session bootstrapping with `ECHO-single-agent.md` lands at the right protocol
 
 ### T3.3 — Savant protocol is distinct from Savant-Code protocol
-- Read `dev/nova/specs/echo-v0.1.2-freebuff.md`
+- Read `dev/nova/specs/echo-v0.1.2-single-agent.md`
 - Read `ECHO.md`
 - Verify the Savant version is for single-agent operation and does not reference the 9-agent roster
 - **Expected:** the two protocols are clearly scoped to their respective contexts
 
-### T3.4 — FreeBuff ECHO version header is accurate
-- Verify `dev/nova/specs/echo-v0.1.2-freebuff.md` has a version header of `0.1.2-freebuff`
+### T3.4 — Savant ECHO version header is accurate
+- Verify `dev/nova/specs/echo-v0.1.2-single-agent.md` has a version header of `0.1.2-single-agent`
 - **Expected:** version matches the file name
 
 ---

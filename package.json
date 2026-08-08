@@ -1,6 +1,6 @@
 {
   "name": "savant-code",
-  "version": "0.0.20",
+  "version": "0.0.21",
   "license": "Apache-2.0",
   "type": "module",
   "workspaces": [
@@ -12,6 +12,7 @@
     "packages/agent-runtime",
     "packages/code-map",
     "packages/database",
+    "packages/knowledge-graph",
     "packages/llm-providers",
     "scripts/tmux",
     "sdk"
@@ -20,6 +21,9 @@
     "start-cli": "bun --cwd cli dev",
     "dev": "bun start-cli",
     "dev:savant-free": "SAVANT_FREE_MODE=true bun --cwd cli dev",
+    "release:public": "bun run scripts/public-release.ts",
+    "release:public:preview": "bun run scripts/public-release.ts --preview",
+    "release:public:resume": "bun run scripts/public-release.ts --resume",
     "release:cli": "bun run --cwd=cli release",
     "release:sdk": "bun run --cwd=sdk release",
     "release:savant-free": "bun run --cwd=savant-free release",
@@ -29,7 +33,8 @@
     "ci": "bun run build:sdk && bun run build:savant-free",
     "lint:md": "markdownlint .",
     "prepare": "git config core.hooksPath .githooks",
-    "typecheck": "bun run --cwd=common typecheck && bun run --cwd=agents typecheck && bun run --cwd=sdk typecheck && bun run --cwd=cli typecheck && bun run --cwd=evals typecheck && bun run --cwd=packages/agent-runtime typecheck && bun run --cwd=packages/code-map typecheck && bun run --cwd=packages/database typecheck && bun run --cwd=packages/llm-providers typecheck"
+    "typecheck": "bun run --cwd=common typecheck && bun run --cwd=agents typecheck && bun run --cwd=sdk typecheck && bun run --cwd=cli typecheck && bun run --cwd=evals typecheck && bun run --cwd=packages/agent-runtime typecheck && bun run --cwd=packages/code-map typecheck && bun run --cwd=packages/database typecheck && bun run --cwd=packages/knowledge-graph typecheck && bun run --cwd=packages/llm-providers typecheck",
+    "test": "bun run --cwd=sdk test && bun run --cwd=cli test && bun run --cwd=common test && bun run --cwd=agents test && bun run --cwd=evals test:v2 && bun run --cwd=packages/agent-runtime test && bun run --cwd=packages/code-map test && bun run --cwd=packages/database test && bun run --cwd=packages/knowledge-graph test && bun run --cwd=packages/llm-providers test"
   },
   "dependencies": {
     "better-sqlite3": "^12.11.1",

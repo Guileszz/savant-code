@@ -11,6 +11,7 @@ import {
   getSystemInfoPrompt,
 } from '../system-prompt/prompts'
 import { getToolCallFormatInstructions } from '../tools/prompts'
+import { getCavemanRulesBlockForAgent } from '../util/caveman-rules'
 import { parseUserMessage } from '../util/messages'
 
 import type { AgentTemplate, PlaceholderValue } from './types'
@@ -280,6 +281,18 @@ export async function getAgentPrompt<T extends StringField>(
         )
       }
       addendum += '\n```'
+    }
+
+    // P5f (FID-2026-0806-003) — Caveman telegraphic output rules (opt-in).
+    // Applied at the runtime boundary for the Orchestrator/Detective/Scribe
+    // when protocol.config.yaml `caveman.enabled: true`, so the compressed
+    // style cannot be lost to prompt staleness and stays config-gated.
+    const cavemanBlock = getCavemanRulesBlockForAgent(
+      agentTemplate.id,
+      params.fileContext.projectRoot,
+    )
+    if (cavemanBlock) {
+      addendum += `\n\n${cavemanBlock}`
     }
   }
 

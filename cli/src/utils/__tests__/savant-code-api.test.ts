@@ -497,14 +497,14 @@ describe('createSavantCodeApiClient', () => {
       })
 
       const client = createSavantCodeApiClient({
-        baseUrl: 'https://savant-free.com',
+        baseUrl: 'https://savant-code.com',
         fetch: mockTlsFetch as unknown as typeof fetch,
       })
 
       await expect(
         client.post('/api/auth/cli/code', { fingerprintId: 'test' }),
       ).rejects.toThrow(
-        'TLS certificate verification failed for https://savant-free.com.',
+        'TLS certificate verification failed for https://savant-code.com.',
       )
     })
 
@@ -516,7 +516,7 @@ describe('createSavantCodeApiClient', () => {
       })
 
       const client = createSavantCodeApiClient({
-        baseUrl: 'https://savant-free.com',
+        baseUrl: 'https://savant-code.com',
         fetch: mockTlsFetch as unknown as typeof fetch,
         retry: {
           maxRetries: 3,
@@ -527,7 +527,7 @@ describe('createSavantCodeApiClient', () => {
       await expect(
         client.post('/api/auth/cli/code', { fingerprintId: 'test' }),
       ).rejects.toThrow(
-        'TLS certificate verification failed for https://savant-free.com.',
+        'TLS certificate verification failed for https://savant-code.com.',
       )
       expect(mockTlsFetch).toHaveBeenCalledTimes(1)
     })

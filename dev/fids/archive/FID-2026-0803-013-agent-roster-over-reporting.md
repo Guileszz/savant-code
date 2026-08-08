@@ -3,7 +3,7 @@
 **Filename:** `FID-2026-0803-013-agent-roster-over-reporting.md`
 **ID:** FID-2026-0803-013
 **Severity:** low (UX/consistency — no data loss, no correctness failure)
-**Status:** verified
+**Status:** closed
 **Created:** 2026-08-03
 **Author:** Savant
 

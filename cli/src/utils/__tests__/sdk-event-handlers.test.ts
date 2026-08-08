@@ -564,8 +564,7 @@ describe('sdk-event-handlers', () => {
 
     const blocks = getMessages()[0].blocks ?? []
     const textBlock = blocks.find((b) => b.type === 'text') as
-      | { content: string }
-      | undefined
+      { content: string } | undefined
     expect(textBlock).toBeDefined()
     expect(textBlock!.content).toContain('ECHO Verifier trigger')
     expect(textBlock!.content).toContain('10+ lines')

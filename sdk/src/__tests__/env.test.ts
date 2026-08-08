@@ -1,6 +1,10 @@
 import { describe, test, expect, afterEach } from 'bun:test'
 
-import { getChatGptOAuthTokenFromEnv, getSdkEnv } from '../env'
+import {
+  getChatGptOAuthTokenFromEnv,
+  getSdkEnv,
+  isDirectProviderMode,
+} from '../env'
 import { createTestSdkEnv } from '../testing/env'
 
 describe('sdk/env', () => {
@@ -132,6 +136,43 @@ describe('sdk/env', () => {
     test('returns token from SAVANT_CODE_CHATGPT_OAUTH_TOKEN', () => {
       process.env.SAVANT_CODE_CHATGPT_OAUTH_TOKEN = 'chatgpt-oauth-token'
       expect(getChatGptOAuthTokenFromEnv()).toBe('chatgpt-oauth-token')
+    })
+  })
+
+  describe('isDirectProviderMode (FID-2026-0806-009)', () => {
+    const originalEnv = { ...process.env }
+
+    afterEach(() => {
+      Object.keys(process.env).forEach((key) => {
+        if (!(key in originalEnv)) {
+          delete process.env[key]
+        }
+      })
+      Object.assign(process.env, originalEnv)
+    })
+
+    test('returns false when neither DIRECT_PROVIDER nor INFERENCE_BASE_URL is set', () => {
+      delete process.env.DIRECT_PROVIDER
+      delete process.env.INFERENCE_BASE_URL
+      expect(isDirectProviderMode()).toBe(false)
+    })
+
+    test('returns true when DIRECT_PROVIDER is set', () => {
+      process.env.DIRECT_PROVIDER = 'openrouter'
+      delete process.env.INFERENCE_BASE_URL
+      expect(isDirectProviderMode()).toBe(true)
+    })
+
+    test('returns true when INFERENCE_BASE_URL is set', () => {
+      delete process.env.DIRECT_PROVIDER
+      process.env.INFERENCE_BASE_URL = 'https://openrouter.ai/api/v1'
+      expect(isDirectProviderMode()).toBe(true)
+    })
+
+    test('returns false for empty or whitespace-only values', () => {
+      process.env.DIRECT_PROVIDER = ''
+      process.env.INFERENCE_BASE_URL = '   '
+      expect(isDirectProviderMode()).toBe(false)
     })
   })
 })

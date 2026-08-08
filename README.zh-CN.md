@@ -8,14 +8,20 @@
 
 基于 TypeScript/Bun 构建，受 ECHO 协议治理，并针对本地优先的 Ollama 使用场景设计。
 
-[![TypeScript](https://img.shields.io/badge/TypeScript-5.5-%23000000?style=flat-square&logo=typescript&logoColor=%2300fbff)](https://www.typescriptlang.org/)[![Bun](https://img.shields.io/badge/Bun-1.3.14-%23000000?style=flat-square&logo=bun&logoColor=%2300fbff)](https://bun.sh/)[![React](https://img.shields.io/badge/React-19-%23000000?style=flat-square&logo=react&logoColor=%2300fbff)](https://react.dev/)[![OpenTUI](https://img.shields.io/badge/OpenTUI-0.2.2-%23000000?style=flat-square&logo=opentui&logoColor=%2300fbff)](https://github.com/anomalyco/opentui)[![ECHO](https://img.shields.io/badge/ECHO-v0.2.0-%23000000?style=flat-square&logo=github&logoColor=%2300fbff)](ECHO.md)[![License](https://img.shields.io/badge/License-Apache_2.0-%23000000?style=flat-square&logo=apache&logoColor=%2300fbff)](LICENSE)[![Release](https://img.shields.io/badge/Release-v0.0.20-%23000000?style=flat-square&logo=semver&logoColor=%2300fbff)](CHANGELOG.md)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.5-%23000000?style=flat-square&logo=typescript&logoColor=%2300fbff)](https://www.typescriptlang.org/)[![Bun](https://img.shields.io/badge/Bun-1.3.14-%23000000?style=flat-square&logo=bun&logoColor=%2300fbff)](https://bun.sh/)[![React](https://img.shields.io/badge/React-19-%23000000?style=flat-square&logo=react&logoColor=%2300fbff)](https://react.dev/)[![OpenTUI](https://img.shields.io/badge/OpenTUI-0.2.2-%23000000?style=flat-square&logo=opentui&logoColor=%2300fbff)](https://github.com/anomalyco/opentui)[![ECHO](https://img.shields.io/badge/ECHO-v0.2.0-%23000000?style=flat-square&logo=github&logoColor=%2300fbff)](ECHO.md)[![License](https://img.shields.io/badge/License-Apache_2.0-%23000000?style=flat-square&logo=apache&logoColor=%2300fbff)](LICENSE)[![Release](https://img.shields.io/badge/Release-v0.0.21-%23000000?style=flat-square&logo=semver&logoColor=%2300fbff)](CHANGELOG.md)
 
 </div>
 
-> **v0.0.20** — MCP 功能集成版本：为 Researcher 角色新增机械式
-> `deep_research` 工具、`github` 与 `database` 基础架构辅助（只读 GitHub MCP、
-> 适配器强制的 SQL 安全）、browser-use 参数升级（viewport / WCAG / 持久化）、
-> 自包含品牌化 `/export` HTML 报告，以及完成感知的退出刷新。
+> **v0.0.21** — v0.0.20 之后的首次发布：格式化/测试门禁全面生效、ECHO 强制执行层、
+> 上下文窗口修正、确定性代码知识图谱，以及对抗式验证 —— ECHO 完美循环新增
+> **ADVERSARIAL** 阶段与只读的 **Adversary** 智能体（反驳 Verifier 结论、复核无证据
+> PASS、裁决优先），每条裁决绑定 `file:line` 证据规则（`NEEDS-REVIEW` 用于无法取证
+> 的项），规范智能体名册扩至 10 个角色，并新增 Savant 设计规范技能。
+> 本版还包括令牌优化与 YAGNI 强制（四层上下文压缩、ponytail 技术债账本、可选的
+> Caveman 电报式输出、实时上下文计量表）以及 `/contribute` 贡献者提交流程。
+> 同一版本还交付了新用户拆解修复（FID-2026-0806-009…015）：每个后端调用的 BYOK
+> 门禁、以 OpenRouter 为首选的启动默认值、通过 `--print` 无头模式显示失败、支持循环引用的
+> 聊天序列化、品牌清理、需同意的自动更新以及遥测披露。全部 FID 积压已关闭并归档。
 
 ---
 
@@ -43,10 +49,11 @@ ollama serve
 
 然后再次运行 `savant-code`，或在聊天中输入 `/health` 验证连接。
 
-如果 Ollama 没有运行，请在发送提示词前配置一个托管提供商：
+如果 Ollama 没有运行，请在发送提示词前配置一个托管提供商。CLI **默认以 OpenRouter 启动**（`openrouter/free`
+免费层）—— 设置一个密钥即可使用：
 
 ```text
-/provider opencode-go
+/provider openrouter
 ```
 
 你也可以输入 `/provider` 从交互式选择器中选择。将密钥粘贴到遮罩提示框中；它会被全局存储，且永远不会写入
@@ -55,9 +62,10 @@ ollama serve
 | 提供商 | 命令 | 环境变量 | 说明 |
 | --- | --- | --- | --- |
 | Ollama | 自动检测 | — | 本地推理；无需 API 密钥 |
-| OpenRouter 直连 | `/provider openrouter` 或 `DIRECT_PROVIDER=openrouter` | `OR_MASTER_KEY`、`OPENROUTER_API_KEY` 或 `INFERENCE_API_KEY` | 直连模式；优先使用主密钥、普通密钥，再使用推理密钥 |
-| OpenCode Go | `/provider opencode-go` | `OPENCODE_GO_API_KEY` | 默认托管提供商；默认模型为 MiMo 2.5 |
+| OpenRouter | `/provider openrouter` 或 `DIRECT_PROVIDER=openrouter` | `OR_MASTER_KEY`、`OPENROUTER_API_KEY` 或 `INFERENCE_API_KEY` | **默认提供商**；免费层（`openrouter/free`）为启动默认；主密钥、普通密钥，再推理密钥的优先级 |
+| OpenCode Go | `/provider opencode-go` | `OPENCODE_GO_API_KEY` | 托管网关 |
 | TokenRouter | `/provider tokenrouter` | `TOKENROUTER_API_KEY` | 多提供商网关 |
+| TokenHarbor | `/provider tokenharbor` | `TOKENHARBOR_API_KEY` | `https://tokenharbor.ai/v1` 的 OpenAI 兼容网关 |
 | NVIDIA NIM | `/provider nvidia` | `NVIDIA_API_KEY` | NVIDIA 托管推理 |
 | CommandCode | `/provider commandcode` | `COMMAND_CODE_API_KEY` | OpenAI 兼容的托管推理 |
 
@@ -65,27 +73,33 @@ ollama serve
 `~/.savant-code/credentials.json`。环境变量优先于已保存的凭据。自动化时，在启动 Savant-Code 前设置一个提供商密钥：
 
 ```powershell
-# PowerShell —— 选择一个提供商密钥
-$env:OPENCODE_GO_API_KEY = "your-key"
+# PowerShell —— 选择一个提供商密钥（OpenRouter 为启动默认）
+$env:OPENROUTER_API_KEY = "your-key"
+# $env:OPENCODE_GO_API_KEY = "your-key"
 # $env:TOKENROUTER_API_KEY = "your-key"
+# $env:TOKENHARBOR_API_KEY = "your-key"
 # $env:NVIDIA_API_KEY = "your-key"
 # $env:COMMAND_CODE_API_KEY = "your-key"
 savant-code
 ```
 
 ```cmd
-:: 命令提示符 —— 选择一个提供商密钥
-set OPENCODE_GO_API_KEY=your-key
+:: 命令提示符 —— 选择一个提供商密钥（OpenRouter 为启动默认）
+set OPENROUTER_API_KEY=your-key
+:: set OPENCODE_GO_API_KEY=your-key
 :: set TOKENROUTER_API_KEY=your-key
+:: set TOKENHARBOR_API_KEY=your-key
 :: set NVIDIA_API_KEY=your-key
 :: set COMMAND_CODE_API_KEY=your-key
 savant-code
 ```
 
 ```bash
-# macOS/Linux —— 选择一个提供商密钥
-export OPENCODE_GO_API_KEY="your-key"
+# macOS/Linux —— 选择一个提供商密钥（OpenRouter 为启动默认）
+export OPENROUTER_API_KEY="your-key"
+# export OPENCODE_GO_API_KEY="your-key"
 # export TOKENROUTER_API_KEY="your-key"
+# export TOKENHARBOR_API_KEY="your-key"
 # export NVIDIA_API_KEY="your-key"
 # export COMMAND_CODE_API_KEY="your-key"
 savant-code
@@ -93,7 +107,9 @@ savant-code
 
 ### OpenRouter 直连模式
 
-如需绕过 Savant Code 后端、将推理直接路由到 OpenRouter，请设置：
+OpenRouter 是**默认启动提供商**（免费层 `openrouter/free`）；任何 `openrouter/` 模型路由到
+`https://openrouter.ai/api/v1` 并使用解析后的密钥。如需绕过 Savant Code 后端、将推理直接路由到
+OpenRouter，请设置：
 
 ```bash
 export DIRECT_PROVIDER=openrouter
@@ -119,8 +135,8 @@ MCP 工具发现、模式切换（`HYBRID` / `SCAFFOLD` / `STRICT` / `ANALYZE`�
 运行时、多智能体编排引擎、工具层与 LLM 提供商适配层共享，因此两个产品面从同一套代码发布。
 
 整个项目基于 [ECHO 协议 v0.2.0](ECHO.md) 发布——即治理 Savant 生态的同一套 15 条定律 agent 纪律。每项
-改动都要经过 RED → GREEN → AUDIT → SELF-CORRECT → COMPLETE 完美循环状态机，并带有硬性的 10 次迭代
-上限与每次通过 10% 的 Levenshtein 改动上限。
+改动都要经过 RED → GREEN → AUDIT → ADVERSARIAL → SELF-CORRECT → COMPLETE 完美循环状态机，并带有硬性的
+10 次迭代上限与每次通过 10% 的 Levenshtein 改动上限。
 
 ---
 
@@ -145,8 +161,9 @@ MCP 工具发现、模式切换（`HYBRID` / `SCAFFOLD` / `STRICT` / `ANALYZE`�
 
 ### CLI（`@savant-code/cli`）
 
-- **多智能体编排** —— 9 个专职智能体通过 ECHO 协议协作：Detective 发现问题，Forge 实现，Verifier
-  审计，Recorder 管理 FID，Thinker 推理，Scout 探索，Researcher 调研，Scribe 记录文档。
+- **多智能体编排** —— 10 个专职智能体通过 ECHO 协议协作：Detective 发现问题，Forge 实现，Verifier
+  审计，Adversary 反驳审计，Recorder 管理 FID，Thinker 推理，Scout 探索，Researcher 调研，Scribe
+  记录文档。
 - **带顺序思维的 Thinker** —— Thinker 智能体通过 `sequentialthinking` 累积栈式推理步骤，收敛到类型化
   非空的 `FinalArtifact`（status/synthesis/payload/metrics/thoughts），绝不返回 null 或空结果。
 - **原生工具调用加固** —— 针对不完整/畸形/截断工具调用的 fail-closed 流式边界；占位参数的老旧片段
@@ -160,8 +177,7 @@ MCP 工具发现、模式切换（`HYBRID` / `SCAFFOLD` / `STRICT` / `ANALYZE`�
 - **提供商设置** —— `/provider` 打开交互式下拉选择器，显示所有提供商及其 ✓/✗ 配置状态。选择提供商后可
   输入其 API 密钥（遮罩输入）。密钥存储在本地 `credentials.json`。
 - **遥测控制** —— `/telemetry status|enable|disable` 切换远程分析与错误上报。主 CLI 默认开启远程分析，但用户可以
-  随时关闭；关闭后本地日志仍然可用。上下文广告是独立设置：主 CLI 默认关闭广告，并可在适用时单独控制。Savant-Free
-  是独立的广告支持产品面。
+  随时关闭；关闭后本地日志仍然可用。上下文广告是独立设置：主 CLI 默认关闭广告，并可在适用时单独控制。
 - **`@filename` 与 `@AgentName` 提及** —— 文件与智能体提及，支持行内自动补全。
 - **Bash 模式** —— `!command` 或 `/bash` 行内运行 shell 命令（需确认）。
 - **权限与沙箱控制** —— `--permission-mode safe|prompt|unsafe` 设置启动策略；
@@ -198,6 +214,17 @@ MCP 工具发现、模式切换（`HYBRID` / `SCAFFOLD` / `STRICT` / `ANALYZE`�
 - **自包含 `/export`** —— 将整个对话写入品牌化、完全离线的 HTML 报告（Savant 徽标 + Neon Slate 主题
   + 内联为 base64 的 Font Awesome 图标；零网络请求），支持可折叠的工具/思考行以及逐条消息 / 全部复制
   按钮（FID-2026-0804-007）。
+- **代码知识图谱** —— 确定性、增量式、基于 SQLite 的图谱，构建在 `packages/code-map`（tree-sitter）之上，
+  带 sha256 差异比对、`IMPORTS`/`CALLS`/`EXTENDS` 边与种子化 Louvain 域聚类。`/graph refresh` 按需重新索引；
+  Detective/Scout 通过只读原生工具查询爆炸半径、节点边与域聚类；Verifier 的 Law 4 可达性检查由 harness
+  计算并注入其消息历史（零工具契约不变）；`/graph-export` 写出品牌化、完全离线的交互式 HTML 报告，复用
+  `/export` 设计系统（FID-2026-0806-002）。
+- **ECHO Harness 强制执行层（EHEL）** —— 在工具执行器层面结构化执行全部 15 条 ECHO 定律。写入前门禁在违规
+  发生前拦截（Law 1：先读后写、Law 3：先验证后继续、Law 7：先搜索后创建、Law 8：意图日志、20 行阈值的 FID
+  Recorder 门禁）。轮次结束批量运行写入后扫描器（Law 5、6、9、10、12、14、15）。轮次结束检查 Law 4 调用图可达性。
+  FID 完整性校验器带强制性的未解答问题。模式驱动：**Hybrid** = Law 1-4 拦截 + Law 5-15 建议；**Strict** =
+  全部 15 条拦截。只有 2 个智能体拥有写工具（Orchestrator + Recorder）。紧急绕过：智能体请求、用户确认
+  （FID-2026-0805-007）。
 - **Harness ECHO 合规层** —— 以每次运行的运行时追踪器实现确定性的 Law 1（先读后写）、Law 3（写后验证）
   与机械式 Verifier 判据（10+ 行 / 2+ 文件 / 新 API / 安全敏感 / Forge）：非阻塞 `compliance_warning`
   收据 + 纠正性引导，让运行中的智能体自行修正；当写入触及活动 FID 时升级为始终启用（FID-2026-0804-009）。
@@ -209,15 +236,146 @@ MCP 工具发现、模式切换（`HYBRID` / `SCAFFOLD` / `STRICT` / `ANALYZE`�
 - **上下文窗口解析** —— 网关模型（例如 `opencode-go/mimo-v2.5`）在运行时从 OpenRouter 目录解析其真实
   上下文长度。
 - **通用复制按钮** —— 在整个 TUI 中悬停即可复制代码块、工具输出与文件 diff。
-- **网关提供商** —— 通过 `@savant-code/llm-providers` 支持 TokenRouter、NVIDIA NIM、OpenCode Go、
+- **网关提供商** —— 通过 `@savant-code/llm-providers` 支持 TokenRouter、TokenHarbor、NVIDIA NIM、OpenCode Go、
   CommandCode 与 Cloudflare Workers AI。
-- **默认模型** —— 通过 OpenCode Go 使用 MiMo 2.5（可通过 `/model` 配置）。
+- **默认模型** —— 通过 OpenRouter 使用 `openrouter/free`（可通过 `/model` 配置）。
+- **无头 / 非交互模式** —— `savant-code --print "<prompt>"` 无需 TUI 即可运行单个提示词，并将最终答案打印到
+  stdout。退出码：`0` 成功、`1` 错误或超时、`2` 用法错误。当 stdin 被管道化或环境为 CI 时，CLI 自动进入无头模式并以
+  stdin 作为提示词。`SAVANT_CODE_RUN_TIMEOUT_MS`（默认 10 分钟）限制挂起的运行（FID-2026-0806-011）。
+- **同意式自动更新** —— 启动器绝不在会话运行中停止进程：新版本会在下次启动时经 y/N 提示后应用。
+  `SAVANT_CODE_NO_AUTO_UPDATE=1` 完全退出（FID-2026-0806-014）。
 - **主题** —— 亮/暗切换（`/theme:toggle`），Neon Slate 美学。
 - **侧栏折叠** —— 右侧栏区块与 FID 卡片默认折叠，首屏渲染更紧凑；点击展开。
 - **完整命令面** —— 主要斜杠命令已在下方参考表中列出；高级命令仍可通过注册表与自动补全使用。
 - **检查点与回退** —— 每轮一个持久化检查点，记录每个首触文件的编辑前内容（包括子智能体写入）以及对话
   边界；`/rewind` 打开选择器，可恢复**仅代码**、**仅对话**、**两者**，或从更早的一轮**分叉新会话**——无需
   git。保留上限为最近 20 轮，且终端副作用永远不会被回退。
+
+---
+
+## 导出工作流：对话报告与 Code Universe
+
+Savant-Code 有**两个完全独立的导出功能**，它们面向不同的用途并生成不同的 HTML 文件：
+
+| 命令 | 导出内容 | 适用场景 |
+| --- | --- | --- |
+| `/export`（别名 `/save`） | 当前聊天记录 | 保存或分享智能体会话、工具调用、编辑过程与最终答案 |
+| `/graph-export`（别名 `/graph:export`、`/gexport`） | 已索引的代码库与交互式 Code Universe | 探索、演示或分享代码库的离线可视化快照 |
+
+两个报告都是自包含的品牌化 HTML 文件，可以直接通过 `file://` 打开，不需要托管服务、本地 Web 服务器、
+项目运行时或运行中的 API 连接。
+
+### `/export`：保存对话
+
+`/export` 是**会话报告**，不是纯文本转储。它会保存当前对话，并包含角色徽标、Neon Slate 设计系统、会话元数据、
+用户/Savant/错误行、渲染后的 Markdown、工具输入与输出、嵌套子智能体区块、计划、思考内容、ask-user 问答以及附件说明。
+工具与思考内容可以折叠；每条消息都有 **Copy** 按钮，顶部还有 **Expand all**、**Collapse all** 与 **Copy all** 控件。
+
+```text
+/export
+/save
+/export reports/session-review.html
+```
+
+`/save` 是别名。不指定路径时，CLI 会创建并重复使用这个单文件轮换输出：
+
+```text
+dev/exports/conversation/savant-export.html
+```
+
+相对路径以当前工作目录为基准，绝对路径按原样使用。成功后命令会报告消息数量、解析后的输出路径与文件大小；空对话只会
+添加系统提示，不会创建文件；文件系统错误会显示在聊天中。
+
+报告 HTML 会对内容进行转义，并且完全自包含。Font Awesome CSS/字体以内联方式嵌入；剪贴板优先使用安全的 Clipboard API，
+在 `file://` 限制该 API 时使用兼容回退。报告不会重新运行工具、重新连接提供商，也不会随代码库变化自动更新，而是保存一份静态的
+决策轨迹：用户提出了什么、智能体做了什么、哪些文件发生了变化以及最终答案。
+
+![Savant Code 对话导出](assets/export.png)
+
+截图展示了本地报告的品牌化标题、会话元数据、全局展开/折叠/复制控制、对话行、可折叠的执行区块以及逐条消息复制按钮。
+每次导出的会话 ID、时间戳、消息数量与内容都会不同。详细的渲染、安全与分享说明请参阅[对话导出指南](docs/code-universe-export.md#conversation-export-export)。
+
+下面的三张图明确属于 `/graph-export`，不是对话报告。
+
+### `/graph-export`：探索离线 Code Universe
+
+`/graph-export` 是**代码库报告**，不是聊天记录。它将本地知识图谱序列化成一个名为 Code Universe 的空间化、
+可交互 HTML 代码库浏览器。
+
+先构建或刷新结构索引：
+
+```text
+/graph refresh
+/graph refresh --full
+```
+
+第一次刷新会构建 `.savant/graph.db`；之后的刷新会比较文件哈希，只重新解析变化的文件。该数据库可重新生成、
+已被 Git 忽略，也不会被打包进报告。
+
+然后生成报告：
+
+```text
+/graph-export
+/graph:export
+/gexport
+/graph-export reports/code-universe.html
+```
+
+默认输出是单文件轮换路径 `dev/exports/graph/savant-graph.html`。自定义相对或绝对路径会按指定位置写入。较大的导出过程中，
+CLI 会显示索引刷新、图谱序列化、布局、文档嵌入、压缩、HTML 组装与写入等阶段，而不是看起来像卡死。
+
+#### Code Universe 包含的内容
+
+- **Universe 视图：** 基于 Sigma.js/Graphology WebGL 画布展示系统、文件、关系走廊、聚类、环境空间效果与 Savant 角色标记。
+- **排名搜索：** 使用导出时生成的索引搜索路径、系统、文件夹与文件；结果显示在搜索框下方，并支持鼠标与键盘选择。
+- **层级导航：** 展开系统侧栏中的嵌套文件夹与文件，在中央浏览器打开文件夹，也可以直接选择文件。
+- **文档查看器：** 打开嵌入的文本文件、经过验证的栅格图像，或查看明确的不可用/二进制回退状态；导出后不会再从磁盘读取文件。
+- **详情与连接：** 查看路径、元数据、聚类、方向、边类型、相关对象以及可复制的完整路径。
+- **窗口控制：** 拖动面板，将面板最小化到类似任务栏的停靠条，最大化、恢复或独立关闭面板。
+- **文档控制：** 复制文本、切换自动换行、查看方括号中的行/字节元数据、使用面包屑，并在前后相邻文件间移动。
+- **离线行为：** Sigma.js、Graphology、字体、图标、品牌资源、图谱数据以及启用的文档载荷都嵌入文件；不需要 CDN 或运行时网络请求。
+
+#### Code Universe 视觉导览
+
+Universe 总览将系统和文件关系变成可导航的地图。选择系统进入其轨道，使用搜索跳转到路径，或展开左侧导航树深入文件夹。
+
+![Savant Code Universe 总览](assets/universe-1.png)
+
+栅格图像会在同一套品牌化查看器中打开。PNG、JPEG、GIF 与 WebP 文件在嵌入前会经过验证；不支持、损坏或不安全的媒体
+会显示明确的回退状态，而不会被静默地错误展示。
+
+![Code Universe 图像文档查看器](assets/universe-img.png)
+
+文本文件会以易读的源代码视图打开，并提供路径面包屑、行数与字节元数据、复制、换行控制及相邻文件导航。源文本已嵌入报告，
+因此查看器在离线状态下仍然可用。
+
+![Code Universe 文本文档查看器](assets/universe-text.png)
+
+#### 文档与隐私模型
+
+图谱索引保存的是结构元数据——路径、符号、哈希、边类型与聚类——而不是实时服务器或仓库的外部副本。HTML 报告是快照，
+代码发生变化后应重新生成。
+
+图谱报告默认嵌入文本文件。你可以提供正数限制以生成更小的文件；二进制内容和不支持的媒体仍会受到格式、签名、路径包含关系
+与媒体大小检查的保护。可用控制项包括：
+
+```text
+SAVANT_GRAPH_EXPORT_DOCUMENTS=0
+SAVANT_GRAPH_EXPORT_NO_PREVIEW=1
+SAVANT_GRAPH_EXPORT_PREVIEWS=1
+SAVANT_GRAPH_EXPORT_DOCUMENT_LINES=<正整数>
+SAVANT_GRAPH_EXPORT_DOCUMENT_BYTES=<正整数>
+SAVANT_GRAPH_EXPORT_DOCUMENT_IMAGE_BYTES=<正整数>
+SAVANT_GRAPH_EXPORT_TOTAL_TEXT_BYTES=<正整数>
+SAVANT_GRAPH_EXPORT_TOTAL_MEDIA_BYTES=<正整数>
+```
+
+`SAVANT_GRAPH_EXPORT_DOCUMENTS=0` 会关闭文档正文。预览默认关闭；`SAVANT_GRAPH_EXPORT_PREVIEWS=1` 可为详情面板启用小型预览，
+而 `SAVANT_GRAPH_EXPORT_NO_PREVIEW=1` 是强制关闭开关。其余变量用于设置每个文件或聚合载荷的正数上限。无法安全读取的文档会被
+标记为不可用，而不会替换成具有误导性的内容。
+
+请为对话使用 **`/export`**，为代码库使用 **`/graph-export`**。两者可以配合使用：前者保存推理与实现轨迹，后者保存本次会话
+检查过的可视化代码库快照。完整用法、故障排查与离线架构请参阅 [导出工作流指南](docs/code-universe-export.md)。
 
 ### SDK（`@savant-code/sdk`）
 
@@ -242,10 +400,10 @@ MCP 工具发现、模式切换（`HYBRID` / `SCAFFOLD` / `STRICT` / `ANALYZE`�
 
 ### ECHO 协议集成
 
-- **9 个专职智能体** —— Orchestrator、Detective、Forge、Verifier、Recorder、Thinker、Scout、
-  Researcher、Scribe
+- **10 个专职智能体** —— Orchestrator、Detective、Forge、Verifier、Adversary、Recorder、Thinker、
+  Scout、Researcher、Scribe
 - **FID 约束执行** —— FID 收敛之前绝不写代码
-- **完美循环状态机** —— RED → GREEN → AUDIT → SELF-CORRECT → COMPLETE
+- **完美循环状态机** —— RED → GREEN → AUDIT → ADVERSARIAL → SELF-CORRECT → COMPLETE
 - **职责分离** —— 写代码的智能体不能验证它
 - **15 条定律** —— 4 条不可变流程定律 + 11 条扩展代码定律
 
@@ -306,10 +464,10 @@ STRICT 下也保持无仪式。
 | `cli/`                    | `@savant-code/cli`            | CLI 源码——UI、命令、状态、hooks、OpenTUI/React 组件             |
 | `common/`                 | `@savant-code/common`         | 共享类型、工具定义、工具函数                                    |
 | `evals/`                  | `@savant-code/evals`          | ECHO 原生 benchmark v2 运行器 + 遗留 eval fixtures              |
-| `savant-free/`            | `@savant-code/savant-free`    | 私有/预发布的免费广告支持变体；支持本地二进制与 E2E 测试          |
 | `packages/agent-runtime/` | `@savant-code/agent-runtime`  | agent 循环、工具执行器、LLM API 集成                            |
 | `packages/code-map/`      | `@savant-code/code-map`       | tree-sitter 代码索引、语言检测                                  |
 | `packages/database/`      | `@savant-code/database`       | 数据库抽象层                                                     |
+| `packages/knowledge-graph/` | `@savant-code/knowledge-graph` | 确定性代码知识图谱引擎（索引器、查询、聚类、导出序列化器）         |
 | `packages/llm-providers/` | `@savant-code/llm-providers`  | 公开 LLM 提供商适配层                                           |
 | `sdk/`                    | `@savant-code/sdk`            | 公开 SDK——`SavantCodeClient`、类型、构建 + 验证脚本             |
 | `scripts/tmux/`           | `@savant-code/tmux`           | 交互式测试运行中使用的 tmux CLI 辅助工具                         |
@@ -388,17 +546,18 @@ savant-code
 
 ### 配置托管提供商密钥
 
-如果 Ollama 没有运行，Savant-Code 需要所选网关模型的提供商 API 密钥。可使用交互式选择器，也可以直接选择：
+如果 Ollama 没有运行，Savant-Code 需要所选模型的提供商 API 密钥。启动默认是 OpenRouter 免费层
+（`openrouter/free`），因此 `/provider openrouter` 是最快的路径。可使用交互式选择器，也可以直接选择：
 
 ```text
+/provider openrouter
 /provider opencode-go
 /provider tokenrouter
+/provider tokenharbor
 /provider nvidia
 /provider commandcode
-```
-
-支持的环境变量是 `OPENCODE_GO_API_KEY`、`TOKENROUTER_API_KEY`、`NVIDIA_API_KEY` 与
-`COMMAND_CODE_API_KEY`。密钥提示为遮罩输入，并将密钥全局存储在 Savant-Code 配置的 `credentials.json` 中；不会加入
+```支持的环境变量是 `OPENROUTER_API_KEY`、`OPENCODE_GO_API_KEY`、`TOKENROUTER_API_KEY`、`TOKENHARBOR_API_KEY`、
+  `NVIDIA_API_KEY` 与 `COMMAND_CODE_API_KEY`。密钥提示为遮罩输入，并将密钥全局存储在 Savant-Code 配置的 `credentials.json` 中；不会加入
 聊天记录。shell 环境变量优先于已存储的密钥，因此 CI 与托管环境可以不使用本地持久化来配置提供商。高级直接提供商
 集成可以使用 `INFERENCE_BASE_URL` 与 `INFERENCE_API_KEY`；OpenRouter 可使用 `OPENROUTER_API_KEY` 或
 `SAVANT_CODE_BYOK_OPENROUTER`。
@@ -425,7 +584,7 @@ savant-code
 
 ## 斜杠命令参考
 
-命令可以使用 `/` 输入；别名显示在括号中。Savant-Free 模式会有意移除付费/后端专属命令，因此可用命令可能有所不同。
+命令可以使用 `/` 输入；别名显示在括号中。
 
 | 命令 | 作用 |
 | --- | --- |
@@ -434,6 +593,8 @@ savant-code
 | `/history`（`/chats`） | 浏览并恢复历史对话 |
 | `/copy`（`/copy-chat`） | 将完整对话复制到剪贴板 |
 | `/export`（`/save`） | 将对话写入自包含的品牌化 HTML 报告 |
+| `/graph refresh`（`/graph`） | 重新索引代码知识图谱并显示摘要统计（`--full` 全量重建） |
+| `/graph-export`（`/graph:export`） | 将代码知识图谱写入品牌化的交互式离线 HTML 报告 |
 | `/interview` | 将想法整理为结构化规格 |
 | `/plan` | 创建实现计划 |
 | `/review` | 审查代码改动 |
@@ -457,8 +618,6 @@ savant-code
 | `/login` / `/logout` | 登录或结束当前会话 |
 | `/exit`（`/quit`、`/q`） | 退出 CLI |
 
-Savant-Free 还提供 `/end-session` 等免费会话控制和模型选择器；付费/后端专属命令会从该构建中筛除。
-
 ---
 
 ## ECHO 协议
@@ -468,7 +627,7 @@ Savant-Free 还提供 `/end-session` 等免费会话控制和模型选择器；�
 ### 核心原则
 
 - **FID 约束执行** —— FID 收敛之前绝不写代码
-- **完美循环** —— RED → GREEN → AUDIT → SELF-CORRECT → COMPLETE
+- **完美循环** —— RED → GREEN → AUDIT → ADVERSARIAL → SELF-CORRECT → COMPLETE
 - **职责分离** —— 写代码的智能体不能验证它
 - **不允许拖延** —— 每个已批准的工作项都必须完成
 
@@ -526,12 +685,26 @@ bun x prettier --write .
 
 ---
 
+## 隐私与遥测
+
+CLI 默认**开启远程分析与错误报告**（FID-2026-0806-015）。CLI 会发送匿名的使用事件与错误报告，
+用于改进产品；这些事件不会包含提示词内容。
+
+- 可随时使用 `/telemetry disable` **关闭**（使用 `/telemetry enable` 重新开启）；
+  `/telemetry status` 可查看当前状态。
+- 关闭远程分析后，**本地日志仍然可用**。
+- **上下文广告是独立设置**：主 CLI 默认关闭广告，并可在适用时单独控制。
+- 首次启动会显示一行关于该默认设置的提示；提示只显示一次，之后不会重复。
+
+---
+
 ## 文档
 
 - [`ECHO.md`](ECHO.md) — 15 条定律 + 完美循环状态机
 - [`ARCHITECTURE.md`](ARCHITECTURE.md) — agent 名册与工具限制
 - [`protocol.config.yaml`](protocol.config.yaml) — 构建命令、质量基准
 - [`CHANGELOG.md`](CHANGELOG.md) — 发布历史
+- [`docs/code-universe-export.md`](docs/code-universe-export.md) — `/export` 对话报告与 `/graph-export` Code Universe 指南
 - [`docs/launch/landing/index.html`](docs/launch/landing/index.html) — 公开落地页
 - [`dev/LEARNINGS.md`](dev/LEARNINGS.md) — 跨会话经验
 - [`dev/session-summaries/`](dev/session-summaries/) — 会话审计轨迹

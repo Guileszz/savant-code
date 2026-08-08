@@ -1,10 +1,10 @@
 import { z } from 'zod/v4'
 
-/* eslint-disable no-console -- example script: intentional console output */
 import { SavantCodeClient, getCustomToolDefinition } from '@savant-code/sdk'
 
 import type { AgentDefinition } from '@savant-code/sdk'
 
+/* eslint-disable no-console -- example script: intentional console output */
 async function main() {
   const client = new SavantCodeClient({
     // Note: You need to pass in your own API key.

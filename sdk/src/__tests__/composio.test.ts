@@ -6,9 +6,50 @@ import { executeComposioToolViaServer } from '../composio'
 
 describe('Composio SDK tools', () => {
   const originalFetch = globalThis.fetch
+  const originalDirectProvider = process.env.DIRECT_PROVIDER
+  const originalInferenceBaseUrl = process.env.INFERENCE_BASE_URL
 
   afterEach(() => {
     globalThis.fetch = originalFetch
+    if (originalDirectProvider !== undefined) {
+      process.env.DIRECT_PROVIDER = originalDirectProvider
+    } else {
+      delete process.env.DIRECT_PROVIDER
+    }
+    if (originalInferenceBaseUrl !== undefined) {
+      process.env.INFERENCE_BASE_URL = originalInferenceBaseUrl
+    } else {
+      delete process.env.INFERENCE_BASE_URL
+    }
+  })
+
+  test('returns a clear error without fetching in direct mode (FID-2026-0806-009)', async () => {
+    const fetchMock = mock(async () => {
+      throw new Error('fetch should not be called in direct mode')
+    })
+    globalThis.fetch = fetchMock as unknown as typeof fetch
+    process.env.DIRECT_PROVIDER = 'openrouter'
+    delete process.env.INFERENCE_BASE_URL
+
+    const output = await executeComposioToolViaServer({
+      apiKey: 'savant-code-api-key',
+      toolName: 'composio_search_tools',
+      input: {
+        queries: ['find gmail tools'],
+        session: { generate_id: true },
+      },
+    })
+
+    expect(output).toEqual([
+      {
+        type: 'json',
+        value: {
+          errorMessage:
+            'Composio is unavailable in direct/BYOK mode (no SavantCode backend).',
+        },
+      },
+    ])
+    expect(fetchMock).toHaveBeenCalledTimes(0)
   })
 
   test('registers Composio meta tools as static client tools without discovery fetch', () => {

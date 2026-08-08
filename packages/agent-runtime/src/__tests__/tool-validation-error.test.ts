@@ -989,8 +989,102 @@ describe('tool validation error handling', () => {
     )
     expect(terminalErrorEvents.length).toBe(1)
     expect(terminalErrorEvents[0].message).toContain(
-      'only available during AUDIT or GREEN phases',
+      'only available during AUDIT, GREEN, or SELF-CORRECT phases',
     )
+  })
+
+  it('FID-2026-0806-016: should ALLOW run_terminal_command in self_correct phase', async () => {
+    // Regression: self_correct could not run terminal commands and could not
+    // reach 'audit' (VALID_TRANSITIONS) nor 'green' (FID-presence gate) — a
+    // hard deadlock when fixing audit/adversarial findings required inline
+    // verification (Law 3 dirty-file gate). The runtime now grants
+    // run_terminal_command to self_correct, matching the documented phase
+    // table (common/src/constants/agents.ts).
+    const agentWithTerminalTools: AgentTemplate = {
+      ...testAgentTemplate,
+      toolNames: ['run_terminal_command', 'end_turn'],
+    }
+
+    agentRuntimeImpl.requestToolCall = async () => ({
+      output: [
+        {
+          type: 'json',
+          value: {
+            command: 'bun run typecheck',
+            stdout: 'ok',
+            stderr: '',
+            exitCode: 0,
+          },
+        },
+      ],
+    })
+
+    // 'unsafe' permission mode lets run_terminal_command past the sandbox so
+    // the FSM allowlist itself is what's under test (mirrors the C2 test).
+    const unsafeFileContext = {
+      ...mockFileContext,
+      permissionMode: 'unsafe' as const,
+    }
+    const sessionState = getInitialSessionState(unsafeFileContext)
+    const agentState = sessionState.mainAgentState
+    agentState.fsmPhase = 'self_correct'
+
+    const responseChunks: (string | PrintModeEvent)[] = []
+
+    async function* mockStream() {
+      yield {
+        type: 'tool-call',
+        toolName: 'run_terminal_command',
+        toolCallId: 'terminal-self-correct-call',
+        input: { command: 'bun run typecheck' },
+      } as StreamChunk
+      return promptSuccess('mock-message-id')
+    }
+
+    await processStream({
+      ...agentRuntimeImpl,
+      agentContext: {},
+      agentState,
+      agentStepId: 'test-step-id',
+      agentTemplate: agentWithTerminalTools,
+      ancestorRunIds: [],
+      clientSessionId: 'test-session',
+      // Must match the session state context: the sandbox gate reads
+      // params.fileContext.permissionMode.
+      fileContext: unsafeFileContext,
+      fingerprintId: 'test-fingerprint',
+      fullResponse: '',
+      localAgentTemplates: { 'test-agent': agentWithTerminalTools },
+      messages: [],
+      prompt: 'test prompt',
+      repoId: undefined,
+      repoUrl: undefined,
+      runId: 'test-run-id',
+      signal: new AbortController().signal,
+      stream: mockStream(),
+      system: 'test system',
+      tools: {},
+      userId: 'test-user',
+      userInputId: 'test-input-id',
+      onCostCalculated: async () => {},
+      onResponseChunk: (chunk) => {
+        responseChunks.push(chunk)
+      },
+    })
+
+    const terminalToolCallEvents = responseChunks.filter(
+      (chunk): chunk is Extract<PrintModeEvent, { type: 'tool_call' }> =>
+        typeof chunk !== 'string' &&
+        chunk.type === 'tool_call' &&
+        chunk.toolName === 'run_terminal_command',
+    )
+    expect(terminalToolCallEvents.length).toBe(1)
+
+    const terminalErrorEvents = responseChunks.filter(
+      (chunk): chunk is Extract<PrintModeEvent, { type: 'error' }> =>
+        typeof chunk !== 'string' && chunk.type === 'error',
+    )
+    expect(terminalErrorEvents.length).toBe(0)
   })
 
   it('should preserve tool_call/tool_result ordering when custom tool setup is async', async () => {

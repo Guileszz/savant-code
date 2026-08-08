@@ -6,6 +6,7 @@ const http = require('http')
 const https = require('https')
 const os = require('os')
 const path = require('path')
+const readline = require('readline')
 const { pipeline } = require('stream/promises')
 const zlib = require('zlib')
 
@@ -547,6 +548,77 @@ function createLauncher(productConfig) {
     )
   }
 
+  // FID-2026-0806-014: consent before apply. Auto-updates must not silently
+  // replace the running binary or kill the session (Windows locks the exe in
+  // place). The launcher stages the update in the background, records it in a
+  // pending marker, and offers to install it on the next launch — when it owns
+  // stdin and can ask. SAVANT_CODE_NO_AUTO_UPDATE=1 opts out entirely.
+  function getPendingUpdatePath() {
+    return path.join(CONFIG.configDir, `${packageName}-pending-update.json`)
+  }
+
+  function writePendingUpdateMarker(stagedBinary) {
+    try {
+      fs.mkdirSync(CONFIG.configDir, { recursive: true })
+      fs.writeFileSync(
+        getPendingUpdatePath(),
+        JSON.stringify(stagedBinary, null, 2),
+      )
+    } catch {
+      // Best effort; the update is simply not offered next launch.
+    }
+  }
+
+  function readPendingUpdateMarker() {
+    try {
+      const marker = JSON.parse(fs.readFileSync(getPendingUpdatePath(), 'utf8'))
+      if (
+        marker &&
+        typeof marker.version === 'string' &&
+        typeof marker.tempBinaryPath === 'string' &&
+        fs.existsSync(marker.tempBinaryPath)
+      ) {
+        return marker
+      }
+      // Stale marker without a staged binary — drop it.
+      try {
+        fs.rmSync(getPendingUpdatePath(), { force: true })
+      } catch {
+        // Best effort
+      }
+      return null
+    } catch {
+      return null
+    }
+  }
+
+  function clearPendingUpdateMarker() {
+    try {
+      fs.rmSync(getPendingUpdatePath(), { force: true })
+    } catch {
+      // Best effort
+    }
+  }
+
+  /** Ask the user a y/N question on stdin (launcher owns the terminal before
+   *  the child spawns). Resolves false on anything that isn't y/yes. */
+  function askYesNo(question) {
+    return new Promise((resolve) => {
+      const rl = readline.createInterface({
+        input: process.stdin,
+        output: process.stdout,
+      })
+      const finish = (answer) => {
+        rl.close()
+        resolve(answer)
+      }
+      rl.question(question, (answer) => {
+        finish(/^y(es)?$/i.test(String(answer).trim()))
+      })
+      rl.on('SIGINT', () => finish(false))
+    })
+  }
+
   function getFileSize(filePath) {
     try {
       return fs.statSync(filePath).size
@@ -940,9 +1012,7 @@ function createLauncher(productConfig) {
     })
   }
 
-  async function checkForUpdates(runningProcess, exitListener) {
-    let stoppedForUpdate = false
-
+  async function checkForUpdates() {
     try {
       const currentVersion = getCurrentVersion()
 
@@ -954,48 +1024,80 @@ function createLauncher(productConfig) {
         currentVersion === null ||
         compareVersions(currentVersion, latestVersion) < 0
       ) {
+        // FID-2026-0806-014: never install mid-session without consent.
+        if (process.env.SAVANT_CODE_NO_AUTO_UPDATE) return
+
+        // Already staged for this exact version — leave the pending marker alone.
+        const pending = readPendingUpdateMarker()
+        if (pending && pending.version === latestVersion) return
+
         const stagedBinary = await stageBinary(
           latestVersion,
           getDownloadTargetKey(),
           { quiet: true },
         )
+        writePendingUpdateMarker(stagedBinary)
 
         term.clearLine()
-
-        runningProcess.removeListener('exit', exitListener)
-        try {
-          await stopRunningProcess(runningProcess)
-        } catch (error) {
-          runningProcess.on('exit', exitListener)
-          throw error
-        }
-        stoppedForUpdate = true
-
-        resetTerminal({ exitAlternateScreen: true })
-        console.log(`Update available: ${currentVersion} → ${latestVersion}`)
-
-        installStagedBinary(stagedBinary)
-
-        const newChild = spawnInstalledBinary({ detached: false })
-        attachExitHandler(newChild)
-
-        return new Promise(() => {})
+        term.writeLine(
+          `Update available: ${currentVersion || 'unknown'} → ${latestVersion}. ` +
+            'It will be installed the next time you launch (or set ' +
+            'SAVANT_CODE_NO_AUTO_UPDATE=1 to skip).',
+        )
       }
     } catch (error) {
-      if (stoppedForUpdate && fs.existsSync(CONFIG.binaryPath)) {
-        console.error(
-          `Update failed; restarting ${packageName} ${getCurrentVersion()}.`,
-        )
-        const child = spawnInstalledBinary({ detached: false })
-        attachExitHandler(child)
-        return new Promise(() => {})
-      }
       try {
         fs.rmSync(CONFIG.tempDownloadDir, { recursive: true, force: true })
       } catch {
         // Best effort after a failed background update.
       }
       // A staging failure leaves the current process and binary untouched.
+    }
+  }
+
+  /** Offer a pending update (staged last session) and install it on consent.
+   *  Runs before the child spawns, so the launcher owns stdin and the binary
+   *  is not locked by a running session. Returns true when an update was
+   *  installed. */
+  async function applyPendingUpdateIfApproved() {
+    if (process.env.SAVANT_CODE_NO_AUTO_UPDATE) {
+      return false
+    }
+    const pending = readPendingUpdateMarker()
+    if (!pending) {
+      return false
+    }
+
+    const currentVersion = getCurrentVersion()
+    console.log(
+      `Update available: ${currentVersion || 'unknown'} → ${pending.version}`,
+    )
+
+    if (!process.stdin.isTTY) {
+      console.log(
+        'Non-interactive launch — the update will be installed the next time ' +
+          'you run interactively.',
+      )
+      return false
+    }
+
+    const approved = await askYesNo('Install now? [y/N] ')
+    if (!approved) {
+      console.log(
+        'Skipping update. Set SAVANT_CODE_NO_AUTO_UPDATE=1 to stop being asked.',
+      )
+      clearPendingUpdateMarker()
+      return false
+    }
+
+    try {
+      installStagedBinary(pending)
+      clearPendingUpdateMarker()
+      return true
+    } catch (error) {
+      term.clearLine()
+      printDownloadFailure(error)
+      return false
     }
   }
 
@@ -1213,11 +1315,15 @@ function createLauncher(productConfig) {
 
     await ensureBinaryExists()
 
+    // FID-2026-0806-014: offer a staged update before the child takes over the
+    // terminal. Consent-gated — never silent, never mid-session.
+    await applyPendingUpdateIfApproved()
+
     const child = spawnInstalledBinary()
-    const exitListener = attachExitHandler(child)
+    attachExitHandler(child)
 
     setTimeout(() => {
-      checkForUpdates(child, exitListener)
+      checkForUpdates()
     }, 100)
   }
 

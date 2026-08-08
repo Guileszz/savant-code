@@ -47,9 +47,7 @@ describe('parseDiffLines', () => {
   test('counts [-5/+20] from a large edit', () => {
     const removedLines = Array.from({ length: 5 }, (_, i) => `-old${i}`)
     const addedLines = Array.from({ length: 20 }, (_, i) => `+new${i}`)
-    const diff = ['@@ -1,5 +1,20 @@', ...removedLines, ...addedLines].join(
-      '\n',
-    )
+    const diff = ['@@ -1,5 +1,20 @@', ...removedLines, ...addedLines].join('\n')
 
     const { added, removed } = parseDiffLines(diff)
     expect(removed).toBe(5)

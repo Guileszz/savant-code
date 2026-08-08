@@ -10,18 +10,26 @@ touches your repo.**
 Built with TypeScript/Bun, governed by the ECHO Protocol, and designed for
 local-first use with Ollama.
 
-[![TypeScript](https://img.shields.io/badge/TypeScript-5.5-%23000000?style=flat-square&logo=typescript&logoColor=%2300fbff)](https://www.typescriptlang.org/)[![Bun](https://img.shields.io/badge/Bun-1.3.14-%23000000?style=flat-square&logo=bun&logoColor=%2300fbff)](https://bun.sh/)[![React](https://img.shields.io/badge/React-19-%23000000?style=flat-square&logo=react&logoColor=%2300fbff)](https://react.dev/)[![OpenTUI](https://img.shields.io/badge/OpenTUI-0.2.2-%23000000?style=flat-square&logo=github&logoColor=%2300fbff)](https://github.com/anomalyco/opentui)[![ECHO](https://img.shields.io/badge/ECHO-v0.2.0-%23000000?style=flat-square&logo=github&logoColor=%2300fbff)](ECHO.md)[![License](https://img.shields.io/badge/License-Apache_2.0-%23000000?style=flat-square&logo=apache&logoColor=%2300fbff)](LICENSE)[![Release](https://img.shields.io/badge/Release-v0.0.20-%23000000?style=flat-square&logo=semver&logoColor=%2300fbff)](CHANGELOG.md)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.5-%23000000?style=flat-square&logo=typescript&logoColor=%2300fbff)](https://www.typescriptlang.org/)[![Bun](https://img.shields.io/badge/Bun-1.3.14-%23000000?style=flat-square&logo=bun&logoColor=%2300fbff)](https://bun.sh/)[![React](https://img.shields.io/badge/React-19-%23000000?style=flat-square&logo=react&logoColor=%2300fbff)](https://react.dev/)[![OpenTUI](https://img.shields.io/badge/OpenTUI-0.2.2-%23000000?style=flat-square&logo=github&logoColor=%2300fbff)](https://github.com/anomalyco/opentui)[![ECHO](https://img.shields.io/badge/ECHO-v0.2.0-%23000000?style=flat-square&logo=github&logoColor=%2300fbff)](ECHO.md)[![License](https://img.shields.io/badge/License-Apache_2.0-%23000000?style=flat-square&logo=apache&logoColor=%2300fbff)](LICENSE)[![Release](https://img.shields.io/badge/Release-v0.0.21-%23000000?style=flat-square&logo=semver&logoColor=%2300fbff)](CHANGELOG.md)
 
 </div>
 
-> **v0.0.20** — MCP feature integration + ECHO enforcement release: ships the
-> mechanical `deep_research` tool on the Researcher role, `github` + `database`
-> infra helpers (read-only GitHub MCP, adapter-enforced SQL safety), browser-use
-> param upgrades (viewport / WCAG / persistence), a self-contained branded
-> `/export` HTML report, the completion-aware exit flush, a harness-side ECHO
-> compliance layer (deterministic Law 1/3 + Verifier-criteria enforcement with
-> corrective steering), readable edit diffs (neon-tinted added/removed lines +
-> `[-N/+M]` counters), and a lower 20-line ceremony threshold.
+> **v0.0.21** — the first release since v0.0.20: gate hardening (format +
+> test now live), the ECHO Harness Enforcement Layer, context-window
+> corrections, the deterministic codebase knowledge graph, and adversarial
+> verification — the ECHO Perfection Loop gains an **ADVERSARIAL** phase with
+> a read-only **Adversary** agent that refutes the Verifier's findings and
+> re-audits unevidenced PASSes, binding evidence-citation rules for every
+> verdict (`file:line` + quoted code, `NEEDS-REVIEW` for out-of-reach
+> evidence), a 10th canonical roster role, and the Savant Agent Design
+> Constitution skill. Token optimization and YAGNI enforcement (four-layer
+> compaction, ponytail debt ledger, opt-in Caveman telegraphic mode, live
+> context meter) and a `/contribute` contributor flow round out the release.
+> A fresh-user teardown pass (FIDs 2026-0806-009…015) shipped on the same
+> version: BYOK gating for every backend call, OpenRouter-first boot default,
+> visible failures via `--print` headless mode, cyclic-safe chat serialization,
+> branding strip, consent-gated auto-update, and analytics disclosure. The
+> complete FID backlog was closed and archived.
 
 ---
 
@@ -51,10 +59,12 @@ ollama serve
 Then run `savant-code` again, or type `/health` inside the chat to verify the
 connection.
 
-If Ollama is not running, configure a hosted provider before sending a prompt:
+If Ollama is not running, configure a hosted provider before sending a prompt.
+The CLI **boots to OpenRouter by default** (`openrouter/free` free tier) — set a
+key and you are ready:
 
 ```text
-/provider opencode-go
+/provider openrouter
 ```
 
 You can also enter `/provider` to choose from the interactive picker. Paste the
@@ -64,9 +74,10 @@ history. The supported hosted providers are:
 | Provider | Command | Environment variable | Notes |
 | --- | --- | --- | --- |
 | Ollama | automatic detection | — | Local inference; no API key required |
-| OpenRouter direct | `/provider openrouter` or `DIRECT_PROVIDER=openrouter` | `OR_MASTER_KEY`, `OPENROUTER_API_KEY`, or `INFERENCE_API_KEY` | Direct mode; master key, regular key, then inference key precedence |
-| OpenCode Go | `/provider opencode-go` | `OPENCODE_GO_API_KEY` | Default hosted provider; MiMo 2.5 default |
+| OpenRouter | `/provider openrouter` or `DIRECT_PROVIDER=openrouter` | `OR_MASTER_KEY`, `OPENROUTER_API_KEY`, or `INFERENCE_API_KEY` | **Default provider**; free tier (`openrouter/free`) is the boot default; master key, regular key, then inference key precedence |
+| OpenCode Go | `/provider opencode-go` | `OPENCODE_GO_API_KEY` | Hosted gateway |
 | TokenRouter | `/provider tokenrouter` | `TOKENROUTER_API_KEY` | Multi-provider gateway |
+| TokenHarbor | `/provider tokenharbor` | `TOKENHARBOR_API_KEY` | OpenAI-compatible gateway at `https://tokenharbor.ai/v1` |
 | NVIDIA NIM | `/provider nvidia` | `NVIDIA_API_KEY` | NVIDIA-hosted inference |
 | CommandCode | `/provider commandcode` | `COMMAND_CODE_API_KEY` | OpenAI-compatible hosted inference |
 
@@ -77,27 +88,33 @@ precedence over saved credentials. For automation, set one provider key before
 launching Savant-Code:
 
 ```powershell
-# PowerShell — choose one provider key
-$env:OPENCODE_GO_API_KEY = "your-key"
+# PowerShell — choose one provider key (OpenRouter is the boot default)
+$env:OPENROUTER_API_KEY = "your-key"
+# $env:OPENCODE_GO_API_KEY = "your-key"
 # $env:TOKENROUTER_API_KEY = "your-key"
+# $env:TOKENHARBOR_API_KEY = "your-key"
 # $env:NVIDIA_API_KEY = "your-key"
 # $env:COMMAND_CODE_API_KEY = "your-key"
 savant-code
 ```
 
 ```cmd
-:: Command Prompt — choose one provider key
-set OPENCODE_GO_API_KEY=your-key
+:: Command Prompt — choose one provider key (OpenRouter is the boot default)
+set OPENROUTER_API_KEY=your-key
+:: set OPENCODE_GO_API_KEY=your-key
 :: set TOKENROUTER_API_KEY=your-key
+:: set TOKENHARBOR_API_KEY=your-key
 :: set NVIDIA_API_KEY=your-key
 :: set COMMAND_CODE_API_KEY=your-key
 savant-code
 ```
 
 ```bash
-# macOS/Linux — choose one provider key
-export OPENCODE_GO_API_KEY="your-key"
+# macOS/Linux — choose one provider key (OpenRouter is the boot default)
+export OPENROUTER_API_KEY="your-key"
+# export OPENCODE_GO_API_KEY="your-key"
 # export TOKENROUTER_API_KEY="your-key"
+# export TOKENHARBOR_API_KEY="your-key"
 # export NVIDIA_API_KEY="your-key"
 # export COMMAND_CODE_API_KEY="your-key"
 savant-code
@@ -105,7 +122,10 @@ savant-code
 
 ### OpenRouter direct mode
 
-To bypass the Savant Code backend and route inference directly to OpenRouter, set:
+OpenRouter is the **default boot provider** (free tier `openrouter/free`); any
+`openrouter/` model slug routes to `https://openrouter.ai/api/v1` with the
+resolved key. To bypass the Savant Code backend and route inference directly to
+OpenRouter, set:
 
 ```bash
 export DIRECT_PROVIDER=openrouter
@@ -138,8 +158,9 @@ provider shims are shared so both surfaces ship from one codebase.
 
 The whole project ships under [ECHO Protocol v0.2.0](ECHO.md) — the same 15-law
 agent discipline that governs the Savant ecosystem. Every change goes through
-the RED → GREEN → AUDIT → SELF-CORRECT → COMPLETE Perfection Loop FSM, with a
-hard 10-iteration cap and a 10% Levenshtein change-cap per pass.
+the RED → GREEN → AUDIT → ADVERSARIAL → SELF-CORRECT → COMPLETE Perfection
+Loop FSM, with a hard 10-iteration cap and a 10% Levenshtein change-cap per
+pass.
 
 ---
 
@@ -164,10 +185,10 @@ hard 10-iteration cap and a 10% Levenshtein change-cap per pass.
 
 ### CLI (`@savant-code/cli`)
 
-- **Multi-agent orchestration** — 9 specialized agents coordinate via ECHO
-  Protocol: Detective finds issues, Forge implements, Verifier audits, Recorder
-  manages FIDs, Thinker reasons, Scout explores, Researcher investigates, Scribe
-  documents.
+- **Multi-agent orchestration** — 10 specialized agents coordinate via ECHO
+  Protocol: Detective finds issues, Forge implements, Verifier audits, Adversary
+  refutes the audit, Recorder manages FIDs, Thinker reasons, Scout explores,
+  Researcher investigates, Scribe documents.
 - **Thinker with sequential thinking** — the Thinker agent accumulates stacked
   reasoning steps via `sequentialthinking`, converges to a typed non-null
   `FinalArtifact` (status/synthesis/payload/metrics/thoughts), and never returns
@@ -192,8 +213,7 @@ hard 10-iteration cap and a 10% Levenshtein change-cap per pass.
   analytics and error reporting. Remote analytics is enabled by default in the
   main CLI but remains user-disableable; local logs remain available when it is
   disabled. Contextual ads are separate: ads are disabled by default in the
-  main CLI and can be controlled independently where available. Savant-Free is
-  the separate ad-supported product surface.
+  main CLI and can be controlled independently where available.
 - **`@filename` and `@AgentName` mentions** — file and agent mentions with
   inline autocomplete.
 - **Bash mode** — `!command` or `/bash` to run shell commands inline (with
@@ -253,6 +273,25 @@ hard 10-iteration cap and a 10% Levenshtein change-cap per pass.
   offline HTML report (Savant logo + Neon Slate theme + Font Awesome inlined as
   base64; zero network requests) with collapsible tool/thinking rows and
   per-message / copy-all buttons (FID-2026-0804-007).
+- **Codebase knowledge graph** — deterministic, incremental, SQLite-backed
+  graph built on `packages/code-map` (tree-sitter) with sha256 diffing,
+  `IMPORTS`/`CALLS`/`EXTENDS` edges, and seeded Louvain domain clustering.
+  `/graph refresh` re-indexes on demand; Detective/Scout query blast radius,
+  node edges, and domain clusters via read-only native tools; the Verifier's
+  Law 4 reachability check is harness-computed and injected into its message
+  history (zero-tool contract unchanged); `/graph-export` writes a branded,
+  fully-offline interactive HTML report reusing the `/export` design system
+  (FID-2026-0806-002).
+- **ECHO Harness Enforcement Layer (EHEL)** — structural enforcement of all
+  15 ECHO laws at the tool-executor level. Pre-write gates block violations
+  before they happen (Law 1: read-before-touch, Law 3: verify-before-proceed,
+  Law 7: search-before-create, Law 8: log-intent, FID Recorder gate with
+  20-line threshold). Post-write scanners batched at turn end (Laws 5, 6, 9,
+  10, 12, 14, 15). Law 4 call-graph reachability at turn end. FID completeness
+  validator with mandatory Unanswered Questions. Mode-driven: **Hybrid** =
+  Laws 1-4 blocking + Laws 5-15 advisory; **Strict** = all 15 blocking.
+  Only 2 agents have write tools (Orchestrator + Recorder). Emergency bypass:
+  agent requests, user confirms (FID-2026-0805-007).
 - **Harness ECHO compliance layer** — deterministic Law 1 (read-before-write),
   Law 3 (verify-after-write), and mechanical Verifier-criteria enforcement
   (10+ lines / 2+ files / new API / security-sensitive / Forge) via a per-run
@@ -270,9 +309,19 @@ hard 10-iteration cap and a 10% Levenshtein change-cap per pass.
   resolve their real context length from the OpenRouter catalog at runtime.
 - **Universal copy buttons** — hover-to-copy on code blocks, tool outputs, and
   file diffs throughout the TUI.
-- **Gateway providers** — TokenRouter, NVIDIA NIM, OpenCode Go, CommandCode, and
+- **Gateway providers** — TokenRouter, TokenHarbor, NVIDIA NIM, OpenCode Go, CommandCode, and
   Cloudflare Workers AI via `@savant-code/llm-providers`.
-- **Default model** — MiMo 2.5 via OpenCode Go (configurable via `/model`).
+- **Default model** — `openrouter/free` via OpenRouter (configurable via
+  `/model`).
+- **Headless / non-interactive mode** — `savant-code --print "<prompt>"` runs a
+  single prompt without the TUI and prints the final answer to stdout. Exit
+  codes: `0` success, `1` error or timeout, `2` usage error. When stdin is piped
+  or the environment is CI, the CLI auto-enters headless mode and uses stdin as
+  the prompt. `SAVANT_CODE_RUN_TIMEOUT_MS` (default 10 minutes) bounds hung
+  runs (FID-2026-0806-011).
+- **Consent-gated auto-update** — the launcher never stops a running session:
+  a newer version is staged and applied on the next launch after a y/N
+  prompt. `SAVANT_CODE_NO_AUTO_UPDATE=1` opts out entirely (FID-2026-0806-014).
 - **Theming** — light/dark toggle (`/theme:toggle`), Neon Slate aesthetic.
 - **Sidebar folding** — right-sidebar sections and FID cards start collapsed
   for a compact first render; click to expand.
@@ -285,6 +334,178 @@ hard 10-iteration cap and a 10% Levenshtein change-cap per pass.
   **conversation only**, **both**, or **fork a new session** from an earlier
   turn — no git required. Retention is bounded to the most recent 20 turns,
   and terminal side effects are never rewound.
+
+---
+
+## Export Workflows: Conversation Reports and Code Universe
+
+Savant-Code has **two separate export features**. They create different HTML
+artifacts for different jobs:
+
+| Command | What it exports | Use it when |
+| --- | --- | --- |
+| `/export` (alias `/save`) | The current chat transcript | You want to preserve or share the agent session, tool calls, edits, and final answer |
+| `/graph-export` (aliases `/graph:export`, `/gexport`) | The indexed repository as an interactive Code Universe | You want to explore, present, or share a visual offline snapshot of the codebase |
+
+Both reports are self-contained branded HTML files. They can be opened directly
+from `file://` without a hosted service, local web server, project checkout, or
+runtime API connection.
+
+### `/export`: save the conversation
+
+`/export` is a **session report**, not a plain-text dump. It captures the
+current conversation with the character logo, Neon Slate styling, session
+metadata, user/Savant/error rows, rendered Markdown, tool inputs and outputs,
+nested subagent blocks, plans, thinking sections, ask-user answers, and
+attachment notes. Tool and reasoning details remain collapsible, while each
+message has a **Copy** action and the header provides **Expand all**,
+**Collapse all**, and **Copy all** controls.
+
+```text
+/export
+/save
+/export reports/session-review.html
+```
+
+`/save` is an alias. Without a custom path, the CLI creates and reuses this
+single rotating file:
+
+```text
+dev/exports/conversation/savant-export.html
+```
+
+Relative paths resolve from the current working directory; absolute paths are
+honored. The command reports the message count, resolved output path, and
+artifact size after a successful write. An empty conversation produces a
+system message and no file; filesystem errors are reported in the chat.
+
+The report HTML is escaped and self-contained. Font Awesome CSS/webfonts are
+inlined, and clipboard actions use a secure Clipboard API when available with a
+`file://`-compatible fallback otherwise. The report does not re-run tools,
+reconnect to a provider, or update when the repository changes. It is a static
+record of the decision trail: what was asked, what the agent did, which files
+changed, and what the final answer was.
+
+![Savant Code conversation export](assets/export.png)
+
+The screenshot shows the local report's branded header, session metadata,
+global expand/collapse/copy controls, transcript rows, collapsible execution
+blocks, and per-message copy affordances. The exact session ID, timestamp,
+message count, and content vary for each export. See the full
+[conversation export guide](docs/code-universe-export.md#conversation-export-export)
+for the detailed rendering, safety, and sharing notes.
+
+The three visuals below are intentionally for `/graph-export`, not the
+conversation transcript report.
+
+### `/graph-export`: explore the offline Code Universe
+
+`/graph-export` is a **repository report**, not a conversation transcript. It
+serializes the local knowledge graph into a spatial, interactive HTML browser
+called the Code Universe.
+
+First build or refresh the structural index:
+
+```text
+/graph refresh
+/graph refresh --full
+```
+
+The first refresh builds `.savant/graph.db`; later refreshes hash-compare files
+and re-parse only changed files. The database is regenerable, Git-ignored, and
+not itself shipped in the report.
+
+Then generate the report:
+
+```text
+/graph-export
+/graph:export
+/gexport
+/graph-export reports/code-universe.html
+```
+
+The default output is a single rotating file at
+`dev/exports/graph/savant-graph.html`. A custom relative or absolute path is
+honored. During a larger export, the CLI shows stages for index refresh,
+graph serialization, layout, document embedding, compression, HTML assembly,
+and file writing instead of appearing frozen.
+
+#### What the Code Universe includes
+
+- **Universe view:** a Sigma.js/Graphology WebGL canvas for systems, files,
+  corridors, clusters, ambient space effects, and the Savant character mark.
+- **Ranked search:** search paths, systems, folders, and files using an
+  export-time index; results appear below the search field and support mouse and
+  keyboard selection.
+- **Drill-down navigation:** expand the systems sidebar into nested folders and
+  files, open a folder in the center browser, or select a file directly.
+- **Document viewer:** open embedded text documents, validated raster images, or
+  a clear unavailable/binary fallback without reading from disk after export.
+- **Details and connections:** inspect paths, metadata, clusters, directions,
+  edge types, related objects, and copyable full paths.
+- **Window controls:** drag panels, minimize them to a taskbar-style dock,
+  maximize, restore, or close them independently.
+- **Document controls:** copy text, toggle line wrapping, inspect bracketed
+  line/byte metadata, use breadcrumbs, and move through previous/next sibling
+  files.
+- **Offline behavior:** Sigma.js, Graphology, fonts, icons, branding, graph
+  data, and enabled document payloads are embedded; no CDN or runtime network
+  request is required.
+
+#### Code Universe visual tour
+
+The universe overview turns systems and file relationships into a navigable map.
+Select a system to enter its orbit, use search to jump to a path, or expand the
+left navigation tree to drill down into folders.
+
+![Savant Code Universe overview](assets/universe-1.png)
+
+Raster documents open inside the same branded viewer. Supported PNG, JPEG, GIF,
+and WebP files are validated before embedding; unsupported, malformed, or unsafe
+media receives an explicit fallback instead of being silently misrepresented.
+
+![Code Universe image document viewer](assets/universe-img.png)
+
+Text documents open with readable source presentation, path breadcrumbs, line
+and byte metadata, copy support, wrapping controls, and sibling-file navigation.
+The source is embedded in the report, so the viewer remains useful offline.
+
+![Code Universe text document viewer](assets/universe-text.png)
+
+#### Document and privacy model
+
+The graph index stores structural metadata—paths, symbols, hashes, edge types,
+and clusters—not a live server or an external copy of the repository. The HTML
+report is a snapshot and should be regenerated after source changes.
+
+Text documents are embedded by default for the graph report. Positive limits can
+be supplied for smaller artifacts; binary content and unsupported media remain
+protected by format, signature, containment, and media-size checks. Useful
+controls include:
+
+```text
+SAVANT_GRAPH_EXPORT_DOCUMENTS=0
+SAVANT_GRAPH_EXPORT_NO_PREVIEW=1
+SAVANT_GRAPH_EXPORT_PREVIEWS=1
+SAVANT_GRAPH_EXPORT_DOCUMENT_LINES=<positive integer>
+SAVANT_GRAPH_EXPORT_DOCUMENT_BYTES=<positive integer>
+SAVANT_GRAPH_EXPORT_DOCUMENT_IMAGE_BYTES=<positive integer>
+SAVANT_GRAPH_EXPORT_TOTAL_TEXT_BYTES=<positive integer>
+SAVANT_GRAPH_EXPORT_TOTAL_MEDIA_BYTES=<positive integer>
+```
+
+`SAVANT_GRAPH_EXPORT_DOCUMENTS=0` disables document bodies. Previews are off by
+default; `SAVANT_GRAPH_EXPORT_PREVIEWS=1` opts into small details-panel previews,
+while `SAVANT_GRAPH_EXPORT_NO_PREVIEW=1` is the hard-off switch. The remaining
+variables apply positive per-file or aggregate caps. A document that cannot be
+read safely is represented as unavailable rather than replaced with misleading
+content.
+
+Use **`/export`** for the conversation and **`/graph-export`** for the repository.
+They work well together: the first preserves the reasoning and implementation
+trail, while the second preserves the visual codebase artifact that the session
+examined. See the full [Export Workflows guide](docs/code-universe-export.md)
+for detailed usage, troubleshooting, and the offline architecture.
 
 ### SDK (`@savant-code/sdk`)
 
@@ -319,10 +540,10 @@ hard 10-iteration cap and a 10% Levenshtein change-cap per pass.
 
 ### ECHO Protocol Integration
 
-- **9 specialized agents** — Orchestrator, Detective, Forge, Verifier, Recorder,
-  Thinker, Scout, Researcher, Scribe
+- **10 specialized agents** — Orchestrator, Detective, Forge, Verifier, Adversary,
+  Recorder, Thinker, Scout, Researcher, Scribe
 - **FID-Bound Execution** — Code is never written until the FID converges
-- **Perfection Loop FSM** — RED → GREEN → AUDIT → SELF-CORRECT → COMPLETE
+- **Perfection Loop FSM** — RED → GREEN → AUDIT → ADVERSARIAL → SELF-CORRECT → COMPLETE
 - **Separation of Duties** — The agent that writes code cannot verify it
 - **15 Laws** — 4 immutable process + 11 extended code laws
 
@@ -395,10 +616,10 @@ threshold.
 | `cli/`                    | `@savant-code/cli`           | CLI source — UI, commands, state, hooks, OpenTUI/React components |
 | `common/`                 | `@savant-code/common`        | Shared types, tool definitions, utilities                         |
 | `evals/`                  | `@savant-code/evals`         | ECHO-native benchmark v2 runner + legacy eval fixtures            |
-| `savant-free/`            | `@savant-code/savant-free`   | Private/pre-release free/ad-supported variant; local binary + E2E support |
 | `packages/agent-runtime/` | `@savant-code/agent-runtime` | Agent loop, tool executor, LLM API integration                    |
 | `packages/code-map/`      | `@savant-code/code-map`      | tree-sitter code indexing, language detection                     |
 | `packages/database/`      | `@savant-code/database`      | Database abstraction layer                                        |
+| `packages/knowledge-graph/` | `@savant-code/knowledge-graph` | Deterministic codebase knowledge-graph engine (indexer, queries, clustering, export serializer) |
 | `packages/llm-providers/` | `@savant-code/llm-providers` | Public LLM provider shims                                         |
 | `sdk/`                    | `@savant-code/sdk`           | Public SDK — `SavantCodeClient`, types, build + verify scripts    |
 | `scripts/tmux/`           | `@savant-code/tmux`          | tmux CLI helpers used in interactive test runs                    |
@@ -480,17 +701,23 @@ models, and current permission mode.
 ### Configure a hosted provider key
 
 If Ollama is not running, Savant-Code needs a provider API key for the selected
-gateway model. Use `/provider` for the interactive picker or choose one directly:
+model. The boot default is OpenRouter's free tier (`openrouter/free`), so
+`/provider openrouter` is the fastest path. Use `/provider` for the interactive
+picker or choose one directly:
 
 ```text
+/provider openrouter
 /provider opencode-go
 /provider tokenrouter
+/provider tokenharbor
 /provider nvidia
 /provider commandcode
 ```
 
-The supported environment variables are `OPENCODE_GO_API_KEY`,
-`TOKENROUTER_API_KEY`, `NVIDIA_API_KEY`, and `COMMAND_CODE_API_KEY`. The key
+The supported environment variables are `OPENROUTER_API_KEY`,
+`OPENCODE_GO_API_KEY`,
+`TOKENROUTER_API_KEY`, `TOKENHARBOR_API_KEY`, `NVIDIA_API_KEY`, and
+`COMMAND_CODE_API_KEY`. The key
 prompt is masked and stores the key globally in the Savant-Code config
 `credentials.json`; it is not added to chat history. Shell environment variables
 take precedence over stored keys, so CI and managed environments can configure
@@ -520,9 +747,7 @@ may use `INFERENCE_BASE_URL` and `INFERENCE_API_KEY`; OpenRouter can use
 
 ## Slash Command Reference
 
-Commands can be entered with `/`; aliases are shown in parentheses. Availability
-can differ in Savant-Free mode, which intentionally removes paid/backend-only
-commands.
+Commands can be entered with `/`; aliases are shown in parentheses.
 
 | Command | Purpose |
 | --- | --- |
@@ -531,6 +756,8 @@ commands.
 | `/history` (`/chats`) | Browse and resume previous conversations |
 | `/copy` (`/copy-chat`) | Copy the complete conversation to the clipboard |
 | `/export` (`/save`) | Write a self-contained branded HTML report of the conversation |
+| `/graph refresh` (`/graph`) | Re-index the code knowledge graph and show summary stats (`--full` rebuilds) |
+| `/graph-export` (`/graph:export`) | Write a branded, interactive offline HTML report of the code knowledge graph |
 | `/interview` | Turn an idea into a structured specification |
 | `/plan` | Create an implementation plan |
 | `/review` | Review code changes |
@@ -554,9 +781,6 @@ commands.
 | `/login` / `/logout` | Authenticate or end the current session |
 | `/exit` (`/quit`, `/q`) | Quit the CLI |
 
-Savant-Free additionally exposes free-session controls such as `/end-session`
-and its model picker; paid/backend-only commands are filtered from that build.
-
 ---
 
 ## ECHO Protocol
@@ -567,7 +791,8 @@ file for agent behavior.
 ### Core Principles
 
 - **FID-Bound Execution** — Code is never written until the FID converges
-- **Perfection Loop** — RED → GREEN → AUDIT → SELF-CORRECT → COMPLETE
+- **Perfection Loop** — RED → GREEN → AUDIT → ADVERSARIAL → SELF-CORRECT →
+  COMPLETE
 - **Separation of Duties** — The agent that writes code cannot verify it
 - **No Deferrals** — Every approved work item must be completed
 
@@ -621,12 +846,31 @@ bun x prettier --write .
 
 ---
 
+## Privacy & Telemetry
+
+Remote analytics and error reporting are **enabled by default** in the CLI
+(FID-2026-0806-015). The CLI sends anonymous usage events and error reports to
+help improve the product; no prompt content is transmitted as part of these
+events.
+
+- **Disable anytime** with `/telemetry disable` (or re-enable with
+  `/telemetry enable`). `/telemetry status` shows the current state.
+- **Local logs remain available** when remote analytics are disabled.
+- **Contextual ads are separate** — disabled by default in the main CLI and
+  controlled independently where available.
+- First launch prints a one-line notice about this default; it is shown once
+  and never again.
+
+---
+
 ## Documentation
 
 - [`ECHO.md`](ECHO.md) — The 15 Laws + Perfection Loop FSM
 - [`ARCHITECTURE.md`](ARCHITECTURE.md) — Agent roster and tool restrictions
 - [`protocol.config.yaml`](protocol.config.yaml) — Build commands, quality bar
 - [`CHANGELOG.md`](CHANGELOG.md) — Release history
+- [`docs/code-universe-export.md`](docs/code-universe-export.md) — `/export` conversation reports and
+  `/graph-export` Code Universe guide
 - [`docs/launch/landing/index.html`](docs/launch/landing/index.html) — Public
   landing page
 - [`dev/LEARNINGS.md`](dev/LEARNINGS.md) — Cross-session lessons

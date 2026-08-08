@@ -181,6 +181,19 @@ const ALL_SLASH_COMMANDS: SlashCommand[] = [
       'Write a self-contained branded HTML report of the conversation',
     aliases: ['save'],
   },
+  {
+    id: 'graph-export',
+    label: 'graph-export',
+    description:
+      'Write a self-contained branded HTML report of the code knowledge graph',
+    aliases: ['graph:export', 'gexport'],
+  },
+  {
+    id: 'graph-refresh',
+    label: 'graph refresh',
+    description: 'Re-index the code knowledge graph and show summary stats',
+    aliases: ['graph:refresh', 'graph'],
+  },
 
   {
     id: 'feedback',
@@ -269,6 +282,12 @@ const ALL_SLASH_COMMANDS: SlashCommand[] = [
     label: 'loop',
     description: 'Run a prompt on a cadence (e.g. /loop 1h "check staging")',
     aliases: ['repeat'],
+  },
+  {
+    id: 'contribute',
+    label: 'contribute',
+    description:
+      'Add yourself to CONTRIBUTORS.md and open a PR (e.g. /contribute <username>)',
   },
   {
     id: 'verify',

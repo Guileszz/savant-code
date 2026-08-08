@@ -14,8 +14,8 @@ paid-only features (credits UI, mode switching, MAX/PLAN prompts).
 ## Features
 
 - **Zero-config** — no API key (uses bundled inference), no account, no subscription
-- **Multi-agent orchestration** — 9 specialized ECHO agents coordinate via [ECHO Protocol v0.2.0](../ECHO.md)
-- **Perfection Loop** — RED → GREEN → AUDIT → SELF-CORRECT → COMPLETE state machine
+- **Multi-agent orchestration** — 10 specialized ECHO agents coordinate via [ECHO Protocol v0.2.0](../ECHO.md)
+- **Perfection Loop** — RED → GREEN → AUDIT → ADVERSARIAL → SELF-CORRECT → COMPLETE state machine
 - **Streaming output** — token-by-token display, mid-stream cancellation
 - **Slash commands** — `/new`, `/history`, `/bash`, `/feedback`, `/theme:toggle`, `/exit`
 - **Knowledge files** — auto-loaded from `knowledge.md`, `AGENTS.md`, or `CLAUDE.md`
@@ -23,7 +23,8 @@ paid-only features (credits UI, mode switching, MAX/PLAN prompts).
 
 ## Install
 
-> **Status:** `@savant-code/savant-free` is not yet published on the npm registry (private workspace, v0.0.1). For
+> **Status:** `@savant-code/savant-free` is not yet published on the npm registry (private
+> workspace, v0.0.21 — version-aligned with the monorepo). For
   now, **build from source** (see below) to produce a local `savant-free` binary. The npm install command will be
   `npm install -g @savant-code/savant-free` once the free variant ships.
 

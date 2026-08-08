@@ -16,7 +16,7 @@ import {
 
 import type { JSONValue } from '@savant-code/common/types/json'
 
-export const PROVIDER_SETUP_DEFAULT = 'opencode-go' as const
+export const PROVIDER_SETUP_DEFAULT = 'openrouter' as const
 
 export const PROVIDER_SETUP_CONFIG = {
   openrouter: {
@@ -34,6 +34,11 @@ export const PROVIDER_SETUP_CONFIG = {
     envVar: 'TOKENROUTER_API_KEY',
     baseUrl: 'https://api.tokenrouter.com/v1',
   },
+  tokenharbor: {
+    label: 'TokenHarbor',
+    envVar: 'TOKENHARBOR_API_KEY',
+    baseUrl: 'https://tokenharbor.ai/v1',
+  },
   nvidia: {
     label: 'NVIDIA NIM',
     envVar: 'NVIDIA_API_KEY',
@@ -48,9 +53,10 @@ export const PROVIDER_SETUP_CONFIG = {
 
 export type ProviderSetupName = keyof typeof PROVIDER_SETUP_CONFIG
 
-export type MissingProviderSetup = (typeof PROVIDER_SETUP_CONFIG)[ProviderSetupName] & {
-  provider: ProviderSetupName
-}
+export type MissingProviderSetup =
+  (typeof PROVIDER_SETUP_CONFIG)[ProviderSetupName] & {
+    provider: ProviderSetupName
+  }
 
 let activeProvider: ProviderSetupName = PROVIDER_SETUP_DEFAULT
 
@@ -106,9 +112,7 @@ export function getMissingProviderSetup(): MissingProviderSetup | undefined {
   return undefined
 }
 
-export function getProviderSetupGuidance(
-  info: MissingProviderSetup,
-): string {
+export function getProviderSetupGuidance(info: MissingProviderSetup): string {
   return [
     `${info.label} needs an API key before sending a prompt.`,
     `Run /provider ${info.provider} (or /provider) and paste the key into the masked prompt.`,
@@ -282,9 +286,7 @@ export function saveProviderApiKey(
  * Return the stored API key for a provider, or undefined when none is saved.
  * Shell environment keys are not read here; callers compose env precedence.
  */
-export function getConfiguredProviderKey(
-  provider: string,
-): string | undefined {
+export function getConfiguredProviderKey(provider: string): string | undefined {
   const info = getProviderSetupInfo(provider)
   if (!info) return undefined
   return readStoredProviderKeys()[info.envVar]

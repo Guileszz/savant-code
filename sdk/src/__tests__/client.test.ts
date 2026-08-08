@@ -14,6 +14,27 @@ describe('SavantCodeClient', () => {
   })
 
   describe('checkConnection', () => {
+    test('returns true without fetching in direct mode (FID-2026-0806-009)', async () => {
+      const mockFetch = mock(() => {
+        throw new Error('fetch should not be called in direct mode')
+      })
+
+      setFetchMock(mockFetch)
+      process.env.DIRECT_PROVIDER = 'openrouter'
+      process.env.INFERENCE_BASE_URL = 'https://openrouter.ai/api/v1'
+
+      try {
+        const client = new SavantCodeClient({ apiKey: 'test-key' })
+        const result = await client.checkConnection()
+
+        expect(result).toBe(true)
+        expect(mockFetch).toHaveBeenCalledTimes(0)
+      } finally {
+        delete process.env.DIRECT_PROVIDER
+        delete process.env.INFERENCE_BASE_URL
+      }
+    })
+
     test('returns true when healthz responds with status ok', async () => {
       const mockFetch = mock(() =>
         Promise.resolve({

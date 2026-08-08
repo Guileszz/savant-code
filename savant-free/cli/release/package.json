@@ -1,6 +1,6 @@
 {
   "name": "savant-free",
-  "version": "0.0.123",
+  "version": "0.0.21",
   "description": "The world's strongest free coding agent",
   "license": "MIT",
   "bin": {
@@ -35,7 +35,7 @@
     "type": "git",
     "url": "git+https://github.com/SavantCode/savant-free-private.git"
   },
-  "homepage": "https://savant-free.com",
+  "homepage": "https://github.com/savant0x/savant-code",
   "publishConfig": {
     "access": "public",
     "provenance": false

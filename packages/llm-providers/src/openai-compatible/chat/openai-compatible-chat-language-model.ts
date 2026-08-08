@@ -33,10 +33,7 @@ import type {
   LanguageModelV2Content,
   SharedV2ProviderMetadata,
 } from '@ai-sdk/provider'
-import type {
-  FetchFunction,
-  ResponseHandler,
-} from '@ai-sdk/provider-utils'
+import type { FetchFunction, ResponseHandler } from '@ai-sdk/provider-utils'
 import type { JSONValue } from '@savant-code/common/types/json'
 
 export type OpenAICompatibleChatConfig = {

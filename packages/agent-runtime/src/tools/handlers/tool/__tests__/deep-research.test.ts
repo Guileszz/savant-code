@@ -55,9 +55,7 @@ describe('domainScore', () => {
   test('scores known domains per the reliability map', () => {
     expect(domainScore('https://docs.bun.sh/runtime')).toBe(1.0)
     expect(domainScore('https://github.com/oven-sh/bun')).toBe(0.9)
-    expect(
-      domainScore('https://stackoverflow.com/questions/123/bun'),
-    ).toBe(0.8)
+    expect(domainScore('https://stackoverflow.com/questions/123/bun')).toBe(0.8)
     expect(domainScore('https://dev.to/someone/bun-tips')).toBe(0.7)
     expect(domainScore('https://example.com/bun')).toBe(0.5)
   })
@@ -170,9 +168,9 @@ describe('runDeepResearch', () => {
       spacingMs: 0,
     })
     expect(out.incomplete).toBe(true)
-    expect(out.gaps.some((g) => g.includes('bad') && g.includes('rate limited'))).toBe(
-      true,
-    )
+    expect(
+      out.gaps.some((g) => g.includes('bad') && g.includes('rate limited')),
+    ).toBe(true)
     expect(out.findings.length).toBeGreaterThanOrEqual(1)
   })
 
@@ -216,10 +214,7 @@ describe('runDeepResearch', () => {
 
   test('skips hits without a link', async () => {
     const search = async () => ({
-      result: serperJson([
-        { title: 'no link' },
-        hit('https://example.com/ok'),
-      ]),
+      result: serperJson([{ title: 'no link' }, hit('https://example.com/ok')]),
     })
     const out = await runDeepResearch({
       question: 'q',

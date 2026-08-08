@@ -295,9 +295,7 @@ export const ChatHistoryScreen: React.FC<ChatHistoryScreenProps> = ({
               Select a chat to resume
             </text>
             {allChatsInterrupted(chats) && (
-              <text
-                style={{ fg: theme.muted, marginTop: 1 }}
-              >
+              <text style={{ fg: theme.muted, marginTop: 1 }}>
                 All sessions show as interrupted — this may be a display quirk;
                 resume one to verify.
               </text>

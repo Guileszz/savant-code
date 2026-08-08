@@ -13,11 +13,14 @@ export default tseslint.config(
       '**/.next/*',
       '**/.contentlayer/*',
       '**/node_modules/*',
+      'cli/bin/**', // Generated compiled binaries and sibling release assets; never lint build output
       'agents-graveyard/**', // Archived/deprecated agents - no need to lint
       'resources/**', // Vendored resource files - not linted (see .prettierignore / .markdownlintignore)
       'research/**', // Vendored research snapshots - not linted (see .prettierignore / .markdownlintignore)
+      'dev/scratchpad/**', // Ephemeral working area (gitignored, see .gitignore) — ad-hoc tools may use console freely
       'cli/src/agents/bundled-agents.generated.ts', // Auto-generated agent code with embedded console strings
       'cli/src/agents/bundled-agents.generated.d.ts', // Auto-generated type declarations
+      'cli/src/constants/cytoscape.ts', // Auto-generated 373KB inline JS constant (single-token template literal)
       'packages/code-map/__tests__/test-langs/', // Test fixture files (JS/TS for code-map tests)
       'packages/llm-providers/src/openai-compatible/chat/stream-transform.test.ts', // Test fixture: console.log in transformation test
       'scripts/eslint-rules/**', // The rule implementations themselves are not linted by this rule
@@ -193,6 +196,7 @@ export default tseslint.config(
     files: [
       'evals/**',
       'scripts/**',
+      '.agents/skills/**/scripts/**', // Skill tooling (FID-2026-0806-007): console is the output mechanism
       'sdk/scripts/**',
       'sdk/test/**',
       'sdk/smoke-test-dist.ts',

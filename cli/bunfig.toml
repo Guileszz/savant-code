@@ -1,2 +1,6 @@
 [test]
 preload = ["./src/test-setup.ts"]
+
+[loader]
+# Tree-sitter query files are raw text, not JavaScript modules.
+".scm" = "text"

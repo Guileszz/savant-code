@@ -30,7 +30,8 @@ const VALID_TRANSITIONS: Record<string, string[]> = {
   idle: ['red', 'green'],
   red: ['green', 'idle'], // abort from red
   green: ['audit', 'idle'], // abort from green
-  audit: ['self_correct', 'complete', 'idle'], // abort from audit
+  audit: ['adversarial', 'self_correct', 'complete', 'idle'], // FID-2026-0805-004: ADVERSARIAL added between AUDIT and COMPLETE
+  adversarial: ['complete', 'self_correct', 'idle'], // meta-verification: clean → complete; findings → self_correct; abort → idle
   self_correct: ['green', 'complete', 'idle'], // fix & verify inline → complete; or loop back to green
   complete: ['idle'],
 }

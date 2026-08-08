@@ -23,7 +23,8 @@ import path from 'path'
 import { describe, test, expect, afterEach } from 'bun:test'
 
 const REPO_ROOT = path.join(__dirname, '..', '..')
-const BINARY_NAME = process.platform === 'win32' ? 'savant-free.exe' : 'savant-free'
+const BINARY_NAME =
+  process.platform === 'win32' ? 'savant-free.exe' : 'savant-free'
 const BINARY_PATH = path.join(REPO_ROOT, 'cli', 'bin', BINARY_NAME)
 const TIMEOUT_MS = 20_000
 

@@ -94,7 +94,9 @@ export const DiffStatsBar = ({ removed, added }: DiffStatsBarProps) => {
   const theme = useTheme()
   return (
     <text>
-      <span fg={theme.syntaxComment}>[-{removed}/+{added}]</span>
+      <span fg={theme.syntaxComment}>
+        [-{removed}/+{added}]
+      </span>
     </text>
   )
 }

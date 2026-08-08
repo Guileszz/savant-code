@@ -176,13 +176,14 @@ const limitClauseRegexp = /\bLIMIT\b/i
  * forces a newline separator before appending LIMIT).
  * Ported from cockroachdb.go stripSQLCommentsAndQuotedText.
  */
-export function stripSqlCommentsAndQuotedText(
-  sql: string,
-): { searchable: string; trailingLineComment: boolean } {
+export function stripSqlCommentsAndQuotedText(sql: string): {
+  searchable: string
+  trailingLineComment: boolean
+} {
   let result = ''
   let trailingLineComment = false
 
-  for (let i = 0; i < sql.length; ) {
+  for (let i = 0; i < sql.length;) {
     const ch = sql[i]
     // -- line comment
     if (ch === '-' && sql[i + 1] === '-') {
@@ -291,8 +292,7 @@ export function applyQueryLimits(
     return { sql, limited: false }
   }
 
-  const { searchable, trailingLineComment } =
-    stripSqlCommentsAndQuotedText(sql)
+  const { searchable, trailingLineComment } = stripSqlCommentsAndQuotedText(sql)
   if (limitClauseRegexp.test(searchable)) {
     return { sql, limited: false }
   }
@@ -314,9 +314,7 @@ export function applyQueryLimits(
 
 /** Redact string literals and 10+ digit numbers from SQL for telemetry. */
 export function redactSql(sql: string): string {
-  return sql
-    .replace(/'[^']*'/g, "'***'")
-    .replace(/\b\d{10,}\b/g, '***')
+  return sql.replace(/'[^']*'/g, "'***'").replace(/\b\d{10,}\b/g, '***')
 }
 
 // ============================================================================
@@ -328,9 +326,7 @@ export function redactSql(sql: string): string {
  * then SAVANT_CODE_DATABASE_URL, then DATABASE_URL. A missing target is a
  * connection failure (never silently defaults).
  */
-export function resolveDatabaseUrl(
-  databaseUrl: string | undefined,
-): string {
+export function resolveDatabaseUrl(databaseUrl: string | undefined): string {
   if (databaseUrl && databaseUrl.trim() !== '') return databaseUrl
   const envUrl =
     process.env.SAVANT_CODE_DATABASE_URL ?? process.env.DATABASE_URL
@@ -397,10 +393,7 @@ export function openSqliteDatabase(target: string): Database {
  * Enforce the write gate. Read-only by default; INSERT/UPDATE/DELETE require
  * allowWrite; DROP/TRUNCATE/ALTER/CREATE are always blocked in v1.
  */
-export function enforceCanExecuteWrite(
-  sql: string,
-  allowWrite: boolean,
-): void {
+export function enforceCanExecuteWrite(sql: string, allowWrite: boolean): void {
   const sqlType = classifySql(sql)
 
   if (sqlType === 'truncate' || sqlType === 'ddl') {

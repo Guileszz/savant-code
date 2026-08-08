@@ -518,6 +518,42 @@ describe('live chat state provider', () => {
     flushLiveChatState()
     expect(readChatMeta(chatDir)?.completed).toBe(true)
   })
+
+  // FID-2026-0806-012: a circular reference in the run state must never throw
+  // and lose the checkpoint (which would break --continue/resume).
+  test('saveChatState survives a cyclic run state (sync path)', () => {
+    const cyclicRunState = testRunState('cyclic') as Record<string, unknown>
+    cyclicRunState.self = cyclicRunState
+
+    expect(() =>
+      saveChatState(
+        cyclicRunState as unknown as RunState,
+        testMessages('cyclic prompt'),
+      ),
+    ).not.toThrow()
+
+    const onDisk = fs.readFileSync(path.join(chatDir, 'run-state.json'), 'utf8')
+    expect(onDisk).toContain('[Circular]')
+    expect(readSavedMessages()[0].content).toBe('cyclic prompt')
+  })
+
+  test('scheduleCheckpointSave survives a cyclic run state (async path)', async () => {
+    const cyclicRunState = testRunState('cyclic-async') as Record<
+      string,
+      unknown
+    >
+    cyclicRunState.self = cyclicRunState
+
+    scheduleCheckpointSave(
+      cyclicRunState as unknown as RunState,
+      testMessages('cyclic async prompt'),
+    )
+    await settleCheckpointSave()
+
+    const onDisk = fs.readFileSync(path.join(chatDir, 'run-state.json'), 'utf8')
+    expect(onDisk).toContain('[Circular]')
+    expect(readSavedMessages()[0].content).toBe('cyclic async prompt')
+  })
   test('flush preserves completed:true across queued checkpoint writes', () => {
     // Completed chat whose chat dir still holds a queued checkpoint (e.g. an
     // abort-then-switch queued a final checkpoint for the original chat).

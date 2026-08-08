@@ -9,7 +9,15 @@ const endsAgentStep = false
 const inputSchema = z
   .object({
     phase: z
-      .enum(['idle', 'red', 'green', 'audit', 'self_correct', 'complete'])
+      .enum([
+        'idle',
+        'red',
+        'green',
+        'audit',
+        'adversarial',
+        'self_correct',
+        'complete',
+      ])
       .describe('The Perfection Loop phase to transition to.'),
     reason: z
       .string()
@@ -25,7 +33,8 @@ Valid transitions:
 - idle → red | green
 - red → green
 - green → audit
-- audit → self_correct | complete
+- audit → adversarial | self_correct | complete
+- adversarial → complete | self_correct (FID-2026-0805-004)
 - self_correct → green | complete
 - complete → idle
 

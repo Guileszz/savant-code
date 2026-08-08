@@ -46,11 +46,12 @@ Or select one of the supported gateway providers directly:
 | Provider | Selection | Environment variable | Notes |
 | --- | --- | --- | --- |
 | Ollama | Automatic detection | `OLLAMA_HOST` (optional) | Local inference; no API key required |
-| OpenCode Go | `/provider opencode-go` | `OPENCODE_GO_API_KEY` | Hosted gateway; MiMo 2.5 is the default model |
+| OpenRouter | `/provider openrouter` or `DIRECT_PROVIDER=openrouter` | `OR_MASTER_KEY`, `OPENROUTER_API_KEY`, or `INFERENCE_API_KEY` | Default provider; free tier (`openrouter/free`) is the boot default; direct mode without the Savant backend |
+| OpenCode Go | `/provider opencode-go` | `OPENCODE_GO_API_KEY` | Hosted gateway |
 | TokenRouter | `/provider tokenrouter` | `TOKENROUTER_API_KEY` | Multi-provider gateway |
+| TokenHarbor | `/provider tokenharbor` | `TOKENHARBOR_API_KEY` | OpenAI-compatible hosted gateway at `https://tokenharbor.ai/v1` |
 | NVIDIA NIM | `/provider nvidia` | `NVIDIA_API_KEY` | NVIDIA-hosted inference |
 | CommandCode | `/provider commandcode` | `COMMAND_CODE_API_KEY` | OpenAI-compatible hosted inference |
-| OpenRouter direct | `/provider openrouter` or `DIRECT_PROVIDER=openrouter` | `OR_MASTER_KEY`, `OPENROUTER_API_KEY`, or `INFERENCE_API_KEY` | Direct mode without the Savant backend |
 | Custom endpoint | Environment configuration | `INFERENCE_BASE_URL`, `INFERENCE_API_KEY` | Advanced OpenAI-compatible endpoint |
 
 The interactive key prompt is masked. Saved provider credentials are stored in the user configuration directory and are not added to chat history:
@@ -63,6 +64,7 @@ Shell environment variables take precedence over saved credentials. Configure on
 ```powershell
 # PowerShell — choose one hosted gateway
 $env:OPENCODE_GO_API_KEY = "your-key"
+# $env:TOKENHARBOR_API_KEY = "your-key"
 # $env:TOKENROUTER_API_KEY = "your-key"
 # $env:NVIDIA_API_KEY = "your-key"
 # $env:COMMAND_CODE_API_KEY = "your-key"
@@ -72,6 +74,7 @@ savant-code
 ```cmd
 :: Windows Command Prompt — choose one hosted gateway
 set OPENCODE_GO_API_KEY=your-key
+:: set TOKENHARBOR_API_KEY=your-key
 :: set TOKENROUTER_API_KEY=your-key
 :: set NVIDIA_API_KEY=your-key
 :: set COMMAND_CODE_API_KEY=your-key
@@ -81,6 +84,7 @@ savant-code
 ```bash
 # macOS/Linux — choose one hosted gateway
 export OPENCODE_GO_API_KEY="your-key"
+# export TOKENHARBOR_API_KEY="your-key"
 # export TOKENROUTER_API_KEY="your-key"
 # export NVIDIA_API_KEY="your-key"
 # export COMMAND_CODE_API_KEY="your-key"
@@ -111,7 +115,7 @@ The following is a public template containing dummy values only. Copy it to `.en
 NEXT_PUBLIC_CB_ENVIRONMENT=dev
 NEXT_PUBLIC_WEB_PORT=3000
 NEXT_PUBLIC_SAVANT_CODE_APP_URL=http://localhost:3000
-# NEXT_PUBLIC_FREEBUFF_APP_URL=http://localhost:3001
+# NEXT_PUBLIC_SAVANT_FREE_APP_URL=http://localhost:3001
 
 # Analytics, support, and billing placeholders
 NEXT_PUBLIC_POSTHOG_API_KEY=phc_dummy_replace_me
@@ -131,6 +135,7 @@ OR_MASTER_KEY=dummy-or-master-key-replace-me
 
 # Supported hosted gateways
 OPENCODE_GO_API_KEY=dummy-opencode-go-key-replace-me
+TOKENHARBOR_API_KEY=dummy-tokenharbor-key-replace-me
 TOKENROUTER_API_KEY=dummy-tokenrouter-key-replace-me
 NVIDIA_API_KEY=dummy-nvidia-key-replace-me
 COMMAND_CODE_API_KEY=dummy-commandcode-key-replace-me
@@ -162,7 +167,7 @@ Build release artifacts from a clean shell (no dev `NEXT_PUBLIC_*` exports, no `
 
 ## What Makes Savant-Code Different
 
-Savant-Code is a multi-agent system rather than a single model guessing at your code. Nine canonical ECHO roles coordinate with strict separation of duties:
+Savant-Code is a multi-agent system rather than a single model guessing at your code. Ten canonical ECHO roles coordinate with strict separation of duties:
 
 | Agent | Responsibility |
 | --- | --- |
@@ -175,6 +180,7 @@ Savant-Code is a multi-agent system rather than a single model guessing at your 
 | **Scout** | Explores files and code to gather context |
 | **Researcher** | Performs web search, documentation lookup, and multi-query `deep_research` |
 | **Scribe** | Captures session summaries and durable knowledge |
+| **Adversary** | Meta-verification — refutes Verifier findings, re-audits unevidenced PASSes, resolves citations; verdicts override |
 
 Infrastructure helpers such as terminal execution, browser automation, and web/docs tool libraries support these roles; they are not additional roster members.
 
@@ -185,8 +191,10 @@ Every code change follows the ECHO Perfection Loop:
 1. **RED** — identify all failures and issues with evidence.
 2. **GREEN** — implement minimal, surgical changes from the converged FID.
 3. **AUDIT** — independently verify the implementation and call-graph reachability.
-4. **SELF-CORRECT** — resolve audit findings and repeat verification when needed.
-5. **COMPLETE** — record evidence, update tracking, and close the work item.
+4. **ADVERSARIAL** — the Adversary refutes Verifier findings, re-audits
+   unevidenced PASSes, and resolves citations; verdicts override.
+5. **SELF-CORRECT** — resolve audit findings and repeat verification when needed.
+6. **COMPLETE** — record evidence, update tracking, and close the work item.
 
 No code is written without a converged plan, and the implementing agent cannot serve as the final verifier.
 
@@ -194,7 +202,7 @@ No code is written without a converged plan, and the implementing agent cannot s
 
 ### Multi-agent orchestration
 
-- Nine canonical agents coordinate through ECHO with explicit separation of duties.
+- Ten canonical agents coordinate through ECHO with explicit separation of duties.
 - Child agents receive only their authorized tool subset through strict allowlist filtering.
 - Parallel agent work supports exploration, research, implementation, and independent review.
 - FID-bound execution keeps implementation tied to an approved specification.
@@ -290,7 +298,7 @@ The package ships the CLI on top of shared runtime and SDK capabilities:
 
 ## Slash Command Reference
 
-Commands can be entered with `/`; aliases are shown in parentheses. Some commands are intentionally unavailable in Savant-Free builds.
+Commands can be entered with `/`; aliases are shown in parentheses.
 
 | Command | Purpose |
 | --- | --- |
@@ -343,6 +351,19 @@ Commands can be entered with `/`; aliases are shown in parentheses. Some command
 **Code review:**
 
 > Review my recent changes and flag security issues, performance problems, and style violations.
+
+**Headless / scripting (FID-2026-0806-011):**
+
+```bash
+# Run a single prompt without the TUI and print the final answer to stdout
+savant-code --print "summarize this repo"
+
+# Pipe a prompt in — the CLI auto-enters headless mode
+printf 'add a .gitignore\n' | savant-code
+```
+
+Exit codes: `0` success, `1` error or timeout, `2` usage error.
+`SAVANT_CODE_RUN_TIMEOUT_MS` (default 10 minutes) bounds hung runs.
 
 ## Troubleshooting
 

@@ -17,6 +17,11 @@
 import fs from 'fs'
 import path from 'path'
 
+import {
+  format as formatWithPrettier,
+  resolveConfig as resolvePrettierConfig,
+} from 'prettier'
+
 const FA_DIR =
   process.env.FA_OFFLINE_DIR ??
   path.join(process.env.LOCALAPPDATA ?? '.', 'Temp', 'fa-offline')
@@ -55,10 +60,7 @@ out = out.replace(
 )
 
 // 3. Escape for embedding in a TS template literal: backslash, backtick, ${.
-out = out
-  .replace(/\\/g, '\\\\')
-  .replace(/`/g, '\\`')
-  .replace(/\$\{/g, '\\${')
+out = out.replace(/\\/g, '\\\\').replace(/`/g, '\\`').replace(/\$\{/g, '\\${')
 
 const header = `/**
  * Font Awesome Free 6.7.2 (webfonts) — fully offline stylesheet.
@@ -76,6 +78,17 @@ export const FONT_AWESOME_ALL_CSS: string =
   \`${out}\`
 `
 
-fs.writeFileSync(OUT, header)
+// Format with prettier so a regenerated constant stays compliant with the
+// declared format gate (protocol.config.yaml `commands.format`). The template
+// literal body is untouched; only surrounding code style is normalized.
+const prettierConfig = await resolvePrettierConfig(path.dirname(OUT)).catch(
+  () => null,
+)
+const formatted = await formatWithPrettier(header, {
+  parser: 'typescript',
+  ...(prettierConfig ?? {}),
+})
+
+fs.writeFileSync(OUT, formatted)
 const kb = (Buffer.byteLength(header, 'utf8') / 1024).toFixed(1)
 console.log(`Wrote ${OUT} (${kb} KB)`)

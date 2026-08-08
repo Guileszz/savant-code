@@ -1,4 +1,5 @@
 import { getWebsiteUrl } from './constants'
+import { isDirectProviderMode } from './env'
 
 import type { ComposioMetaToolName } from '@savant-code/common/constants/composio'
 import type { JSONValue } from '@savant-code/common/types/json'
@@ -25,6 +26,19 @@ export async function executeComposioToolViaServer(params: {
   toolName: ComposioMetaToolName
   input: Record<string, JSONValue>
 }): Promise<ToolResultOutput[]> {
+  // No-backend mode (FID-2026-0806-009): composio executes via the backend
+  // only; surface a clear error instead of a connection-refused retry storm.
+  if (isDirectProviderMode()) {
+    return [
+      {
+        type: 'json',
+        value: {
+          errorMessage:
+            'Composio is unavailable in direct/BYOK mode (no SavantCode backend).',
+        },
+      },
+    ]
+  }
   try {
     const response = await fetch(
       new URL('/api/v1/composio/execute', getWebsiteUrl()),

@@ -3,7 +3,7 @@
 **Filename:** `FID-2026-0803-001-echo-enforcement-layer-drift.md`
 **ID:** FID-2026-0803-001
 **Severity:** high
-**Status:** verified
+**Status:** closed
 **Created:** 2026-08-03
 **Author:** Savant
 
@@ -26,7 +26,7 @@ out of scope. This FID audits only live source files and current runtime paths.
 
 - **OS:** Windows (`win32`), Bash-compatible shell
 - **Language/Runtime:** TypeScript monorepo, Bun 1.3.x
-- **Protocol:** Savant ECHO v0.2.0; Savant contract v0.1.2-freebuff
+- **Protocol:** Savant ECHO v0.2.0; Savant contract v0.1.2-single-agent
 - **Project version:** 0.0.15
 - **Commit/State:** `4aaa3f9` plus the existing uncommitted quality-session change set
 - **Scope:** `agents/savant/savant.ts`, `protocol.config.yaml`, `ARCHITECTURE.md`,

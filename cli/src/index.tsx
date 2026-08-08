@@ -19,6 +19,7 @@ import path from 'path'
 import { createCliRenderer } from '@opentui/core'
 import { createRoot } from '@opentui/react'
 import { AnalyticsEvent } from '@savant-code/common/constants/analytics-events'
+import { isCI } from '@savant-code/common/env-ci'
 import { getProjectFileTree } from '@savant-code/common/project-file-tree'
 import {
   QueryClient,
@@ -31,6 +32,7 @@ import React from 'react'
 import { App } from './app'
 import { loadPackageVersion, parseArgs } from './cli-args'
 import { handlePublish } from './commands/publish'
+import { runHeadlessPrint } from './headless-run'
 import { initializeApp } from './init/init-app'
 import { runPlainLogin } from './login/plain-login'
 import { getProjectRoot, setProjectRoot } from './project-files'
@@ -56,6 +58,11 @@ import { saveRecentProject } from './utils/recent-projects'
 import { installProcessCleanupHandlers } from './utils/renderer-cleanup'
 import { setApiClientAuthToken } from './utils/savant-code-api'
 import { resetSavantCodeClient } from './utils/savant-code-client'
+import {
+  hasAnalyticsNoticeBeenShown,
+  loadAnalyticsEnabled,
+  markAnalyticsNoticeShown,
+} from './utils/settings'
 import { initializeSkillRegistry } from './utils/skill-registry'
 import { detectTerminalTheme } from './utils/terminal-color-detection'
 import { TERMINAL_RESET_SEQUENCES } from './utils/terminal-reset-sequences'
@@ -91,6 +98,28 @@ function createQueryClient(): QueryClient {
         retry: 1, // Retry mutations once on failure
       },
     },
+  })
+}
+
+/**
+ * FID-2026-0806-011: read all piped stdin (used as the headless prompt when
+ * a script pipes into the CLI without a positional prompt). Never rejects —
+ * a read failure resolves with whatever was captured.
+ */
+function readStdin(): Promise<string> {
+  return new Promise((resolve) => {
+    let data = ''
+    try {
+      process.stdin.setEncoding('utf8')
+      process.stdin.on('data', (chunk: string) => {
+        data += chunk
+      })
+      process.stdin.on('end', () => resolve(data))
+      process.stdin.on('error', () => resolve(data))
+      process.stdin.resume()
+    } catch {
+      resolve(data)
+    }
   })
 }
 
@@ -213,6 +242,7 @@ async function main(): Promise<void> {
     cwd,
     initialMode,
     initialPermissionMode,
+    print,
   } = parseArgs()
 
   const isLoginCommand = command === 'login'
@@ -242,10 +272,64 @@ async function main(): Promise<void> {
   // Set the auth token for the API client
   setApiClientAuthToken(getAuthToken())
 
-  // Handle login command before rendering the app
-  if (isLoginCommand) {
+  // Handle explicit command invocations before generic non-TTY routing.
+  // Login is a command, not a prompt: in smoke tests, CI, and scripted shells
+  // stdin is non-TTY, but that must not turn `savant-free login` into a
+  // headless `--print` invocation.
+  if (isLoginCommand && !print) {
     await runPlainLogin()
     return
+  }
+
+  // Headless / non-interactive mode (FID-2026-0806-011): explicit `--print`,
+  // piped stdin, or CI. Runs a single prompt through the SDK and prints the
+  // final answer to stdout, exiting non-zero on failure. Never enters the TUI
+  // — a piped/scripted invocation that fails must not read as a hang.
+  if (print || !process.stdin.isTTY || isCI()) {
+    // Piped stdin: `echo "refactor this" | savant-code` uses stdin as the
+    // prompt. Only read stdin when it is actually piped — with a TTY we never
+    // get here unless --print was passed without a prompt, which is a usage
+    // error handled below.
+    let headlessPrompt = initialPrompt
+    if (!headlessPrompt && !process.stdin.isTTY) {
+      headlessPrompt = await readStdin()
+    }
+
+    // Local agent overrides only apply in interactive sessions; --agent is
+    // honored in headless mode so scripted runs can pin an agent id.
+    if (!hasAgentOverride) {
+      await initializeAgentRegistry()
+    }
+
+    const result = await runHeadlessPrint({
+      prompt: headlessPrompt ?? '',
+      agentId: hasAgentOverride ? agent : undefined,
+      continueChat,
+      continueId,
+    })
+
+    if (result.output !== undefined) {
+      // eslint-disable-next-line no-console -- headless stdout contract
+      console.log(result.output)
+    }
+    if (result.error) {
+      // eslint-disable-next-line no-console -- headless stderr contract
+      console.error(red(`Error: ${result.error}`))
+    }
+    process.exit(result.exitCode)
+  }
+
+  // FID-2026-0806-015: disclose the default-on analytics once, to brand-new
+  // users, before the TUI starts. Printed to stderr so it never corrupts
+  // piped stdout; the notice retires after the first show.
+  if (loadAnalyticsEnabled() && !hasAnalyticsNoticeBeenShown()) {
+    // eslint-disable-next-line no-console -- first-run disclosure banner
+    console.error(
+      yellow(
+        'Note: anonymous usage analytics are enabled by default. Run /telemetry disable to turn them off.',
+      ),
+    )
+    markAnalyticsNoticeShown()
   }
 
   // Show project picker only when user starts at the home directory or an ancestor

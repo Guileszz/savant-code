@@ -12,12 +12,7 @@
  *    background — deterministic and unit-testable.
  */
 
-export type DiffLineKind =
-  | 'add'
-  | 'remove'
-  | 'context'
-  | 'hunk'
-  | 'header'
+export type DiffLineKind = 'add' | 'remove' | 'context' | 'hunk' | 'header'
 
 export interface DiffLine {
   kind: DiffLineKind

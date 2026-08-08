@@ -160,11 +160,12 @@ async function runQueries(
         )
         results[idx] = res
         if (res?.error || !res?.result) {
-          gaps.push(`Sub-query failed: ${queries[idx]}${res?.error ? ` (${res.error})` : ''}`)
+          gaps.push(
+            `Sub-query failed: ${queries[idx]}${res?.error ? ` (${res.error})` : ''}`,
+          )
         }
       } catch (error) {
-        const message =
-          error instanceof Error ? error.message : String(error)
+        const message = error instanceof Error ? error.message : String(error)
         results[idx] = null
         gaps.push(`Sub-query failed: ${queries[idx]} (${message})`)
         logger.warn(
@@ -176,9 +177,7 @@ async function runQueries(
   }
 
   const workerCount = Math.min(concurrency, queries.length)
-  await Promise.all(
-    Array.from({ length: workerCount }, () => worker()),
-  )
+  await Promise.all(Array.from({ length: workerCount }, () => worker()))
   return { results, gaps }
 }
 
@@ -244,7 +243,13 @@ export async function runDeepResearch(options: {
   // later query surfaces the same URL, prefer the higher-scoring entry).
   const byUrl = new Map<
     string,
-    { url: string; title?: string; snippet?: string; queryIndex: number; score: number }
+    {
+      url: string
+      title?: string
+      snippet?: string
+      queryIndex: number
+      score: number
+    }
   >()
   for (const hit of hits) {
     const existing = byUrl.get(hit.url)

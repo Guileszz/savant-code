@@ -248,6 +248,27 @@ export function createCacheDebugSnapshot(params: {
   return { snapshotId, filename, projectRoot }
 }
 
+/**
+ * P4b (FID-2026-0806-003): loads the systemHash/toolsHash pair a snapshot
+ * recorded, for prefix-stability monitoring. Returns empty hashes when the
+ * snapshot is missing (already rotated) so callers degrade to no-op.
+ */
+export function loadCacheDebugSnapshotHashPair(correlation: {
+  projectRoot: string
+  filename: string
+}): { systemHash?: string; toolsHash?: string } {
+  try {
+    const existing = loadSnapshot(correlation)
+    if (!existing) return {}
+    return {
+      systemHash: existing.systemHash,
+      toolsHash: existing.toolsHash,
+    }
+  } catch {
+    return {}
+  }
+}
+
 export function enrichCacheDebugSnapshotWithUsage(params: {
   correlation: CacheDebugCorrelation
   usage: CacheDebugUsageData

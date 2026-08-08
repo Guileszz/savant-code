@@ -44,7 +44,9 @@ const DEFAULT_FIDS_DIR = join('dev', 'fids')
  */
 function extractField(content: string, field: string): string | undefined {
   const match = content.match(
-    new RegExp(`\\*\\*${field}:?\\*\\*[ \\t]*:?[ \\t]*\\|?[ \\t]*([^\\r\\n|]+)`),
+    new RegExp(
+      `\\*\\*${field}:?\\*\\*[ \\t]*:?[ \\t]*\\|?[ \\t]*([^\\r\\n|]+)`,
+    ),
   )
   const raw = match?.[1]
   if (!raw) return undefined

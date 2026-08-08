@@ -72,9 +72,9 @@ describe('resolveBunSqliteDatabaseModule', () => {
   it('defers the database open until first use (lazy getDb)', () => {
     // getDb() must return a working connection that runs queries.
     const conn = getDb()
-    const row = conn
-      .prepare('SELECT COUNT(*) as n FROM sessions')
-      .get() as { n: number }
+    const row = conn.prepare('SELECT COUNT(*) as n FROM sessions').get() as {
+      n: number
+    }
     expect(row.n).toBe(0)
   })
 })

@@ -49,10 +49,39 @@ describe('readProtocolConfig', () => {
         version: '0.1.2-savant',
         strictMode: true,
       },
+      compression: {
+        enabled: true,
+        microCompact: false,
+        keepRecentTokens: 16_384,
+        autoCompactRatio: 0.8,
+        forceCompactRatio: 0.9,
+        idleCompaction: {
+          enabled: false,
+          idleAfterSeconds: 1_800,
+          floorTokens: 40_000,
+        },
+        model: null,
+        summary: {
+          requiredSections: true,
+          exactIdentifiers: 'strict',
+        },
+      },
+      yagni: {
+        enforced: true,
+        ledger: 'dev/YAGNI-LEDGER.md',
+      },
+      caveman: {
+        enabled: false,
+        autoClarity: true,
+      },
+      telemetry: {
+        enabled: true,
+        cacheHitAlertDrop: 0.3,
+      },
     })
   })
 
-  test('normalizes the legacy FreeBuff protocol namespace', () => {
+  test('normalizes the single_agent protocol namespace', () => {
     const cwd = fs.mkdtempSync(path.join(os.tmpdir(), 'protocol-config-'))
     temporaryDirectories.push(cwd)
     fs.mkdirSync(path.join(cwd, 'dev', 'fids'), { recursive: true })
@@ -62,16 +91,16 @@ describe('readProtocolConfig', () => {
         'protocol:',
         "  version: '0.2.0'",
         '  strict_mode: true',
-        'freebuff:',
+        'single_agent:',
         '  protocol:',
-        "    version: '0.1.2-freebuff'",
+        "    version: '0.1.2-single-agent'",
         '    strict_mode: true',
         '',
       ].join('\n'),
     )
 
     expect(readProtocolConfig(cwd).savant).toEqual({
-      version: '0.1.2-freebuff',
+      version: '0.1.2-single-agent',
       strictMode: true,
     })
   })
@@ -90,9 +119,9 @@ describe('readProtocolConfig', () => {
         '  protocol:',
         "    version: '0.1.2-savant'",
         '    strict_mode: false',
-        'freebuff:',
+        'single_agent:',
         '  protocol:',
-        "    version: '0.1.2-freebuff'",
+        "    version: '0.1.2-single-agent'",
         '    strict_mode: true',
         '',
       ].join('\n'),
@@ -114,6 +143,108 @@ describe('readProtocolConfig', () => {
       openFids: [],
       maxIterations: 10,
       savant: null,
+      compression: {
+        enabled: true,
+        microCompact: false,
+        keepRecentTokens: 16_384,
+        autoCompactRatio: 0.8,
+        forceCompactRatio: 0.9,
+        idleCompaction: {
+          enabled: false,
+          idleAfterSeconds: 1_800,
+          floorTokens: 40_000,
+        },
+        model: null,
+        summary: {
+          requiredSections: true,
+          exactIdentifiers: 'strict',
+        },
+      },
+      yagni: {
+        enforced: true,
+        ledger: 'dev/YAGNI-LEDGER.md',
+      },
+      caveman: {
+        enabled: false,
+        autoClarity: true,
+      },
+      telemetry: {
+        enabled: true,
+        cacheHitAlertDrop: 0.3,
+      },
     })
+  })
+
+  test('parses the token-optimization sections (compression/yagni/caveman/telemetry)', () => {
+    const cwd = fs.mkdtempSync(path.join(os.tmpdir(), 'protocol-config-'))
+    temporaryDirectories.push(cwd)
+    fs.mkdirSync(path.join(cwd, 'dev', 'fids'), { recursive: true })
+    fs.writeFileSync(
+      path.join(cwd, 'protocol.config.yaml'),
+      [
+        'compression:',
+        '  enabled: false',
+        '  microCompact: true',
+        '  keepRecentTokens: 8192',
+        '  autoCompactRatio: 0.75',
+        '  forceCompactRatio: 0.95',
+        '  idleCompaction:',
+        '    enabled: true',
+        '    idleAfterSeconds: 900',
+        '    floorTokens: 20000',
+        "  model: 'anthropic/claude-sonnet-4.6'",
+        '  summary:',
+        '    requiredSections: false',
+        '    exactIdentifiers: normal',
+        'yagni:',
+        '  enforced: false',
+        "  ledger: 'dev/debt.md'",
+        'caveman:',
+        '  enabled: true',
+        '  autoClarity: false',
+        'telemetry:',
+        '  enabled: false',
+        '  cacheHitAlertDrop: 0.1',
+        '',
+      ].join('\n'),
+    )
+
+    const config = readProtocolConfig(cwd)
+    expect(config.compression).toEqual({
+      enabled: false,
+      microCompact: true,
+      keepRecentTokens: 8_192,
+      autoCompactRatio: 0.75,
+      forceCompactRatio: 0.95,
+      idleCompaction: {
+        enabled: true,
+        idleAfterSeconds: 900,
+        floorTokens: 20_000,
+      },
+      model: 'anthropic/claude-sonnet-4.6',
+      summary: {
+        requiredSections: false,
+        exactIdentifiers: 'normal',
+      },
+    })
+    expect(config.yagni).toEqual({ enforced: false, ledger: 'dev/debt.md' })
+    expect(config.caveman).toEqual({ enabled: true, autoClarity: false })
+    expect(config.telemetry).toEqual({ enabled: false, cacheHitAlertDrop: 0.1 })
+  })
+
+  test('partial token-optimization configs keep defaults for missing keys', () => {
+    const cwd = fs.mkdtempSync(path.join(os.tmpdir(), 'protocol-config-'))
+    temporaryDirectories.push(cwd)
+    fs.mkdirSync(path.join(cwd, 'dev', 'fids'), { recursive: true })
+    fs.writeFileSync(
+      path.join(cwd, 'protocol.config.yaml'),
+      ['caveman:', '  enabled: true', ''].join('\n'),
+    )
+
+    const config = readProtocolConfig(cwd)
+    expect(config.caveman).toEqual({ enabled: true, autoClarity: true })
+    expect(config.compression.enabled).toBe(true)
+    expect(config.compression.keepRecentTokens).toBe(16_384)
+    expect(config.telemetry.enabled).toBe(true)
   })
 })

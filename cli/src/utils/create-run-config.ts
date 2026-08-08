@@ -52,6 +52,9 @@ export type CreateRunConfigParams = {
   /** FID-2026-0804-009: harness ECHO compliance override. Defaults to `warn`;
    *  the CLI always passes active FID paths so FID-aware escalation is live. */
   echoCompliance?: { mode?: 'warn' | 'off'; fidPaths?: string[] }
+  /** EHEL enforcement mode — drives which ECHO laws are blocking vs advisory.
+   *  hybrid: Laws 1-4 blocking, 5-15 advisory. strict: all 15 blocking. */
+  enforcementMode?: 'hybrid' | 'strict'
 }
 
 const SENSITIVE_EXTENSIONS = new Set([
@@ -189,6 +192,8 @@ export const createRunConfig = (params: CreateRunConfigParams) => {
       mode: echoComplianceMode,
       fidPaths: echoComplianceMode === 'off' ? [] : getActiveFidPaths(),
     },
+    // EHEL: enforcement mode drives which laws are blocking vs advisory
+    enforcementMode: params.enforcementMode ?? 'hybrid',
     fileFilter: ((filePath: string) => {
       if (isSensitiveFile(filePath)) return { status: 'blocked' }
       if (isEnvTemplateFile(filePath)) return { status: 'allow-example' }

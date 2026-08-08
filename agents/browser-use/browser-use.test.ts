@@ -1,4 +1,3 @@
- 
 /**
  * Test script for the browser-use agent.
  *

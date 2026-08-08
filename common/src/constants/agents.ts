@@ -17,6 +17,11 @@ export const AGENT_PERSONAS = {
     purpose:
       'Reviews file changes and responds with critical feedback. Use this after making any significant change to the codebase; otherwise, no need to use this agent for minor changes since it takes a second.',
   } as const,
+  adversary: {
+    displayName: 'Savant the Adversary',
+    purpose:
+      'Meta-verification after AUDIT: refutes the Verifier\u2019s FAILs, re-audits unevidenced PASSes, resolves citations, and overrides verdicts. Read-only \u2014 never edits code.',
+  } as const,
   researcher: {
     displayName: 'Savant the Researcher',
     purpose: 'Expert at researching topics using web search and documentation.',
@@ -197,9 +202,9 @@ export const ECHO_PROTOCOL_INSTRUCTIONS = [
   '| **self_correct** | write_file, str_replace, apply_patch, run_terminal_command (phase-gated); spawn_agents, read_files, glob (always available) | Fix audit findings |',
   '| **complete** | (none \u2014 task done) | Document results |',
   '',
-  '**Note:** Only 5 tools are FSM phase-gated in the runtime: write_file, str_replace, apply_patch (green/self_correct only), run_terminal_command (green/audit only), and sequentialthinking (Thinker agents only). All other tools including spawn_agents, read_files, glob, list_directory, skill, ask_user, etc. are available in ALL phases.',
+  '**Note:** Only 5 tools are FSM phase-gated in the runtime: write_file, str_replace, apply_patch (green/self_correct only), run_terminal_command (audit/green/self_correct only — self_correct added FID-2026-0806-016 so findings can be fixed AND verified inline without deadlocking), and sequentialthinking (Thinker agents only). All other tools including spawn_agents, read_files, glob, list_directory, skill, ask_user, etc. are available in ALL phases.',
   '',
-  '**Note:** `basher` is a spawnable agent (via `spawn_agents`), not a phase-gated tool. The agent itself can be spawned in any phase, but the terminal commands it executes require GREEN or AUDIT phase. Transition to GREEN before spawning basher for commands that need `run_terminal_command`.',
+  '**Note:** `basher` is a spawnable agent (via `spawn_agents`), not a phase-gated tool. The agent itself can be spawned in any phase, but the terminal commands it executes require GREEN, AUDIT, or SELF-CORRECT phase (FID-2026-0806-016). Transition to GREEN before spawning basher for commands that need `run_terminal_command`.',
   '',
   '### Transition Rules',
   '',

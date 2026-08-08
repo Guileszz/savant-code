@@ -74,7 +74,8 @@ export const toolSafetyRegistry: Record<ToolName, ToolSafety> = {
   deep_research: {
     effect: network,
     permission: allow,
-    reason: 'Runs multi-query web research (mechanical executor, no second LLM).',
+    reason:
+      'Runs multi-query web research (mechanical executor, no second LLM).',
   },
 
   // Database tools (FID-2026-0804-004) — read-only by default; writes are
@@ -98,7 +99,28 @@ export const toolSafetyRegistry: Record<ToolName, ToolSafety> = {
   execute_query: {
     effect: mixed,
     permission: prompt,
-    reason: 'Executes SQL; read-only by default, writes require explicit approval.',
+    reason:
+      'Executes SQL; read-only by default, writes require explicit approval.',
+  },
+
+  // Knowledge-graph tools (FID-2026-0806-002) — read-only queries over the
+  // in-process codebase graph index (.savant/graph.db). No writes, no shell,
+  // no network; deterministic over the indexed snapshot.
+  query_blast_radius: {
+    effect: read,
+    permission: allow,
+    reason: 'Queries graph blast radius over the indexed snapshot (read-only).',
+  },
+  query_domain_clusters: {
+    effect: read,
+    permission: allow,
+    reason:
+      'Lists Louvain domain clusters from the indexed snapshot (read-only).',
+  },
+  query_node_edges: {
+    effect: read,
+    permission: allow,
+    reason: "Queries a file's nodes and incident edges (read-only).",
   },
 
   // Write tools
@@ -253,6 +275,14 @@ export const toolSafetyRegistry: Record<ToolName, ToolSafety> = {
     effect: read,
     permission: allow,
     reason: 'Transitions ECHO FSM phase.',
+  },
+  // YAGNI debt ledger (FID-2026-0806-003) — scans source for ponytail:
+  // markers and appends to dev/YAGNI-LEDGER.md (a repo-relative doc).
+  ponytail_debt: {
+    effect: write,
+    permission: allow,
+    reason:
+      'Scans for ponytail: YAGNI debt markers and appends to dev/YAGNI-LEDGER.md.',
   },
 
   // Composio meta tools (forwarded)

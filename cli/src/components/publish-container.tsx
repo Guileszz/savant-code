@@ -1,17 +1,7 @@
-import { TextAttributes } from '@opentui/core'
-import { pluralize } from '@savant-code/common/util/string'
-import React, { useCallback, useEffect, useMemo, useState } from 'react'
+import React, { useCallback, useEffect, useMemo } from 'react'
 import { useShallow } from 'zustand/react/shallow'
 
-import { AgentChecklist } from './agent-checklist'
-import { Button } from './button'
-import { MultilineInput, type MultilineInputHandle } from './multiline-input'
-import {
-  PublishConfirmation,
-  getAllPublishAgentIds,
-} from './publish-confirmation'
-import { SelectedChips } from './selected-chips'
-import { Separator } from './separator'
+import { getAllPublishAgentIds } from './publish-confirmation'
 import { useTerminalLayout } from '../hooks/use-terminal-layout'
 import { useTheme } from '../hooks/use-theme'
 import { useChatStore } from '../state/chat-store'
@@ -22,6 +12,14 @@ import {
 } from '../utils/local-agent-registry'
 import { isPlainEnterKey } from '../utils/terminal-enter-detection'
 import { BORDER_CHARS } from '../utils/ui-constants'
+import { ConfirmationStep } from './publish-container/confirmation-step'
+import { ErrorStep } from './publish-container/error-step'
+import { PublishHeader } from './publish-container/header'
+import { EmptyStatePanel, TooSmallPanel } from './publish-container/panels'
+import { SelectionStep } from './publish-container/selection-step'
+import { SuccessStep } from './publish-container/success-step'
+
+import type { MultilineInputHandle } from './multiline-input'
 
 interface PublishContainerProps {
   inputRef: React.MutableRefObject<MultilineInputHandle | null>
@@ -39,10 +37,6 @@ export const PublishContainer: React.FC<PublishContainerProps> = ({
   const theme = useTheme()
   const { width: widthLayout, height: heightLayout } = useTerminalLayout()
   const isTooSmall = widthLayout.atMost('xs') || heightLayout.atMost('xs')
-  const [closeButtonHovered, setCloseButtonHovered] = useState(false)
-  const [nextButtonHovered, setNextButtonHovered] = useState(false)
-  const [backButtonHovered, setBackButtonHovered] = useState(false)
-  const [publishButtonHovered, setPublishButtonHovered] = useState(false)
 
   const {
     publishMode,
@@ -239,85 +233,12 @@ export const PublishContainer: React.FC<PublishContainerProps> = ({
 
   // Terminal too small - show placeholder
   if (isTooSmall) {
-    return (
-      <box
-        border
-        borderStyle="single"
-        borderColor={theme.info}
-        customBorderChars={BORDER_CHARS}
-        style={{
-          flexDirection: 'column',
-          gap: 1,
-          paddingLeft: 1,
-          paddingRight: 1,
-          paddingTop: 1,
-          paddingBottom: 1,
-        }}
-      >
-        <text style={{ fg: theme.warning, attributes: TextAttributes.BOLD }}>
-          Terminal too small
-        </text>
-        <text style={{ fg: theme.muted }}>
-          Please resize your terminal to use the publish menu.
-        </text>
-        <Button
-          onClick={handleCancel}
-          style={{
-            marginTop: 1,
-            paddingLeft: 1,
-            paddingRight: 1,
-            borderStyle: 'single',
-            borderColor: theme.border,
-          }}
-          customBorderChars={BORDER_CHARS}
-        >
-          <text style={{ fg: theme.foreground }}>CLOSE</text>
-        </Button>
-      </box>
-    )
+    return <TooSmallPanel onCancel={handleCancel} />
   }
 
   // Empty state - no agents found
   if (agents.length === 0) {
-    return (
-      <box
-        border
-        borderStyle="single"
-        borderColor={theme.info}
-        customBorderChars={BORDER_CHARS}
-        style={{
-          flexDirection: 'column',
-          gap: 1,
-          paddingLeft: 1,
-          paddingRight: 1,
-          paddingTop: 1,
-          paddingBottom: 1,
-        }}
-      >
-        <text style={{ fg: theme.warning, attributes: TextAttributes.BOLD }}>
-          No agents found
-        </text>
-        <text style={{ fg: theme.muted }}>
-          Create agents in the .agents/ directory to publish them.
-        </text>
-        <text style={{ fg: theme.muted }}>
-          See: https://savant-code.com/docs/agents for guidance.
-        </text>
-        <Button
-          onClick={handleCancel}
-          style={{
-            marginTop: 1,
-            paddingLeft: 1,
-            paddingRight: 1,
-            borderStyle: 'single',
-            borderColor: theme.border,
-          }}
-          customBorderChars={BORDER_CHARS}
-        >
-          <text style={{ fg: theme.foreground }}>CLOSE</text>
-        </Button>
-      </box>
-    )
+    return <EmptyStatePanel onCancel={handleCancel} />
   }
 
   return (
@@ -335,402 +256,63 @@ export const PublishContainer: React.FC<PublishContainerProps> = ({
         paddingBottom: 0,
       }}
     >
-      {/* Header */}
-      <box
-        style={{
-          flexDirection: 'row',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          marginTop: 1,
-        }}
-      >
-        <text style={{ wrapMode: 'none', marginLeft: 1, marginRight: 1 }}>
-          <span fg={theme.secondary}>
-            {currentStep === 'selection' &&
-              (selectedAgents.length > 0
-                ? `Selected ${pluralize(selectedAgents.length, 'agent')} to publish`
-                : 'Select agents to publish')}
-            {currentStep === 'confirmation' && 'Confirm publish'}
-            {currentStep === 'success' && 'Publish complete'}
-            {currentStep === 'error' && 'Publish failed'}
-          </span>
-        </text>
-        <box
-          style={{ paddingRight: 1 }}
-          onMouseDown={handleCancel}
-          onMouseOver={() => setCloseButtonHovered(true)}
-          onMouseOut={() => setCloseButtonHovered(false)}
-        >
-          <text style={{ wrapMode: 'none' }} selectable={false}>
-            <span fg={closeButtonHovered ? theme.foreground : theme.secondary}>
-              [x]
-            </span>
-          </text>
-        </box>
-      </box>
+      <PublishHeader
+        currentStep={currentStep}
+        selectedAgentCount={selectedAgents.length}
+        onCancel={handleCancel}
+      />
 
-      {/* Selection step */}
       {currentStep === 'selection' && (
-        <>
-          {/* Search input */}
-          <Separator width={width} widthOffset={4} />
-          <box style={{ paddingTop: 0, paddingBottom: 0 }}>
-            <MultilineInput
-              value={searchQuery}
-              onChange={({ text }) => setSearchQuery(text)}
-              onSubmit={handleNext}
-              onPaste={() => {}}
-              onKeyIntercept={handleSearchKeyIntercept}
-              placeholder="Type to search agents..."
-              focused={inputFocused}
-              maxHeight={1}
-              minHeight={1}
-              ref={inputRef}
-              cursorPosition={searchQuery.length}
-            />
-          </box>
-          <Separator width={width} widthOffset={4} />
-
-          {/* Selected chips */}
-          {selectedAgents.length > 0 && (
-            <>
-              <SelectedChips
-                selectedAgents={selectedAgents.map((a) => ({
-                  id: a.id,
-                  displayName: a.displayName,
-                }))}
-                onRemove={toggleAgentSelection}
-              />
-              <Separator width={width} widthOffset={4} />
-            </>
-          )}
-
-          {/* Agent checklist */}
-          <AgentChecklist
-            allAgents={agents}
-            filteredAgents={filteredAgents}
-            selectedIds={selectedAgentIds}
-            searchQuery={searchQuery}
-            focusedIndex={focusedIndex}
-            onToggleAgent={toggleAgentSelection}
-            onFocusChange={setFocusedIndex}
-            agentDefinitions={agentDefinitions}
-          />
-
-          {/* Footer with Next button */}
-          <Separator width={width} widthOffset={4} />
-          <box
-            style={{
-              flexDirection: 'row',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              paddingTop: 0,
-              paddingBottom: 0,
-            }}
-          >
-            <text style={{ fg: theme.muted }}>
-              ↑↓ navigate • Enter toggle • Tab next
-            </text>
-            <Button
-              onClick={handleNext}
-              onMouseOver={() => setNextButtonHovered(true)}
-              onMouseOut={() => setNextButtonHovered(false)}
-              style={{
-                paddingLeft: 1,
-                paddingRight: 1,
-                paddingTop: 0,
-                paddingBottom: 0,
-                borderStyle: 'single',
-                borderColor: canProceed ? theme.foreground : theme.border,
-                backgroundColor: 'transparent',
-              }}
-              customBorderChars={BORDER_CHARS}
-            >
-              <text
-                style={{ wrapMode: 'none' }}
-                attributes={
-                  canProceed
-                    ? undefined
-                    : TextAttributes.DIM | TextAttributes.ITALIC
-                }
-              >
-                <span
-                  fg={
-                    canProceed
-                      ? nextButtonHovered
-                        ? theme.primary
-                        : theme.foreground
-                      : theme.muted
-                  }
-                >
-                  NEXT
-                </span>
-              </text>
-            </Button>
-          </box>
-        </>
+        <SelectionStep
+          width={width}
+          inputRef={inputRef}
+          inputFocused={inputFocused}
+          agents={agents}
+          filteredAgents={filteredAgents}
+          selectedIds={selectedAgentIds}
+          selectedAgents={selectedAgents}
+          agentDefinitions={agentDefinitions}
+          focusedIndex={focusedIndex}
+          canProceed={canProceed}
+          searchQuery={searchQuery}
+          onSearchChange={setSearchQuery}
+          onToggleAgent={toggleAgentSelection}
+          onFocusChange={setFocusedIndex}
+          onKeyIntercept={handleSearchKeyIntercept}
+          onNext={handleNext}
+        />
       )}
 
-      {/* Confirmation step */}
       {currentStep === 'confirmation' && (
-        <>
-          <Separator width={width} widthOffset={4} />
-          <box style={{ paddingTop: 1, paddingBottom: 1 }}>
-            <PublishConfirmation
-              selectedAgents={selectedAgents}
-              allAgents={agents}
-              agentDefinitions={agentDefinitions}
-              includeDependents={includeDependents}
-              onToggleDependents={() =>
-                setIncludeDependents(!includeDependents)
-              }
-            />
-          </box>
-
-          {/* Footer with Back and Publish buttons */}
-          <Separator width={width} widthOffset={4} />
-          <box
-            style={{
-              flexDirection: 'row',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              paddingTop: 0,
-              paddingBottom: 0,
-              gap: 2,
-            }}
-          >
-            <Button
-              onClick={handleBack}
-              onMouseOver={() => setBackButtonHovered(true)}
-              onMouseOut={() => setBackButtonHovered(false)}
-              style={{
-                paddingLeft: 1,
-                paddingRight: 1,
-                paddingTop: 0,
-                paddingBottom: 0,
-                borderStyle: 'single',
-                borderColor: theme.border,
-                backgroundColor: 'transparent',
-              }}
-              customBorderChars={BORDER_CHARS}
-            >
-              <text style={{ wrapMode: 'none' }}>
-                <span
-                  fg={backButtonHovered ? theme.foreground : theme.secondary}
-                >
-                  BACK
-                </span>
-              </text>
-            </Button>
-            <Button
-              onClick={handlePublish}
-              onMouseOver={() => setPublishButtonHovered(true)}
-              onMouseOut={() => setPublishButtonHovered(false)}
-              style={{
-                paddingLeft: 1,
-                paddingRight: 1,
-                paddingTop: 0,
-                paddingBottom: 0,
-                borderStyle: 'single',
-                borderColor: isPublishing ? theme.border : theme.success,
-                backgroundColor: 'transparent',
-              }}
-              customBorderChars={BORDER_CHARS}
-            >
-              <text
-                style={{ wrapMode: 'none' }}
-                attributes={isPublishing ? TextAttributes.DIM : undefined}
-              >
-                <span
-                  fg={
-                    isPublishing
-                      ? theme.muted
-                      : publishButtonHovered
-                        ? theme.success
-                        : theme.foreground
-                  }
-                >
-                  {isPublishing
-                    ? 'PUBLISHING...'
-                    : `PUBLISH ${pluralize(publishAgentIds.length, 'AGENT')}`}
-                </span>
-              </text>
-            </Button>
-          </box>
-        </>
+        <ConfirmationStep
+          width={width}
+          selectedAgents={selectedAgents}
+          agents={agents}
+          agentDefinitions={agentDefinitions}
+          includeDependents={includeDependents}
+          isPublishing={isPublishing}
+          publishAgentCount={publishAgentIds.length}
+          onToggleDependents={() => setIncludeDependents(!includeDependents)}
+          onBack={handleBack}
+          onPublish={handlePublish}
+        />
       )}
 
-      {/* Success step */}
       {currentStep === 'success' && successResult && (
-        <>
-          <Separator width={width} widthOffset={4} />
-          <box
-            style={{
-              paddingTop: 1,
-              paddingBottom: 1,
-              flexDirection: 'column',
-              gap: 1,
-            }}
-          >
-            <box style={{ flexDirection: 'row', gap: 1 }}>
-              <text style={{ fg: theme.success }}>✓</text>
-              <text
-                style={{
-                  fg: theme.foreground,
-                  attributes: TextAttributes.BOLD,
-                }}
-              >
-                Successfully published {successResult.agents.length} agent
-                {successResult.agents.length !== 1 ? 's' : ''}!
-              </text>
-            </box>
-
-            <box style={{ flexDirection: 'column', gap: 0, paddingLeft: 2 }}>
-              {successResult.agents.map((agent) => (
-                <box key={agent.id} style={{ flexDirection: 'row', gap: 1 }}>
-                  <text style={{ fg: theme.muted }}>•</text>
-                  <text style={{ fg: theme.foreground }}>
-                    {agent.displayName}
-                  </text>
-                  <text style={{ fg: theme.secondary }}>
-                    ({successResult.publisherId}/{agent.id}@{agent.version})
-                  </text>
-                </box>
-              ))}
-            </box>
-          </box>
-
-          <Separator width={width} widthOffset={4} />
-          <box
-            style={{
-              flexDirection: 'row',
-              justifyContent: 'flex-end',
-              paddingTop: 0,
-              paddingBottom: 0,
-            }}
-          >
-            <Button
-              onClick={handleCancel}
-              onMouseOver={() => setCloseButtonHovered(true)}
-              onMouseOut={() => setCloseButtonHovered(false)}
-              style={{
-                paddingLeft: 1,
-                paddingRight: 1,
-                paddingTop: 0,
-                paddingBottom: 0,
-                borderStyle: 'single',
-                borderColor: theme.success,
-                backgroundColor: 'transparent',
-              }}
-              customBorderChars={BORDER_CHARS}
-            >
-              <text style={{ wrapMode: 'none' }}>
-                <span
-                  fg={closeButtonHovered ? theme.success : theme.foreground}
-                >
-                  DONE
-                </span>
-              </text>
-            </Button>
-          </box>
-        </>
+        <SuccessStep
+          width={width}
+          successResult={successResult}
+          onDone={handleCancel}
+        />
       )}
 
-      {/* Error step */}
       {currentStep === 'error' && errorResult && (
-        <>
-          <Separator width={width} widthOffset={4} />
-          <box
-            style={{
-              paddingTop: 1,
-              paddingBottom: 1,
-              flexDirection: 'column',
-              gap: 1,
-            }}
-          >
-            <box style={{ flexDirection: 'row', gap: 1 }}>
-              <text style={{ fg: theme.error }}>✗</text>
-              <text
-                style={{ fg: theme.error, attributes: TextAttributes.BOLD }}
-              >
-                Publish failed
-              </text>
-            </box>
-
-            <box style={{ flexDirection: 'column', gap: 0, paddingLeft: 2 }}>
-              {errorResult.error && (
-                <text style={{ fg: theme.foreground }}>
-                  {errorResult.error}
-                </text>
-              )}
-              {errorResult.details && (
-                <text style={{ fg: theme.muted }}>{errorResult.details}</text>
-              )}
-              {errorResult.hint && (
-                <text style={{ fg: theme.warning, marginTop: 1 }}>
-                  💡 {errorResult.hint}
-                </text>
-              )}
-            </box>
-          </box>
-
-          <Separator width={width} widthOffset={4} />
-          <box
-            style={{
-              flexDirection: 'row',
-              justifyContent: 'space-between',
-              paddingTop: 0,
-              paddingBottom: 0,
-            }}
-          >
-            <Button
-              onClick={handleBack}
-              onMouseOver={() => setBackButtonHovered(true)}
-              onMouseOut={() => setBackButtonHovered(false)}
-              style={{
-                paddingLeft: 1,
-                paddingRight: 1,
-                paddingTop: 0,
-                paddingBottom: 0,
-                borderStyle: 'single',
-                borderColor: theme.border,
-                backgroundColor: 'transparent',
-              }}
-              customBorderChars={BORDER_CHARS}
-            >
-              <text style={{ wrapMode: 'none' }}>
-                <span
-                  fg={backButtonHovered ? theme.foreground : theme.secondary}
-                >
-                  TRY AGAIN
-                </span>
-              </text>
-            </Button>
-            <Button
-              onClick={handleCancel}
-              onMouseOver={() => setCloseButtonHovered(true)}
-              onMouseOut={() => setCloseButtonHovered(false)}
-              style={{
-                paddingLeft: 1,
-                paddingRight: 1,
-                paddingTop: 0,
-                paddingBottom: 0,
-                borderStyle: 'single',
-                borderColor: theme.border,
-                backgroundColor: 'transparent',
-              }}
-              customBorderChars={BORDER_CHARS}
-            >
-              <text style={{ wrapMode: 'none' }}>
-                <span
-                  fg={closeButtonHovered ? theme.foreground : theme.secondary}
-                >
-                  CLOSE
-                </span>
-              </text>
-            </Button>
-          </box>
-        </>
+        <ErrorStep
+          width={width}
+          errorResult={errorResult}
+          onBack={handleBack}
+          onClose={handleCancel}
+        />
       )}
     </box>
   )

@@ -15,7 +15,7 @@
 **Root cause:** `useUsageMonitor` and `OutOfCreditsBanner` never checked `isDirectProviderMode()`. They only checked
 `IS_SAVANT_FREE` (free mode flag). When running in premium mode with direct-provider routing, the usage query fired against
 the backend URL (which defaulted to `https://savant-code.com`) instead of being skipped. The rebrand's env var rename
-(`NEXT_PUBLIC_CODEBUFF_APP_URL` → `NEXT_PUBLIC_FREEBUFF_APP_URL`) exposed this gap — the user may have had the old env
+(`NEXT_PUBLIC_CODEBUFF_APP_URL` → `NEXT_PUBLIC_SAVANT_FREE_APP_URL`) exposed this gap — the user may have had the old env
 var set before the rebrand.
 
 **Fix:** Added `isDirectProviderMode()` bypass to 4 files:
@@ -25,7 +25,7 @@ var set before the rebrand.
 - `subscription-limit-banner.tsx` — early return
 - `usage-banner.tsx` — early return
 
-### 2. `IS_FREEBUFF` → `IS_SAVANT_FREE` Rename
+### 2. `IS_SAVANT_FREE` → `IS_SAVANT_FREE` Rename
 
 **Scope:** 132 instances across 46 files, all in `cli/src/`.
 
@@ -49,7 +49,8 @@ ready.
    `IS_SAVANT_FREE`, not `isDirectProviderMode()`. When adding new backend-dependent UI, always add the direct-provider
    bypass.
 
-2. **Env var renames have cascading effects.** `NEXT_PUBLIC_CODEBUFF_APP_URL` → `NEXT_PUBLIC_FREEBUFF_APP_URL` broke any
+2. **Env var renames have cascading effects.** `NEXT_PUBLIC_CODEBUFF_APP_URL` →
+   `NEXT_PUBLIC_SAVANT_FREE_APP_URL` broke any
    pre-existing user env configs. The fallback (`https://savant-code.com`) meant API calls went to the wrong host
    silently.
 
@@ -73,7 +74,7 @@ ready.
 | Change | Files | Instances |
 |--------|-------|-----------|
 | Direct-provider bypass | 4 | 4 early-return/enabled changes |
-| `IS_FREEBUFF` → `IS_SAVANT_FREE` | 46 | 132 replacements |
+| `IS_SAVANT_FREE` → `IS_SAVANT_FREE` | 46 | 132 replacements |
 | Comment update | 1 | Declaration doc in constants.ts |
 
 **Cumulative FID-026:** 232 files, 2,132 insertions, 927 deletions.

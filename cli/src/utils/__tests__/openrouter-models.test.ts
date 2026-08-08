@@ -5,6 +5,7 @@ import {
   __resetOpenRouterModelsCacheForTest,
   fetchCommandCodeModels,
   fetchGatewayModels,
+  getTokenHarborModels,
   fetchOpenRouterModels,
   findGatewayModel,
   formatModelInfo,
@@ -147,6 +148,36 @@ describe('openrouter-models', () => {
     expect(info).toContain('unknown/model')
     expect(info).toContain('not found')
   })
+  test('builds the static TokenHarbor baseline catalog without network access', () => {
+    const models = getTokenHarborModels()
+
+    const expectedModelIds = [
+      'tokenharbor/claude-opus-5',
+      'tokenharbor/claude-fable-5',
+      'tokenharbor/gpt-5.6-sol',
+      'tokenharbor/kimi-k3',
+      'tokenharbor/qwen3.8-max',
+      'tokenharbor/gpt-5.6-terra',
+      'tokenharbor/grok-4.5',
+      'tokenharbor/claude-sonnet-5',
+      'tokenharbor/gemini-3.6-flash',
+      'tokenharbor/glm-5.2',
+      'tokenharbor/gpt-5.6-luna',
+      'tokenharbor/deepseek-v4-flash',
+      'tokenharbor/minimax-m3',
+      'tokenharbor/deepseek-v4-pro',
+      'tokenharbor/mimo-v2.5-pro',
+      'tokenharbor/mimo-v2.5',
+      'tokenharbor/kimi-k3:free',
+      'tokenharbor/deepseek-v4-flash:free',
+      'tokenharbor/mimo-v2.5:free',
+      'tokenharbor/th-orchestra',
+    ]
+
+    expect(models.map((model) => model.id)).toEqual(expectedModelIds)
+    expect(models.every((model) => model.provider === 'tokenharbor')).toBe(true)
+  })
+
   test('builds the CommandCode catalog from shared model definitions', () => {
     const models = fetchCommandCodeModels()
 
@@ -163,7 +194,27 @@ describe('openrouter-models', () => {
         }),
       ]),
     )
-    expect(models.every((model) => model.contextLength !== undefined)).toBe(true)
+    expect(models.every((model) => model.contextLength !== undefined)).toBe(
+      true,
+    )
+  })
+
+  test('includes TokenHarbor models in the combined gateway catalog', async () => {
+    // @ts-expect-error - mock fetch
+    globalThis.fetch = mock(() =>
+      Promise.resolve(makeJsonResponse({ data: [] })),
+    )
+
+    const models = await fetchGatewayModels(true)
+
+    expect(models).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: 'tokenharbor/th-orchestra',
+          provider: 'tokenharbor',
+        }),
+      ]),
+    )
   })
 
   test('includes CommandCode models in the combined gateway catalog', async () => {

@@ -74,8 +74,27 @@ dev/releases/*.md
 .freebuff/
 .savant-code/
 
+# Codebase knowledge graph (FID-2026-0806-002): the SQLite index holds
+# structural metadata only, but it is regenerable on demand (/graph refresh)
+# and must never enter the repository or the packaged artifact.
+.savant/
+# /graph-export output — regenerated fresh on every export; formatting the
+# artifact is pure churn (a 3MB HTML reflow) and the next export would not match.
+savant-graph-*.html
+
 # CommandCode CLI local state (settings + taste config)
 .commandcode/
 
 # Evals v2 test-generated artifacts
 **/evals/v2/tests/.test-*/
+
+# /export + /graph-export command output — regenerated fresh on every export;
+# formatting the artifact is pure churn (a 2MB HTML reflow) and the next export
+# would not match. dev/exports/ is the default single-file-rotation target
+# (FID-2026-0806-016); legacy root-level artifacts remain ignored.
+dev/exports/
+**/dev/exports/
+savant-export-*.html
+
+# Playwright and browser harness output — disposable local test artifacts.
+**/test-results/

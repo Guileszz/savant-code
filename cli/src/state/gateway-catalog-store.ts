@@ -15,7 +15,7 @@ import {
  * catalog is empty until a caller (e.g., the `/model` command) fetches it.
  */
 interface GatewayCatalogStore {
-  /** Combined gateway catalog (OpenRouter + TokenRouter + NVIDIA + OpenCode Go). */
+  /** Combined gateway catalog (OpenRouter + TokenRouter + TokenHarbor + NVIDIA + OpenCode Go). */
   catalog: OpenRouterModel[]
   /**
    * Timestamp (ms) of the most recent catalog load. Starts at 0 until the first

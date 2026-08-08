@@ -55,6 +55,9 @@ export const createFilePicker = (
     toolNames: [
       'glob',
       'list_directory',
+      'query_blast_radius',
+      'query_domain_clusters',
+      'query_node_edges',
       'read_files',
       'read_subtree',
       'set_output',

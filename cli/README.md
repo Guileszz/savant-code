@@ -1,14 +1,14 @@
 <!-- markdownlint-disable MD041 -->
-<img src="../assets/banner.png" alt="@savant-code/cli — TUI source for Savant-Code and Savant-Free" width="650" />
+<img src="../assets/banner.png" alt="@savant-code/cli — TUI source for Savant-Code" width="650" />
 
 # @savant-code/cli
 
-The TUI source for both **Savant-Code** and **Savant-Free** — built with OpenTUI and React.
+The TUI source for **Savant-Code** — built with OpenTUI and React.
 
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.5-%23000000?style=flat-square&logo=typescript&logoColor=%2300fbff)](https://www.typescriptlang.org/)[![Bun](https://img.shields.io/badge/Bun-1.3.14-%23000000?style=flat-square&logo=bun&logoColor=%2300fbff)](https://bun.sh/)[![OpenTUI](https://img.shields.io/badge/OpenTUI-0.2.2-%23000000?style=flat-square&logo=opentui&logoColor=%2300fbff)](https://github.com/anomalyco/opentui)[![React](https://img.shields.io/badge/React-19-%23000000?style=flat-square&logo=react&logoColor=%2300fbff)](https://react.dev/)[![ECHO](https://img.shields.io/badge/ECHO-v0.2.0-%23000000?style=flat-square&logo=github&logoColor=%2300fbff)](../ECHO.md)
 
-**For the end-user Quick Start** (how to install/launch Savant-Code or Savant-Free), see the [root
-README](../README.md#quick-start). This CLI package is the **internal dev source** used to build both CLI binaries.
+**For the end-user Quick Start** (how to install/launch Savant-Code), see the [root
+README](../README.md#quick-start). This CLI package is the **internal dev source** used to build the CLI binary.
 
 ## Installation
 
@@ -91,7 +91,7 @@ savant-code-tui
 - Built with OpenTUI for modern terminal interfaces
 - Uses React for declarative component-based UI
 - TypeScript support out of the box
-- Multi-agent orchestration via [ECHO Protocol v0.2.0](../ECHO.md) (9 specialized agents)
+- Multi-agent orchestration via [ECHO Protocol v0.2.0](../ECHO.md) (10 specialized agents)
 - ECHO-driven Perfection Loop: RED → GREEN → AUDIT → SELF-CORRECT → COMPLETE
 - FID-Bound Execution: code is never written until the FID converges
 

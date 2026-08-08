@@ -1,23 +1,24 @@
-# Gravity Integration Starter Kit — `savant-free` (ad-supported tier)
+# Gravity Integration Starter Kit (ad-supported tier)
 
 > **STATUS: PARKED until 0.0.3 rebrand ships green.**
 > Do NOT wire Gravity into the codebase until the Savant rebrand gate is verified.
-> The active source gate is now green: no deprecated `FREEBUFF_*` identifiers remain in `cli/src`, `common/src`,
+> The active source gate is now green: no deprecated legacy-brand identifiers remain in `cli/src`, `common/src`,
 > `sdk/src`, `packages`, `agents`, or `savant-free/cli`. Historical protocol documents, legal notices, migration records,
-> and the legacy `.freebuff/` state-directory ignore rule are explicitly retained and are not active runtime branding.
+> and the legacy `.savant/` state-directory ignore rule are explicitly retained and are not active runtime branding.
 
 ---
 
 ## What Gravity is
 
-Gravity (trygravity.ai) is an **AI-native ad network** — contextual sponsored suggestions inside AI
-chat/assistant/conversational products. It's the revenue engine that makes `savant-free` free. The ad request fires **in
-parallel** with your LLM call (zero added latency), the SDK renders the ad + auto-logs impressions/clicks, and you earn
-**CPM (per impression) or CPC (per click)**.
+Gravity (trygravity.ai) is an **AI-native ad network** — contextual sponsored
+suggestions inside AI chat/assistant/conversational products. It's the revenue
+engine that makes the free tier possible. The ad request fires **in parallel**
+with your LLM call (zero added latency), the SDK renders the ad + auto-logs
+impressions/clicks, and you earn **CPM (per impression) or CPC (per click)**.
 
 **Architecture fit:**
 
-- `savant-free` (ad-supported, free tier) → Gravity SDK wired in, `codebuff_cli` surface ID retained for attribution.
+- Ad-supported free tier → Gravity SDK wired in, `codebuff_cli` surface ID retained for attribution.
 - `savant-code` (paid tier) → **NO Gravity SDK. No ads.** Clean premium path.
 
 ---
@@ -41,10 +42,10 @@ your publisher surface ID, then align the string.
 
 ## Prerequisites (post-0.0.3)
 
-1. Rebrand gate verified: typecheck ×4 and SDK suite are green; active source contains no deprecated `FREEBUFF_*`
+1. Rebrand gate verified: typecheck ×4 and SDK suite are green; active source contains no deprecated `SAVANT_FREE_*`
    identifiers. Retained protocol/history/legal references are documented in the rebrand FID.
 2. Sign up at **app.trygravity.ai/publisher/signup**.
-3. Create an AI platform account for `savant-free`.
+3. Create an AI platform account for the ad-supported free tier.
 4. Copy **API key** → save as `GRAVITY_API_KEY` (server env).
 5. Copy **Pixel ID** → used in web pixel script.
 

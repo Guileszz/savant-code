@@ -52,17 +52,21 @@ export const handleDescribeTable = (async (params: {
       }
 
       const columns = (
-        db.query(
-          `SELECT cid, name, type, "notnull" AS not_null, dflt_value AS column_default, pk AS primary_key_position
+        db
+          .query(
+            `SELECT cid, name, type, "notnull" AS not_null, dflt_value AS column_default, pk AS primary_key_position
            FROM pragma_table_info(?) ORDER BY cid`,
-        ).all(table) as Array<Record<string, unknown>>
+          )
+          .all(table) as Array<Record<string, unknown>>
       ).map(normalizeSqliteRow)
 
       const foreignKeys = (
-        db.query(
-          `SELECT id, "seq", "table" AS referenced_table, "from" AS from_column, "to" AS to_column
+        db
+          .query(
+            `SELECT id, "seq", "table" AS referenced_table, "from" AS from_column, "to" AS to_column
            FROM pragma_foreign_key_list(?) ORDER BY id, "seq"`,
-        ).all(table) as Array<Record<string, unknown>>
+          )
+          .all(table) as Array<Record<string, unknown>>
       ).map(normalizeSqliteRow)
 
       const indexes = db
@@ -79,10 +83,12 @@ export const handleDescribeTable = (async (params: {
       }>
 
       const triggers = (
-        db.query(
-          `SELECT name AS trigger_name, sql AS trigger_definition
+        db
+          .query(
+            `SELECT name AS trigger_name, sql AS trigger_definition
            FROM sqlite_master WHERE type = 'trigger' AND tbl_name = ? ORDER BY name`,
-        ).all(table) as Array<Record<string, unknown>>
+          )
+          .all(table) as Array<Record<string, unknown>>
       ).map(normalizeSqliteRow)
 
       return {

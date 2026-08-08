@@ -10,6 +10,8 @@
  * Layer 1 (SNPE) is user-initiated via /compact command, handled separately.
  */
 
+import { ECHO_CRITICAL_SENTINEL } from './echo/protocol-summary'
+
 import type { Logger } from '@savant-code/common/types/contracts/logger'
 import type {
   Message,
@@ -92,6 +94,30 @@ export class CompactionMessage_ {
     }
     return ''
   }
+
+  /**
+   * FID-2026-0806-003 Phase 1 (P1b): a compaction summary message carries the
+   * <structured_state> preserved-state block — the ONLY copy of FID state,
+   * todos, loaded skills, and file ops across the compaction boundary.
+   * Emergency truncation must never drop it, or the continuation loses the
+   * state the pruner worked to preserve.
+   */ static hasPreservedState(msg: Message): boolean {
+    const text = CompactionMessage_.getTextContent(msg)
+    return (
+      text.includes('<conversation_summary>') ||
+      text.includes('<structured_state>')
+    )
+  }
+
+  /**
+   * FID-2026-0806-005 Layer 3: messages carrying the critical-context
+   * sentinel (the protocol refresh) must survive emergency truncation.
+   */
+  static hasCriticalContext(msg: Message): boolean {
+    return CompactionMessage_.getTextContent(msg).includes(
+      ECHO_CRITICAL_SENTINEL,
+    )
+  }
 }
 
 export class ContextCompactor {
@@ -108,6 +134,14 @@ export class ContextCompactor {
 
   // Degradation warning tracking
   private degradationWarningShown = false
+
+  // P3b (FID-2026-0806-003): anti-thrash scoring. A preflight threshold
+  // crossing only ARMS a pending score; the effectiveness of the compaction
+  // that followed is judged against the REAL post-response token count when
+  // it arrives at the next step boundary (Hermes's hard-won guard — never
+  // score in the preflight estimate, never analytically, tokenizer skew
+  // silently disables compaction otherwise).
+  private awaitingCompactionScore = false
 
   constructor(options: CompactorOptions) {
     this.logger = options.logger
@@ -237,6 +271,11 @@ export class ContextCompactor {
     )
 
     if (contextTokenCount >= this.thresholds.autoCompact) {
+      // P3b: arm the anti-thrash score. The compaction the caller triggers
+      // (context-pruner spawn) will be judged when the real post-response
+      // count arrives at the next step boundary — see
+      // scoreCompactionEffectiveness.
+      this.awaitingCompactionScore = true
       return {
         shouldCompact: true,
         reason: `Context at ${percentUsed}% (${contextTokenCount.toLocaleString()} / ${this.thresholds.autoCompact.toLocaleString()} tokens)`,
@@ -248,11 +287,49 @@ export class ContextCompactor {
   }
 
   /**
+   * P3b (FID-2026-0806-003): score the pending compaction against the REAL
+   * post-response token count. Called once per step boundary (prepareStepContext)
+   * BEFORE the fresh preflight check, so a compaction that ran during the
+   * previous step is judged by whether it actually got the prompt under the
+   * auto-compact threshold — not by any estimate made before it ran.
+   *
+   * A no-op when no compaction was armed (awaitingCompactionScore false), so
+   * a summary-free step never resets the breaker.
+   */
+  scoreCompactionEffectiveness(realPostResponseTokenCount: number): void {
+    if (!this.awaitingCompactionScore) return
+    this.awaitingCompactionScore = false
+
+    const succeeded = realPostResponseTokenCount < this.thresholds.autoCompact
+    this.recordCompactionResult(succeeded, realPostResponseTokenCount)
+
+    if (succeeded) {
+      this.logger.debug(
+        {
+          realTokenCount: realPostResponseTokenCount,
+          autoCompactThreshold: this.thresholds.autoCompact,
+        },
+        'Anti-thrash: compaction verified effective against real post-response count',
+      )
+    } else {
+      this.logger.warn(
+        {
+          realTokenCount: realPostResponseTokenCount,
+          autoCompactThreshold: this.thresholds.autoCompact,
+        },
+        'Anti-thrash: compaction did NOT get context under the threshold — re-compaction loop risk, scoring as failure',
+      )
+    }
+  }
+
+  /**
    * Layer 4: Reactive compact — emergency truncation on prompt-too-long error.
    *
    * Preserves: first message (system/instructions), last 20% of messages
-   * (minimum 2), any messages with images (multimodal context).
-   * Retries API call once after truncation.
+   * (minimum 2), any messages with images (multimodal context), and any
+   * compaction-summary / preserved-state messages (FID-2026-0806-003 Phase 1
+   * P1b — the structured state must survive emergency truncation, not just
+   * the pruner path). Retries API call once after truncation.
    */
   reactiveCompact(messages: Message[]): ReactiveCompactResult {
     if (messages.length <= 2) {
@@ -282,7 +359,23 @@ export class ContextCompactor {
       )
     })
 
-    // Build preserved set (deduplicate)
+    // P1b (FID-2026-0806-003 Phase 1): preserve compaction-summary /
+    // preserved-state messages. There is at most one <conversation_summary>
+    // message at any time (each pruner run replaces history), so this is a
+    // bounded addition to the preserve set.
+    const preservedStateMessages = messages.filter((msg) =>
+      CompactionMessage_.hasPreservedState(msg),
+    )
+
+    // FID-2026-0806-005 Layer 3: protocol refresh messages are as precious as
+    // the preserved-state block — emergency truncation must never drop them.
+    const criticalMessages = messages.filter((msg) =>
+      CompactionMessage_.hasCriticalContext(msg),
+    )
+
+    // Build preserved set (deduplicate). Preserved messages are excluded from
+    // the middle slice AND re-added to the output so they actually survive
+    // truncation (images, preserved-state, and critical-context alike).
     const preservedIndices = new Set<number>()
     preservedIndices.add(0) // first message
     for (let i = messages.length - keepFromEnd; i < messages.length; i++) {
@@ -292,12 +385,35 @@ export class ContextCompactor {
       const idx = messages.indexOf(imgMsg)
       if (idx >= 0) preservedIndices.add(idx)
     }
+    for (const stateMsg of preservedStateMessages) {
+      const idx = messages.indexOf(stateMsg)
+      if (idx >= 0) preservedIndices.add(idx)
+    }
+    for (const critMsg of criticalMessages) {
+      const idx = messages.indexOf(critMsg)
+      if (idx >= 0) preservedIndices.add(idx)
+    }
+
+    // Middle-preserved messages (images / preserved-state / critical-context)
+    // not already covered by the first-message or last-20% slots, deduplicated
+    // and in original order.
+    const reAddedPreserved = [
+      ...imageMessages,
+      ...preservedStateMessages,
+      ...criticalMessages,
+    ].filter(
+      (msg, idx, arr) =>
+        arr.indexOf(msg) === idx &&
+        msg !== firstMessage &&
+        !lastMessages.includes(msg),
+    )
 
     const truncated = [
       firstMessage,
       ...messages
         .filter((_, idx) => !preservedIndices.has(idx) && idx !== 0)
         .slice(0, Math.floor(messages.length * 0.1)), // Keep 10% of middle for context
+      ...reAddedPreserved,
       ...lastMessages,
     ]
 

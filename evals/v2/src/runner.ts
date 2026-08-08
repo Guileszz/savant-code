@@ -107,8 +107,7 @@ export interface RunnerConfig {
    * Agent definitions to register with the SDK client. Without these the
    * client's registry is empty and every run fails with
    * `Invalid agent ID ... Available agents: ` (the CLI prebuilds these into a
-   * bundle; the eval runner must load them explicitly, mirroring
-   * evals/benchmark/run-benchmark.ts).
+   * bundle; the eval runner must load them explicitly).
    */
   agentDefinitions?: AgentDefinition[]
   /** Maximum agent steps allowed for a single run. */

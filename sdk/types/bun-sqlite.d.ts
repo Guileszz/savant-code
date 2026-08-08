@@ -12,6 +12,7 @@
  */
 export class Database {
   constructor(filename: string, options?: DatabaseOptions)
+  exec(sql: string): void
   prepare(sql: string): Statement
   query(sql: string): Statement
   close(): void

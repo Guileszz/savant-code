@@ -19,9 +19,15 @@ import { deepResearchParams } from './params/tool/deep-research'
 import { endTurnParams } from './params/tool/end-turn'
 import { findFilesParams } from './params/tool/find-files'
 import { globParams } from './params/tool/glob'
+import {
+  queryBlastRadiusParams,
+  queryDomainClustersParams,
+  queryNodeEdgesParams,
+} from './params/tool/graph'
 import { gravityIndexParams } from './params/tool/gravity-index'
 import { listDirectoryParams } from './params/tool/list-directory'
 import { lookupAgentInfoParams } from './params/tool/lookup-agent-info'
+import { ponytailDebtParams } from './params/tool/ponytail-debt'
 import { proposeStrReplaceParams } from './params/tool/propose-str-replace'
 import { proposeWriteFileParams } from './params/tool/propose-write-file'
 import { readDocsParams } from './params/tool/read-docs'
@@ -74,6 +80,9 @@ export const toolParams = {
   lookup_agent_info: lookupAgentInfoParams,
   propose_str_replace: proposeStrReplaceParams,
   propose_write_file: proposeWriteFileParams,
+  query_blast_radius: queryBlastRadiusParams,
+  query_domain_clusters: queryDomainClustersParams,
+  query_node_edges: queryNodeEdgesParams,
   read_docs: readDocsParams,
   read_files: readFilesParams,
   read_subtree: readSubtreeParams,
@@ -98,6 +107,7 @@ export const toolParams = {
   web_search: webSearchParams,
   write_file: writeFileParams,
   write_todos: writeTodosParams,
+  ponytail_debt: ponytailDebtParams,
   ...composioMetaToolParams,
 } satisfies {
   [K in ToolName]: $ToolParams<K>

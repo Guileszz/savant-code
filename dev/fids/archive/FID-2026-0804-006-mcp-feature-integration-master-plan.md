@@ -231,7 +231,7 @@ Current agent roster: 9 agents (Orchestrator, Detective, Forge, Verifier, Record
 - [ ] Test upgrade path
 - [ ] Verify monitoring
 
-## Perfection Loop Re-Run (Loop 2 — Independent FreeBuff Review)
+## Perfection Loop Re-Run (Loop 2 — Independent Savant Code Review)
 
 ### RED (Ground-Truth Verification)
 

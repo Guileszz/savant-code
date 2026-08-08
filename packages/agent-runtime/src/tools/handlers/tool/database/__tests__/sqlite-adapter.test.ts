@@ -131,7 +131,10 @@ describe('resolveBunSqliteDatabaseModule', () => {
     const db = openSqliteDatabase(':memory:')
     db.exec('CREATE TABLE t (id INTEGER, name TEXT)')
     db.exec("INSERT INTO t VALUES (1, 'alpha')")
-    const row = db.query('SELECT id, name FROM t').get() as Record<string, unknown>
+    const row = db.query('SELECT id, name FROM t').get() as Record<
+      string,
+      unknown
+    >
     expect(row.id).toBe(1)
     expect(row.name).toBe('alpha')
     db.close()
@@ -218,12 +221,10 @@ describe('applyQueryLimits', () => {
 
   test('skips when LIMIT already present (case-insensitive, whitespace-safe)', () => {
     expect(applyQueryLimits('SELECT * FROM users LIMIT 5').limited).toBe(false)
-    expect(
-      applyQueryLimits('SELECT * FROM users\nlimit 5').limited,
-    ).toBe(false)
-    expect(
-      applyQueryLimits('SELECT * FROM users\n\tLIMIT\n\t10').limited,
-    ).toBe(false)
+    expect(applyQueryLimits('SELECT * FROM users\nlimit 5').limited).toBe(false)
+    expect(applyQueryLimits('SELECT * FROM users\n\tLIMIT\n\t10').limited).toBe(
+      false,
+    )
   })
 
   test('skips LIMIT inside string literals', () => {
@@ -257,7 +258,9 @@ describe('applyQueryLimits', () => {
 
 describe('enforceCanExecuteWrite', () => {
   test('allows SELECT without approval', () => {
-    expect(() => enforceCanExecuteWrite('SELECT * FROM users', false)).not.toThrow()
+    expect(() =>
+      enforceCanExecuteWrite('SELECT * FROM users', false),
+    ).not.toThrow()
   })
 
   test('rejects INSERT/UPDATE/DELETE without allowWrite', () => {
@@ -309,9 +312,7 @@ describe('enforceCanExecuteWrite', () => {
       expect.unreachable('should reject')
     } catch (e) {
       expect(e).toBeInstanceOf(StructuredDbError)
-      expect((e as StructuredDbError).code).toBe(
-        DbErrorCode.UNCLASSIFIED_SQL,
-      )
+      expect((e as StructuredDbError).code).toBe(DbErrorCode.UNCLASSIFIED_SQL)
     }
   })
 })
@@ -499,7 +500,10 @@ describe('database handlers', () => {
     db.close()
 
     const res = await handleExecuteQuery(
-      makeToolCall({ databaseUrl: DB_PATH, query: 'SELECT id, payload FROM blobs' }),
+      makeToolCall({
+        databaseUrl: DB_PATH,
+        query: 'SELECT id, payload FROM blobs',
+      }),
     )
     const value = res.output[0].value as {
       result: { rows: Array<{ id: number; payload: unknown }> }
@@ -517,7 +521,8 @@ describe('database handlers', () => {
     const res = await handleExecuteQuery(
       makeToolCall({
         databaseUrl: DB_PATH,
-        query: "INSERT INTO users (id, email, name) VALUES (3, 'c@example.com', 'Carol')",
+        query:
+          "INSERT INTO users (id, email, name) VALUES (3, 'c@example.com', 'Carol')",
         allowWrite: true,
       }),
     )
@@ -530,7 +535,7 @@ describe('database handlers', () => {
     const check = await handleExecuteQuery(
       makeToolCall({
         databaseUrl: DB_PATH,
-        query: "SELECT email FROM users WHERE id = 3",
+        query: 'SELECT email FROM users WHERE id = 3',
       }),
     )
     const checkValue = check.output[0].value as {
@@ -573,7 +578,7 @@ describe('SQL-injection corpus', () => {
   const corpus = [
     "SELECT * FROM users WHERE email = 'x' OR '1'='1'",
     'SELECT * FROM users; DROP TABLE users;',
-    "SELECT * FROM users WHERE id = 1 UNION SELECT * FROM sqlite_master",
+    'SELECT * FROM users WHERE id = 1 UNION SELECT * FROM sqlite_master',
     "SELECT * FROM users WHERE name = 'a' -- DROP TABLE users",
     'INSERT INTO users (email) VALUES ("x"); DELETE FROM users;',
     "SELECT 'DROP TABLE users'",

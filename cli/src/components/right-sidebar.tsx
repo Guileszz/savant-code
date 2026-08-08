@@ -201,10 +201,25 @@ export const RightSidebar = React.memo(function RightSidebar({
         <KeyValueRow label="Cost" value={formatCost(cost)} />
         <KeyValueRow label="Mode" value={mode} />
         <KeyValueRow label="Model" value={displayModel} />
-        <KeyValueRow
-          label="Tokens"
-          value={`${formatTokens(tokensUsed)}/${formatTokens(tokensMax)}`}
-        />
+        {/* P4d (FID-2026-0806-003): live context-usage meter with color
+            thresholds (Gemini CLI pattern) — warning at >=70%, error at
+            >=100%. tokensMax of 0 means the window is unknown; fall back to
+            the plain readout. */}
+        {tokensMax > 0 ? (
+          <KeyValueRow
+            label="Context"
+            value={`${formatTokens(tokensUsed)}/${formatTokens(tokensMax)}`}
+            valueColor={
+              tokensUsed >= tokensMax
+                ? theme.error
+                : tokensUsed / tokensMax >= 0.7
+                  ? theme.warning
+                  : undefined
+            }
+          />
+        ) : (
+          <KeyValueRow label="Tokens" value={`${formatTokens(tokensUsed)}`} />
+        )}
       </SidebarSection>
 
       {/* Perfection Loop — only show when the FSM is in an active phase

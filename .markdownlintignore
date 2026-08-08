@@ -20,3 +20,38 @@ docs/reports/**
 docs/launch/**
 docs/Launch Plan Review and Optimization.md
 MCP Servers Operational Audit.md
+
+# Ephemeral working area (FID-2026-0806-008) — scratchpad reports/artifacts
+# are regenerated per audit run; matches the existing eslint ignore.
+dev/scratchpad/**
+
+# Third-party audit channel (FID-2026-0806-008) — Nova's own files (requests,
+# audit responses, outbox prompts) are not governed by our lint; matches the
+# existing dev/nova/reports/** precedent.
+dev/nova/inbox/**
+dev/nova/outbox/**
+
+# Dated design report (FID-2026-0806-008) — historical record, not live docs;
+# matches the docs/launch/** + per-file exemption precedent.
+docs/design/AI-Playbook-Integration-Plan.md
+docs/design/ECHO-Agent-Skills-Integration-Plan.md
+
+# Third-party deep-research artifact (2026-08-06 Gemini pass) — embedded base64
+# images + 250-char table lines are not maintainable; reference-only record,
+# same per-file exemption precedent as the dated design reports above.
+docs/design/Knowledge-Graph-Export-Optimization.md
+
+# Dated design report (2026-08-07) — ungoverned reference doc with 260-char
+# table lines; not live documentation. Same per-file exemption precedent as
+# the other dated design reports above.
+docs/design/Cyberpunk 3D Canvas Brain Render.md
+
+# Dated agent-skills catalog (reference-only) — long generated table lines and
+# a contributor block are not maintainable under strict MD013/MD022; same
+# per-file exemption precedent as the dated design reports above.
+docs/design/awesome-agent-skills-catalog.md
+
+# External architecture-evaluation reference (2026-08-07) — 250-char table
+# rows and a dense citation block; reference-only record, same per-file
+# exemption precedent.
+docs/Code Universe Architecture Evaluation.md

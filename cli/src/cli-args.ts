@@ -21,6 +21,8 @@ export type ParsedArgs = {
   cwd?: string
   initialMode?: AgentMode
   initialPermissionMode?: PermissionMode
+  /** FID-2026-0806-011: run the prompt headlessly and print the result to stdout. */
+  print: boolean
 }
 
 export function loadPackageVersion(): string {
@@ -95,6 +97,10 @@ export function parseArgs({
       .option(
         '--prompt-file <path>',
         'Read the initial prompt from a file instead of argv',
+      )
+      .option(
+        '--print',
+        'Run the prompt headlessly and print the final answer to stdout (non-zero exit on failure)',
       )
       .option('--edit', 'Start in HYBRID mode (default; legacy flag name)')
       .option('--scaffold', 'Start in SCAFFOLD mode')
@@ -181,5 +187,6 @@ export function parseArgs({
     cwd: options.cwd,
     initialMode,
     initialPermissionMode,
+    print: options.print || false,
   }
 }

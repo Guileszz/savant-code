@@ -10,7 +10,11 @@
       "@savant-code/sdk/*": ["./sdk/*"],
       "@savant-code/agent-runtime/*": ["./packages/agent-runtime/src/*"],
       "@savant-code/llm-providers/*": ["./packages/llm-providers/src/*"],
-      "@savant-code/code-map/*": ["./packages/code-map/*"]
+      "@savant-code/code-map/*": ["./packages/code-map/*"],
+      "@savant-code/knowledge-graph/*": ["./packages/knowledge-graph/src/*"],
+      "@savant-code/knowledge-graph": [
+        "./packages/knowledge-graph/src/index.ts"
+      ]
     }
   },
   "files": [],
@@ -22,6 +26,7 @@
     { "path": "./evals" },
     { "path": "./packages/agent-runtime" },
     { "path": "./packages/code-map" },
+    { "path": "./packages/knowledge-graph" },
     { "path": "./packages/llm-providers" }
   ]
 }

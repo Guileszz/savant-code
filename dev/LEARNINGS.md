@@ -1,5 +1,125 @@
 # LEARNINGS
 
+## Session 2026-08-07: Code Universe Offline Audio Closeout (FID-2026-0807-007)
+
+**Key Learnings:**
+
+- **Offline sound must be treated as an artifact budget, not a runtime fetch.** Embedding six verified short cues in the
+  inert export registry preserved `file://` behavior, while the 49,310-byte measured growth stayed well below the 600 KiB
+  FID ceiling.
+- **Generated browser code and test seams need an explicit boundary.** The inline export manager is covered by
+  generated-source/static assertions and live E2E; the fake-`AudioContext` manager verifies policy transitions separately.
+  The FID records that distinction instead of claiming executable equivalence.
+- **FID closure has three required tracking moves:** set status to `closed`, move the FID into `dev/fids/archive/`, and
+  add both a changelog entry and session handoff. Skipping any one leaves stale project state.
+
+## Session 2026-08-06: Adversarial Verification + Design Constitution (FID-2026-0805-004, FID-2026-0806-001)
+
+**Key Learnings:**
+
+- **Double-audit verifies twice in the same direction; adversarial verification
+  goes the other way.** The ECHO Verifier refutes nothing — it checks the
+  change against the FID and build gates. The new Adversary agent (read-only:
+  `read_files`/`code_search`/`glob`/`list_directory`/`set_output`) refutes
+  every FAIL (CONFIRMED/REFUTED/ADJUSTED), re-audits unevidenced PASSes, and
+  resolves citations, with verdicts that override the Verifier's. That is the
+  layer where rubber-stamped PASSes actually hide.
+- **A zero-tool Verifier must not be told to "resolve" citations.** Evidence
+  rules that demand disk resolution are impossible for `toolNames: []` — the
+  honest contract is "verify against the code visible in the conversation;
+  anything unverifiable is NEEDS-REVIEW", and actual resolution belongs to the
+  Adversary (which has read tools).
+- **A live roster invariant has more than four copies.** "Exactly 9 canonical
+  roles" lived in `system-prompt.ts`, `ECHO.md`, `AGENTS.md`, and
+  `ARCHITECTURE.md` — plus `docs/agents.md`, `docs/agents-and-tools.md`,
+  `docs/echo-protocol.md`, `cli/README.md`. A roster change must sweep every
+  user-facing doc, not just the four the FID cites; a release-readiness audit
+  that greps only the FID's cited files misses the drift.
+- **Operator scope corrections supersede an FID's phase plan.** The FreeBuff
+  spec mirror (Phase 4) was dropped mid-implementation: FreeBuff is the
+  upstream fork, not a final source, and `ECHO.md` is the authoritative
+  harness-specific protocol. Record the correction in the FID's loop history
+  and reconcile every in-FID reference to the dropped phase.
+- **Backtick injection into a template-literal prompt is a typecheck-time
+  landmine.** Adding `file:line` (with raw backticks) to `verifier.ts`'s
+  backtick template literal broke the file at `tsc`; escaped backticks or
+  plain text avoid it. Same class of bug as template-literal interpolation
+  (``${``) — grep new prompt text for raw backticks before writing.
+- **FSM states must be added to every parallel declaration.** `adversarial`
+  required updates in `FsmPhase` + `FSM_PHASE_LIST`, the `transition_phase`
+  zod enum, `agents/types/tools.ts` `TransitionPhaseParams`, AND
+  `VALID_TRANSITIONS` — five places, all covered by one new test file.
+
+## Session 2026-08-06: Release Audit (FID closures, graph export testing, repo consistency)
+
+**Key Learnings:**
+
+- **A "cluster count" stat that counts assignments is worse than no stat.**
+  `stats.clusterCount = clusterAssignments.size` reported 1975 "clusters" for
+  a 1995-file repo because every file maps to exactly one cluster id — the
+  real distinct-community count was ~412. Count `DISTINCT cluster_id` in the
+  DB (excluding NULLs) and assert it is strictly less than the file count in
+  tests; a 4-file strongly-connected fixture resolving to exactly 2 domains
+  locks the semantics in.
+- **Scale-sensitive parameters need clamps and boundary tests, not just a
+  formula.** The FID required Louvain resolution scaled inversely to node
+  count, but the implementation dropped the parameter entirely (default 1.0
+  is degenerate only when the stat lies about it). `defaultResolution` = clamp
+  `2000/nodeCount` to [0.1, 1] — floor keeps giant repos from fragmenting per
+  file, ceiling keeps tiny fixtures from collapsing; test all three boundary
+  cases plus the zero-input guard.
+- **Workspace imports must be declared, even when hoisting makes them work.**
+  `cli` and `packages/agent-runtime` both imported
+  `@savant-code/knowledge-graph` in source with no `package.json`
+  declaration — resolved only via root-level workspace hoisting, which works
+  in the monorepo but silently breaks a published package or a consumer that
+  installs the workspace alone. A release audit should grep every package for
+  `@savant-code/*` imports and diff against declared deps.
+- **Third-party/audit-channel markdown is not exempt from the repo lint gate.**
+  Nova inbox/outbox correspondence and new design docs accumulated MD013
+  (line-length) / MD022 (heading spacing) / MD032 (list spacing) / MD040
+  (bare fence) failures that blocked `lint:md` repo-wide. A word-boundary
+  reflow at 120 cols + blank-line insertion around lists/headings + `text` on
+  bare fences fixed all of it — but re-run the sweep against *tracked* files
+  only to avoid churn on already-clean committed docs.
+- **Two prettier binaries in one repo is a trap.** `npx prettier` resolved
+  the local 3.8.1 while `bunx prettier` used 3.9.5 — the older binary
+  flagged 47 files the gate (and CI hook, which uses `bunx`) accepts. Always
+  validate with the same binary the pre-push hook runs (`bunx`).
+
+## Session 2026-08-06: Knowledge Graph ECHO Integration (FID-2026-0806-002)
+
+**Key Learnings:**
+
+- **Platform path separators are an index-freshness bug, not a cosmetic detail.** On Windows the file-tree
+  enumerator returns backslash paths (`src\a.ts`) while the resolvers and query API speak forward slashes —
+  the symptom was a zero-edge index and zero-symbol queries for every subdirectory file (root-level files
+  passed only because their basenames contain no separator). Normalize stored paths to one canonical form at
+  the write boundary (indexer), and every consumer (queries, exports, tool params) stays consistent.
+- **Check the dependency's real API era before adopting it.** `graphology-communities-louvain` 0.2.0 calls
+  `pgraph.undirected(edge)`, an internal API removed in modern graphology — incompatible at runtime despite
+  typechecking. The 2.x line (native `resolution` + injectable seeded RNG) both fixes the break and improves
+  determinism. For any community package, verify the installed graphology major against the algorithm
+  package's real published API (`npm view` versions + README), not just its declared peer range (which was
+  absent).
+- **Minified third-party JS must be re-escaped for TS template literals.** Cytoscape's minified dist contains
+  legacy octal regex escapes (`\1`, `\2`) that TypeScript rejects inside template literals (TS1487). Escape
+  backslashes *before* backticks/`${` in generators that inline third-party payloads.
+- **Two-word slash commands resolve through the first-word alias.** The router parses only the first word as
+  the command (`/graph refresh` → command `graph`, args `refresh`), so a two-word menu entry must map to a
+  registry command whose alias is the bare first word. Keep slash-menu ids/aliases byte-identical to the
+  registry — a gating test asserts the parity.
+- **Heredocs in agent JSON params break on Windows/escaping.** Multi-line `<<'EOF'` payloads repeatedly
+  failed JSON escaping in spawn params; writing probe files via `write_file` and running them with simple
+  commands was the reliable path.
+
+**Files touched:** packages/knowledge-graph/ (new), packages/agent-runtime/src/tools/handlers/tool/graph/ +
+util/graph-injection.ts + spawn handlers, common/src/tools/ (graph params/constants/list/safety-registry),
+agents/{detective,scout}/ + bundled-agents.generated.ts, cli/src/commands/{graph-export,graph-refresh}/ +
+defs/core.ts + data/slash-commands.ts + constants/cytoscape.ts + scripts/generate-cytoscape.ts,
+ARCHITECTURE.md, AGENTS.md, README.md, CHANGELOG.md, docs/{knowledge-graph,features,index}.md,
+.gitignore, .savantignore, protocol.config.yaml, package.json, dev/fids/archive/.
+
 ## Session 2026-08-04: MCP Feature Integration Closeout (FID-2026-0804-002..006)
 
 **Key Learnings:**

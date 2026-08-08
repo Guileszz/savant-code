@@ -46,7 +46,9 @@ export function resetSavantCodeClient(): void {
   clientInstance = null
 }
 
-export async function getSavantCodeClient(): Promise<SavantCodeClient | null> {
+export async function getSavantCodeClient(options?: {
+  headless?: boolean
+}): Promise<SavantCodeClient | null> {
   if (!clientInstance) {
     const { token: apiKey } = getAuthTokenDetails()
 
@@ -82,6 +84,17 @@ export async function getSavantCodeClient(): Promise<SavantCodeClient | null> {
         traceWriter: createTraceWriter(),
         overrideTools: {
           ask_user: async (input: Record<string, JSONValue>) => {
+            // Headless mode (FID-2026-0806-011): there is no TUI bridge to
+            // answer an ask_user question, so always skip. Interactive CLI
+            // sessions keep the AskUserBridge flow below.
+            if (options?.headless) {
+              return [
+                {
+                  type: 'json',
+                  value: { answers: [], skipped: true },
+                },
+              ]
+            }
             const { questions } = askUserParams.inputSchema.parse(input)
             const askUserResponse = await AskUserBridge.request(
               'cli-override',

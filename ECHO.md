@@ -48,11 +48,11 @@ adaptive complexity routing to avoid unnecessary overhead on simple tasks.**
 
 ## Savant Agent Roster
 
-The Savant harness enforces the Perfection Loop through 9 specialized agents.
+The Savant harness enforces the Perfection Loop through 10 specialized agents.
 Each agent owns a specific phase and has restricted tools. No agent may perform
 another agent's role.
 
-> **Note:** The 9-agent table above covers the canonical ECHO runtime roles. The
+> **Note:** The 10-agent table above covers the canonical ECHO runtime roles. The
 > Orchestrator's `spawnableAgents` also includes 6 infrastructure helpers
 > (`basher`, `tmux-cli`, `browser-use`, `context-pruner`, `github`, `database`)
 > that are NOT independent ECHO conversation roles. `browser-use` is a helper
@@ -66,12 +66,13 @@ another agent's role.
 | 1 | **Orchestrator** | ALL | Primary coder (Hybrid Mode) + routes complex work through Perfection Loop. Writes code directly for most tasks, spawns Forge for complex changes. | spawn_agents, read_files, read_subtree, run_readonly_command, write_todos, suggest_followups, ask_user, read_url, skill, set_output, list_directory, glob, render_ui, gravity_index, transition_phase, write_file, str_replace, apply_patch (phase-gated), set_scaffold_complete (scaffold mode) | bash, sequentialthinking |
 | 2 | **Detective** | RED | Codebase analysis, grep call-graphs, find issues, catalog evidence | code_search, set_output, list_directory, glob, read_files, read_subtree | write_file, str_replace, bash |
 | 3 | **Forge** | GREEN | Implementation only. Writes code following converged FID spec. | write_file, str_replace, set_output | spawn_agents, ask_user |
-| 4 | **Verifier** | AUDIT | Double-audit, run tests, check call-graph reachability | *(no tools — reads only via message history)* | ALL write tools |
+| 4 | **Verifier** | AUDIT | Double-audit, run tests, check call-graph reachability, cite `file:line` evidence per PASS/FAIL, `NEEDS-REVIEW` for out-of-reach evidence (FID-2026-0805-004) | *(no tools — reads only via message history)* | ALL write tools |
 | 5 | **Recorder** | FID | Create, track, archive FIDs. Update CHANGELOG. | write_file, read_files, glob, code_search, set_output | str_replace, bash |
 | 6 | **Thinker** | Planning | Deep reasoning via sequential thinking engine | sequentialthinking, end_turn | write_file, str_replace, bash |
 | 7 | **Scout** | Explore | File/code search, glob, read subtrees, context gathering | glob, list_directory, read_files, read_subtree, set_output | write_file, str_replace, bash, spawn |
 | 8 | **Researcher** | Research | Web search, documentation lookup, external API research | web_search, read_url (web); read_docs (docs); deep_research (FID-2026-0804-002) | write_file, str_replace, bash |
 | 9 | **Scribe** | Docs | Session summaries, LESSONS.md, knowledge files | read_files, write_file, glob, code_search, set_output | str_replace, bash, spawn |
+| 10 | **Adversary** | ADVERSARIAL | Meta-verification: refutes every Verifier FAIL, re-audits every unevidenced PASS, resolves citations; verdicts override the Verifier's (FID-2026-0805-004) | read_files, code_search, glob, list_directory, set_output | ALL write tools, bash, spawn |
 
 ### Separation of Duties (Non-Negotiable)
 
@@ -236,22 +237,22 @@ not on the code. Code implementation begins only after the FID converges.
 │                    PERFECTION LOOP (FID-Bound)                     │
 │                                                                    │
 │  ┌─────────┐    ┌──────────┐    ┌─────────┐    ┌──────────────┐   │
-│  │   RED   │───>│  GREEN   │───>│  AUDIT  │───>│     SELF-     │   │
-│  │  PHASE  │    │  PHASE   │    │  PHASE  │    │   CORRECT     │   │
-│  └─────────┘    └─────┬────┘    └─────────┘    └──────┬───────┘   │
-│       ^                │                               │          │
-│       │                │        ┌──────────┐            │          │
-│       │                │        │ COMPLETE │<───────────┘          │
-│       │                │        └────┬─────┘  (audit passes)      │
-│       │                │             │                            │
-│       │                │             ▼                            │
-│       │                │      ┌──────────────┐                    │
-│       │                │      │  FORGE/AUDIT  │                   │
-│       │                │      │  (code impl)  │                   │
-│       │                │      └──────────────┘                    │
-│       │                │                                           │
-│       │                └───────────────────────────────────────────┘
-│       │                   (corrections applied → re-verify)
+│  │   RED   │───>│  GREEN   │───>│  AUDIT  │───>│ ADVERSARIAL  │   │
+│  │  PHASE  │    │  PHASE   │    │  PHASE  │    │    PHASE     │   │
+│  └─────────┘    └─────┬────┘    └─────────┘    └───┬──────┬────┘   │
+│       ^                │                           │      │        │
+│       │                │        ┌──────────┐       │      │        │
+│       │                │        │ COMPLETE │<──────┘      │        │
+│       │                │        └────┬─────┘              │        │
+│       │                │             │       ┌────────────┘        │
+│       │                │             ▼       ▼                     │
+│       │                │      ┌──────────────┐   ┌──────────────┐  │
+│       │                │      │  FORGE/AUDIT  │   │ SELF-CORRECT │  │
+│       │                │      │  (code impl)  │   │  (findings)  │  │
+│       │                │      └──────────────┘   └──────┬───────┘  │
+│       │                │                                 │          │
+│       │                └─────────────────────────────────┘          │
+│       │                   (corrections applied → re-enter GREEN)
 │       │
 │       └─────────────────── (if new issues found)
 └──────────────────────────────────────────────────────────────────┘
@@ -263,9 +264,10 @@ not on the code. Code implementation begins only after the FID converges.
 |-------|----------------|------------|---------|----------------|
 | **RED** | Start of loop | Detective | Identify ALL failures and issues. Grep call-graphs. Catalog evidence. | All issues cataloged |
 | **GREEN** | RED complete | Thinker + Recorder | Fix issues with MINIMAL changes. All questions answered. Most robust defaults chosen. | All fixes documented in FID |
-| **AUDIT** | GREEN complete | Verifier + Recorder | Double-audit: verify change with two independent methods. Evidence must come from tool output. **For any FID that adds a new function or new config field, the AUDIT phase MUST include grep for callers. Zero production callers = FID rejected.** | Audit passes/fails |
-| **SELF-CORRECT** | AUDIT failed | Thinker + Recorder | Address audit findings, update GREEN section of FID | Corrections applied |
-| **COMPLETE** | AUDIT passed | Recorder | Close FID. Move to archive. Update CHANGELOG. | Loop ends. Ready for Forge. |
+| **AUDIT** | GREEN complete | Verifier + Recorder | Double-audit: verify change with two independent methods. Evidence must come from tool output. **For any FID that adds a new function or new config field, the AUDIT phase MUST include grep for callers. Zero production callers = FID rejected.** Every PASS and every FAIL cites `file:line` with the quoted code that justifies it; absence-shaped checks paste the exact NO-MATCH search; out-of-reach evidence is `NEEDS-REVIEW` naming the screen/system a human must check — never converted to PASS (FID-2026-0805-004). | Audit passes → ADVERSARIAL; fails → SELF-CORRECT |
+| **ADVERSARIAL** | AUDIT passed | Adversary | Fresh, read-only meta-verification: refutes every FAIL (CONFIRMED / REFUTED / ADJUSTED with basis), re-audits every unevidenced PASS, resolves every citation, re-rates severities, splits half-provable claims, checks for omission and wrong N/As. Verdicts override the Verifier's (FID-2026-0805-004). | Clean → COMPLETE; findings → SELF-CORRECT |
+| **SELF-CORRECT** | AUDIT or ADVERSARIAL failed | Thinker + Recorder | Address audit findings, update GREEN section of FID | Corrections applied |
+| **COMPLETE** | ADVERSARIAL passed | Recorder | Close FID. Move to archive. Update CHANGELOG. | Loop ends. Ready for Forge. |
 
 ### Circuit Breaker Rules
 
@@ -319,8 +321,9 @@ For the full flow:
 Step 1:  Detect issue → Detective creates FID (RED)
 Step 2:  Propose fix → Thinker + Recorder document solution (GREEN)
 Step 3:  Verify solution → Verifier double-audits the FID (AUDIT)
-Step 4a: If audit fails → Thinker revises (SELF-CORRECT → back to GREEN)
-Step 4b: If audit passes → Recorder closes FID (COMPLETE)
+Step 3b: Adversarial pass → Adversary re-audits the Verifier (ADVERSARIAL)
+Step 4a: If audit/adversarial fails → Thinker revises (SELF-CORRECT → back to GREEN)
+Step 4b: If adversarial passes → Recorder closes FID (COMPLETE)
 
 --- ONLY NOW DOES CODE GET WRITTEN ---
 
@@ -407,7 +410,8 @@ Self-reporting is prohibited. The Orchestrator that writes code must not be the 
 ### FID Perfection Loop Trigger
 
 Whenever the operator issues the trigger phrase **"run the perfection loop"**, the Orchestrator MUST run the
-Perfection Loop (RED → GREEN → AUDIT → COMPLETE) on every open FID. As part of each loop, the Thinker must ask:
+Perfection Loop (RED → GREEN → AUDIT → ADVERSARIAL → COMPLETE) on every open FID. As part of each loop, the
+Thinker must ask:
 *"What questions should I have asked when this FID was created, but failed to?"* — surface every missed question,
 answer it with the most robust default derivable from code inspection, and fold those answers directly back into
 the existing FID sections. Only after the FID document is fully updated does the loop proceed to AUDIT. Do not

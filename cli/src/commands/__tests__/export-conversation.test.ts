@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, mock, test } from 'bun:test'
 
 import { useChatStore } from '../../state/chat-store'
 import { handleExportConversationCommand } from '../export-conversation'
+import { CHARACTER_LOGO_DATA_URI } from '../graph-export/character'
 
 import type { ChatMessage } from '../../types/chat'
 import type { RouterParams } from '../command-registry'
@@ -89,6 +90,9 @@ describe('handleExportConversationCommand', () => {
     // Logo embedded as a base64 data URI (no runtime file dependency)
     expect(html).toContain('data:image/png;base64,')
     expect(html).toContain('<img class="logo"')
+    // Branding alignment (FID-2026-0807-009): the header uses the character
+    // logo, identical to the graph export surface.
+    expect(html).toContain(`<img class="logo" src="${CHARACTER_LOGO_DATA_URI}"`)
 
     // Brand header: logo, name, and version stacked in a centered column
     expect(html).toContain('<div class="brand">')
@@ -153,6 +157,10 @@ describe('handleExportConversationCommand', () => {
 
     // Role markers: Savant rows carry the logo image, user rows carry an icon
     expect(html).toContain('class="row-logo"')
+    // Row markers use the same character logo as the header.
+    expect(html).toContain(
+      `<img class="row-logo" src="${CHARACTER_LOGO_DATA_URI}"`,
+    )
     expect(html).toContain('fa-user')
     expect(html).toContain('>Savant</span>')
 

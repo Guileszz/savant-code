@@ -6,6 +6,7 @@
 **Status:** created | analyzed | fixed | verified | closed
 **Created:** YYYY-MM-DD HH:MM
 **Author:** [Agent/Human Name]
+**YAGNI-Compliance:** Pending | Verified | Debt-Incurred
 
 ---
 
@@ -99,6 +100,11 @@ How will we confirm the fix works?
 - [ ] Implementation matches the proposed solution
 - [ ] Typecheck passes: [command output]
 - [ ] FID status updated to reflect actual implementation state
+
+> **AUDIT evidence-citation rule (FID-2026-0805-004):** every PASS and every FAIL in the AUDIT phase cites
+> `path/to/file.ts:LINE` with the quoted code that justifies it; absence-shaped checks paste the exact search
+> (NO-MATCH). Out-of-reach evidence is marked `NEEDS-REVIEW` naming the screen/system a human must check — never
+> converted to PASS.
 
 ### Loop 2 (if needed)
 

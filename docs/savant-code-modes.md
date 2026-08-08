@@ -4,6 +4,13 @@
 > describes the pre-rebrand mode system and intentionally preserves obsolete paths, model names, and provider options as
 > an audit record. Current agent definitions and provider behavior are documented in `README.md`, `ARCHITECTURE.md`,
 > `agents/savant/savant.ts`, and `sdk/src/impl/model-provider.ts`. No pending implementation plan is tracked by this file.
+>
+> **Superseded (FID-2026-0805-001):** the mode system was redesigned after this audit. `AGENT_MODE_TO_ID` now maps
+> `HYBRID / SCAFFOLD / STRICT / ANALYZE` to `savant` / `savant-scaffold` / `savant-strict` / `savant-analyze`
+> (defined in `cli/src/utils/constants.ts`); the `agents/base2/*` files referenced below no longer exist and were
+> replaced by `agents/savant/*`. The §7 `amazon-bedrock` latent-risk warning is **resolved** — the
+> `only: ['amazon-bedrock']` provider constraint was removed from active code (zero occurrences outside tests as of
+> 2026-08-07). `costMode` remains inert on the OpenRouter-direct path.
 
 ## TL;DR — answer to "do modes do anything?"
 
@@ -118,7 +125,7 @@ the difference the runtime sees when you click the toggle in the input box.
 | `DEFAULT` | `base2` | `'anthropic/claude-opus-4.8'` | `{ only: ['amazon-bedrock'] }` | strict | full |
 | `MAX` | `base2-max` | same as DEFAULT | `{ only: ['amazon-bedrock'] }` | strict + "keep working until satisfied" | full |
 | `LITE` (SavantCode, IS_SAVANT_FREE=false) | `base2-lite` | `'minimax/minimax-m3'` (OpenRouter label) | `{ only: ['amazon-bedrock'] }` | strict | full |
-| `LITE` (SavantFree, IS_SAVANT_FREE=true) | `base2-free` | `'minimax/minimax-m3'` (OpenRouter label) | `{ data_collection: 'deny' }` | strict | full |
+| `LITE` (free build, IS_SAVANT_FREE=true) | `base2-free` | `'minimax/minimax-m3'` (OpenRouter label) | `{ data_collection: 'deny' }` | strict | full |
 | `PLAN` | `base2-plan` *(via `createBase2('default', { planOnly: true })`)* | `'anthropic/claude-opus-4.8'` | `{ only: ['amazon-bedrock'] }` | plan-only override (no write tools at runtime) | full |
 | (used inside `noAskUser: true` shell) | `base2-fast-no-validation` | whatever model override is passed | `{ only: ['amazon-bedrock'] }` | `hasNoValidation: true` | drops `write_todos`, `suggest_followups`, `ask_user` |
 
@@ -159,7 +166,7 @@ From `cli/src/utils/input-modes.ts`, each `InputModeConfig` has `showAgentModeTo
 | `default`, `homeDir`, `usage`, `help` | ✅ |
 | `bash`, `plan`, `review`, `interview`, `image`, `connect:chatgpt`, `outOfCredits`, `subscriptionLimit` | ❌ |
 
-Plus an unconditional override: in SavantFree builds, all toggle visibility is forced off.
+Plus an unconditional override: in free builds (IS_SAVANT_FREE=true), all toggle visibility is forced off.
 
 Practical consequence: when the user types `/plan`, `/review`, or `/interview`, the agent-mode toggle disappears.
 When the user is back in the default chat, it reappears. `subscriptionLimit` and `outOfCredits` also hide it
@@ -308,15 +315,17 @@ Before touching any file, capture decisions on:
 - [ ] Which **`InputMode`** contexts should still expose the toggle
 - [ ] What to do with `base2-free` and `base2-lite` (which produce near-identical AgentDefinitions)
 - [ ] Whether `planOnly` becomes a real `AgentMode` or stays as a `createBase2` flag
-- [ ] FIDs/documentation updates: open FID-2026-0720-031 at the start of work, file CHANGELOG.md entry + migrate
-  FID to `archive/` at close
+- [x] FIDs/documentation updates: the redesign shipped as **FID-2026-0805-001**
+  (mode-execution-scope relabel to HYBRID/SCAFFOLD/STRICT/ANALYZE), filed
+  in `CHANGELOG.md` and archived. The placeholder FID-2026-0720-031 was
+  never opened.
 
 ---
 
 ## 11. Related documents
 
-- [`ARCHITECTURE.md`](../ARCHITECTURE.md) — 9-agent roster (Orchestrator, Detective, Forge, Verifier, Recorder,
-  Thinker, Scout, Researcher, Scribe)
+- [`ARCHITECTURE.md`](../ARCHITECTURE.md) — 10-agent roster (Orchestrator, Detective, Forge, Verifier, Recorder,
+  Thinker, Scout, Researcher, Scribe, Adversary)
 - [`ECHO.md`](../ECHO.md) — Perfection Loop FSM, FID lifecycle
 - [`docs/agents-and-tools.md`](agents-and-tools.md) — Agent roster breakdown
 - [`docs/SAVANT-VERSIONING.md`](SAVANT-VERSIONING.md) — Versioning convention

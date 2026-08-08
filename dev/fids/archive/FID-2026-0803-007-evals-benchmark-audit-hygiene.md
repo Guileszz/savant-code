@@ -3,7 +3,7 @@
 **Filename:** `FID-2026-0803-007-evals-benchmark-audit-hygiene.md`
 **ID:** FID-2026-0803-007
 **Severity:** high
-**Status:** verified
+**Status:** closed
 **Created:** 2026-08-03
 **Author:** Savant
 

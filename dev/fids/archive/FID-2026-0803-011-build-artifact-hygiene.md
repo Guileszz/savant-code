@@ -3,8 +3,9 @@
 **Filename:** `FID-2026-0803-011-build-artifact-hygiene.md`
 **ID:** FID-2026-0803-011
 **Severity:** low
-**Status:** analyzed
+**Status:** closed
 **Created:** 2026-08-03
+**Closed:** 2026-08-06 (status normalized during the 2026-08-06 FID audit — implementation + audit evidence was already present; the `analyzed` status was stale)
 **Author:** Savant
 
 **Summary:**

@@ -3,7 +3,7 @@
 **Filename:** `FID-2026-0802-008-sdk-package-audit-client-run-run-state.md`
 **ID:** FID-2026-0802-008
 **Severity:** high
-**Status:** verified
+**Status:** closed
 **Created:** 2026-08-02
 **Author:** Savant
 

@@ -11,6 +11,7 @@ export const ALLOWED_MODEL_PREFIXES = [
   'mimo',
   'tencent',
   'tokenrouter',
+  'tokenharbor',
   'nvidia',
   'opencode-go',
   'commandcode',
@@ -114,6 +115,40 @@ export const tokenrouterModels = {
 } as const
 export type TokenrouterModel =
   (typeof tokenrouterModels)[keyof typeof tokenrouterModels]
+
+/**
+ * TokenHarbor model IDs published on https://tokenharbor.ai/models.
+ * Keep the internal provider prefix so direct routing strips exactly one
+ * `tokenharbor/` segment and preserves upstream suffixes such as `:free`.
+ */
+export const tokenharborModels = {
+  // Frontier
+  tokenharbor_claude_opus_5: 'tokenharbor/claude-opus-5',
+  tokenharbor_claude_fable_5: 'tokenharbor/claude-fable-5',
+  tokenharbor_gpt_5_6_sol: 'tokenharbor/gpt-5.6-sol',
+  tokenharbor_kimi_k3: 'tokenharbor/kimi-k3',
+  tokenharbor_qwen_3_8_max: 'tokenharbor/qwen3.8-max',
+  tokenharbor_gpt_5_6_terra: 'tokenharbor/gpt-5.6-terra',
+  tokenharbor_grok_4_5: 'tokenharbor/grok-4.5',
+  tokenharbor_claude_sonnet_5: 'tokenharbor/claude-sonnet-5',
+  tokenharbor_gemini_3_6_flash: 'tokenharbor/gemini-3.6-flash',
+  // Value
+  tokenharbor_glm_5_2: 'tokenharbor/glm-5.2',
+  tokenharbor_gpt_5_6_luna: 'tokenharbor/gpt-5.6-luna',
+  tokenharbor_deepseek_v4_flash: 'tokenharbor/deepseek-v4-flash',
+  tokenharbor_minimax_m3: 'tokenharbor/minimax-m3',
+  tokenharbor_deepseek_v4_pro: 'tokenharbor/deepseek-v4-pro',
+  tokenharbor_mimo_v2_5_pro: 'tokenharbor/mimo-v2.5-pro',
+  tokenharbor_mimo_v2_5: 'tokenharbor/mimo-v2.5',
+  // Free
+  tokenharbor_kimi_k3_free: 'tokenharbor/kimi-k3:free',
+  tokenharbor_deepseek_v4_flash_free: 'tokenharbor/deepseek-v4-flash:free',
+  tokenharbor_mimo_v2_5_free: 'tokenharbor/mimo-v2.5:free',
+  // Orchestra
+  tokenharbor_th_orchestra: 'tokenharbor/th-orchestra',
+} as const
+export type TokenHarborModel =
+  (typeof tokenharborModels)[keyof typeof tokenharborModels]
 
 export const nvidiaModels = {
   nvidia_glm5_2: 'nvidia/zai-org/glm-5.2',
@@ -326,6 +361,7 @@ export const models = {
   ...openrouterModels,
   ...finetunedVertexModels,
   ...tokenrouterModels,
+  ...tokenharborModels,
   ...nvidiaModels,
   ...cloudflareModels,
 } as const
@@ -429,6 +465,7 @@ export const providerDomains = {
   tencent: 'tencent.com',
   xai: 'x.ai',
   tokenrouter: 'tokenrouter.com',
+  tokenharbor: 'tokenharbor.ai',
   nvidia: 'nvidia.com',
   opencodeGo: 'opencode.ai',
   cloudflare: 'cloudflare.com',
@@ -453,6 +490,8 @@ export function getLogoForModel(modelName: string): string | undefined {
   else if (modelName.startsWith('tencent/')) domain = providerDomains.tencent
   else if (modelName.startsWith('tokenrouter/'))
     domain = providerDomains.tokenrouter
+  else if (modelName.startsWith('tokenharbor/'))
+    domain = providerDomains.tokenharbor
   else if (modelName.startsWith('nvidia/')) domain = providerDomains.nvidia
   else if (modelName.startsWith('cloudflare/'))
     domain = providerDomains.cloudflare

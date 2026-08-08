@@ -1,5 +1,5 @@
 import { TextAttributes } from '@opentui/core'
-import { useKeyboard, useRenderer } from '@opentui/react'
+import { useRenderer } from '@opentui/react'
 import {
   SAVANT_FREE_ENABLE_STREAK_IN_UI,
   SAVANT_FREE_LIMITED_SESSION_LIMIT,
@@ -9,8 +9,7 @@ import {
   getRateLimitsByModel,
   getReferralInfo,
 } from '@savant-code/common/types/savant-free-session'
-import { formatSavantFreeHardBlockedPrivacySignals } from '@savant-code/common/util/savant-free-privacy'
-import React, { useCallback, useEffect, useState } from 'react'
+import React, { useEffect, useState } from 'react'
 
 import { ChoiceAdBanner, AD_CARD_HEIGHT } from './ad-banner'
 import { Button } from './button'
@@ -19,10 +18,7 @@ import { useGravityAd } from '../hooks/use-gravity-ad'
 import { useLogo } from '../hooks/use-logo'
 import { useNow } from '../hooks/use-now'
 import { useSavantFreeCtrlCExit } from '../hooks/use-savant-free-ctrl-c-exit'
-import {
-  refreshSavantFreeLandingMetadata,
-  takeOverSavantFreeSession,
-} from '../hooks/use-savant-free-session'
+import { refreshSavantFreeLandingMetadata } from '../hooks/use-savant-free-session'
 import { useSavantFreeStreakQuery } from '../hooks/use-savant-free-streak-query'
 import { useTerminalDimensions } from '../hooks/use-terminal-dimensions'
 import { useTheme } from '../hooks/use-theme'
@@ -32,276 +28,43 @@ import {
   formatSavantFreePremiumResetCountdown,
   getSavantFreePremiumResetAt,
 } from '../utils/savant-free-premium-reset'
-import {
-  SAVANT_FREE_STREAK_WEEK as _SAVANT_FREE_STREAK_WEEK,
-  getSavantFreeStreakBonusNote,
-  getSavantFreeStreakLine,
-} from '../utils/savant-free-streak-line'
-import { isPlainEnterKey } from '../utils/terminal-enter-detection'
+import { getSavantFreeStreakBonusNote } from '../utils/savant-free-streak-line'
 import { getLogoAccentColor, getLogoBlockColor } from '../utils/theme-system'
-import { INVERTED_CTA_FG } from '../utils/ui-constants'
+import {
+  LANDING_HEADING,
+  getLimitedModeNotice,
+} from './savant-free-landing-screen/format'
+import { computeLandingLayout } from './savant-free-landing-screen/layout'
+import {
+  BannedPanel,
+  CountryBlockedPanel,
+  RateLimitedPanel,
+} from './savant-free-landing-screen/status-panels'
+import { StreakInlineLine } from './savant-free-landing-screen/streak-line'
+import { TakeoverPrompt } from './savant-free-landing-screen/takeover-prompt'
 
 import type { SavantFreeSession } from '../types/savant-free-session'
-import type { KeyEvent } from '@opentui/core'
-import type { SavantFreeIpPrivacySignal } from '@savant-code/common/types/savant-free-session'
+
 interface SavantFreeLandingScreenProps {
   session: SavantFreeSession | null
   error: string | null
 }
-/** Landing-screen heading. Referenced both as rendered text and by the
- *  picker's height-budget math (wrappedRows), so it lives in one place to keep
- *  the two from drifting. */
-const LANDING_HEADING = 'Start coding for free'
-/** "in ~3h 20m" / "in ~45 min" / "in under a minute". Used on the
- *  rate-limited screen so users know when they can try again. */
-const formatRetryAfter = (ms: number): string => {
-  if (!Number.isFinite(ms) || ms <= 0) return 'any moment now'
-  const minutes = Math.round(ms / 60000)
-  if (minutes < 1) return 'under a minute'
-  if (minutes < 60) return `${minutes} min`
-  const hours = Math.floor(minutes / 60)
-  const rem = minutes % 60
-  return rem === 0 ? `${hours}h` : `${hours}h ${rem}m`
-}
-const PRIVACY_SIGNAL_LABELS: Partial<
-  Record<SavantFreeIpPrivacySignal, string>
-> = {
-  anonymous: 'anonymized network',
-  proxy: 'proxy',
-  relay: 'relay',
-  res_proxy: 'residential proxy',
-  tor: 'Tor',
-  vpn: 'VPN',
-  hosting: 'hosting network',
-  service: 'privacy service',
-}
-const formatPrivacySignalList = (
-  signals: SavantFreeIpPrivacySignal[] | undefined,
-): string => {
-  const labels = Array.from(
-    new Set(
-      signals
-        ?.map((signal) => PRIVACY_SIGNAL_LABELS[signal])
-        .filter((label): label is string => Boolean(label)) ?? [],
-    ),
-  )
-  if (labels.length === 0) {
-    return 'VPN, Tor, proxy, relay, or anonymized network'
-  }
-  if (labels.length === 1) return labels[0]
-  if (labels.length === 2) return `${labels[0]} or ${labels[1]}`
-  return `${labels.slice(0, -1).join(', ')}, or ${labels[labels.length - 1]}`
-}
-/** "BR" → "Brazil". Falls back to the raw code when the runtime can't
- *  resolve it (malformed code, missing ICU data). */
-const formatCountryName = (countryCode: string): string => {
-  try {
-    return (
-      new Intl.DisplayNames(['en'], { type: 'region' }).of(countryCode) ??
-      countryCode
-    )
-  } catch {
-    return countryCode
-  }
-}
-// Tone matters here: this is shown to users who, through no fault of their
-// own, get the smaller model set. Frame it as model *availability* ("aren't
-// available in BR yet"), never as restricted *access* ("limited mode",
-// "blocked") — clear enough to answer "why these models?" for someone who
-// goes looking, quiet enough to ignore for someone who doesn't. The VPN case
-// is the one the user can act on, so it leads with the action. Rendered
-// directly under the model list — that's where "why these models?" gets asked.
-const getLimitedModeNotice = (
-  session: SavantFreeSession | null,
-): string | null => {
-  if (!session || !('countryBlockReason' in session)) {
-    return "Some models aren't available on this connection"
-  }
-  const countryCode =
-    'countryCode' in session &&
-    session.countryCode &&
-    session.countryCode !== 'UNKNOWN'
-      ? session.countryCode
-      : null
-  switch (session.countryBlockReason) {
-    case 'anonymous_network':
-      return `Using a ${formatPrivacySignalList(session.ipPrivacySignals ?? undefined)}? More models are available on a direct connection`
-    case 'country_not_allowed':
-      return `Some models aren't available in ${countryCode ? formatCountryName(countryCode) : 'your region'} yet`
-    case 'anonymized_or_unknown_country':
-    case 'missing_client_ip':
-    case 'unresolved_client_ip':
-      return "We couldn't confirm your region, so we're showing models available everywhere"
-    case 'ip_privacy_lookup_failed':
-      return "We couldn't finish a network check, so we're showing models available everywhere"
-    default:
-      return "Some models aren't available on this connection"
-  }
-}
-const TakeoverPrompt: React.FC = () => {
-  const theme = useTheme()
-  const [pending, setPending] = useState(false)
-  const [focusedIndex, setFocusedIndex] = useState(0) // 0 = Take over, 1 = Exit
-  const handleTakeover = useCallback(() => {
-    if (pending) return
-    setPending(true)
-    takeOverSavantFreeSession().finally(() => setPending(false))
-  }, [pending])
-  useKeyboard(
-    useCallback(
-      (key: KeyEvent) => {
-        const name = key.name ?? ''
-        const isConfirm = isPlainEnterKey(key)
-        const isExit = name === 'escape' || name === 'esc'
-        const isTab = name === 'tab'
-        const isShiftTab = key.shift === true && isTab
-        const isRight = name === 'right'
-        const isLeft = name === 'left'
-        if (isExit) {
-          key.preventDefault?.()
-          exitSavantFreeCleanly()
-          return
-        }
-        if (isConfirm) {
-          key.preventDefault?.()
-          if (focusedIndex === 0) {
-            handleTakeover()
-          } else {
-            exitSavantFreeCleanly()
-          }
-          return
-        }
-        if (isRight || isTab) {
-          key.preventDefault?.()
-          setFocusedIndex((prev) => (prev + 1) % 2)
-          return
-        }
-        if (isLeft || isShiftTab) {
-          key.preventDefault?.()
-          setFocusedIndex((prev) => (prev - 1 + 2) % 2)
-          return
-        }
-      },
-      [focusedIndex, handleTakeover],
-    ),
-  )
-  const isTakeoverFocused = focusedIndex === 0
-  const isExitFocused = focusedIndex === 1
-  return (
-    <box
-      style={{
-        flexDirection: 'column',
-        alignItems: 'center',
-        gap: 1,
-        width: '100%',
-      }}
-    >
-      <text style={{ fg: theme.foreground }} attributes={TextAttributes.BOLD}>
-        SavantFree is already running
-      </text>
 
-      <text style={{ fg: theme.muted }}>
-        Only one savant-free instance is allowed at a time.
-      </text>
-
-      <box style={{ flexDirection: 'row', gap: 2, marginTop: 1 }}>
-        <Button
-          onClick={handleTakeover}
-          onMouseOver={() => setFocusedIndex(0)}
-          style={{ paddingLeft: 1, paddingRight: 1 }}
-          border={['top', 'bottom', 'left', 'right']}
-          borderStyle="single"
-          borderColor={theme.primary}
-        >
-          <text
-            style={{
-              // theme.background is 'transparent' and can't serve as inverted
-              // text — on the green fill it renders the label invisible.
-              fg: isTakeoverFocused ? INVERTED_CTA_FG : theme.foreground,
-              bg: isTakeoverFocused ? theme.primary : undefined,
-            }}
-            attributes={TextAttributes.BOLD}
-          >
-            {pending ? 'Taking over...' : 'Take over'}
-          </text>
-        </Button>
-        <Button
-          onClick={exitSavantFreeCleanly}
-          onMouseOver={() => setFocusedIndex(1)}
-          style={{ paddingLeft: 1, paddingRight: 1 }}
-          border={['top', 'bottom', 'left', 'right']}
-          borderStyle="single"
-          borderColor={isExitFocused ? theme.foreground : theme.muted}
-        >
-          <text
-            style={{ fg: isExitFocused ? theme.foreground : theme.muted }}
-            attributes={
-              isExitFocused ? TextAttributes.BOLD : TextAttributes.NONE
-            }
-          >
-            Exit
-          </text>
-        </Button>
-      </box>
-    </box>
-  )
-}
-/** Inline streak indicator rendered as the line immediately after the
- *  sessions-used/title row. Shows "N day streak" with a week of filled/empty
- *  progress dots; for streak === 0 the row is rendered blank so new / lapsed
- *  users are nudged to start using the product rather than shown an empty
- *  streak (and so the picker doesn't jump once they earn their first day). */
-const StreakInlineLine: React.FC<{
-  streak: number
-  marginTop: number
-}> = ({ streak, marginTop }) => {
-  const theme = useTheme()
-  const line = getSavantFreeStreakLine(streak)
-  if (!line) {
-    return <text style={{ marginTop, flexShrink: 0 }}> </text>
-  }
-  return (
-    <text
-      style={{
-        marginTop,
-        flexShrink: 0,
-        wrapMode: 'none',
-      }}
-    >
-      <span fg={theme.foreground}>{line.label}</span>
-      <span fg={theme.primary}>{`  ${line.dots}`}</span>
-    </text>
-  )
-}
 export const SavantFreeLandingScreen: React.FC<
   SavantFreeLandingScreenProps
 > = ({ session, error }) => {
   const theme = useTheme()
-  const _renderer = useRenderer()
+  useRenderer()
   const { terminalWidth, terminalHeight, contentMaxWidth } =
     useTerminalDimensions()
-  // Progressive disclosure as the terminal gets shorter. The picker is the
-  // only thing the user must be able to reach, so chrome is shed first:
-  //   tall   (>=40): full 6-line ASCII logo + roomy spacing, content anchored low
-  //   medium (>=20): one-line text wordmark — keeps branding for ~1 row so the
-  //                  model list (esp. expanded) gets ~6 rows back vs the big logo
-  //   short  (<20) : no logo at all
-  //   tiny   (<18) : also drop the ad banner
-  // The big logo is reserved for genuinely tall windows; at the common ~30-row
-  // height we show the compact wordmark so more models fit without scrolling.
-  // Section headers always show — the picker scrolls within whatever rows
-  // remain (see selectorMaxHeight below), so there's no need to hide them.
-  //
-  // Exception: when the picker is collapsed it shrinks to ~5 rows, freeing the
-  // ~6 rows the big logo needs. So on a mid-height window with a collapsed,
-  // referral-free picker we promote the wordmark back to the full ASCII logo —
-  // it fills what would otherwise be dead space above the card. A referral card
-  // or expanded list keeps the compact wordmark and gives those rows back to
-  // the scrollable menu. 26 is the smallest window where the logo block,
-  // heading, collapsed picker, streak, and ad all coexist without scrolling.
-  //
-  // The picker (rendered below) owns this and reports it via onExpandedChange;
-  // we default to collapsed so the first paint reserves logo space correctly.
+  // Progressive disclosure as the terminal gets shorter (picker must always
+  // fit): tall >=40 full 6-line ASCII logo, medium >=20 one-line wordmark,
+  // short <20 no logo, tiny <18 also drop the ad banner. Exception: a
+  // collapsed referral-free picker shrinks to ~5 rows, so on mid-height
+  // windows the wordmark is promoted back to the full logo (fills dead space
+  // above the card); a referral card or expanded list keeps the compact
+  // wordmark and gives those rows back to the scrollable menu. The picker
+  // owns this and reports it via onExpandedChange.
   const [selectorExpanded, setSelectorExpanded] = useState(false)
   const COLLAPSED_LOGO_MIN_HEIGHT = 26
   const hasReferralMenu =
@@ -318,7 +81,6 @@ export const SavantFreeLandingScreen: React.FC<
       : 'none'
   const compact = terminalHeight < 22
   const showAds = terminalHeight >= 18
-  const textMarginBottom = 1
   const logoLines = logoMode === 'full' ? 6 : logoMode === 'text' ? 1 : 0
   const blockColor = getLogoBlockColor(theme.name)
   const accentColor = getLogoAccentColor(theme.name)
@@ -330,10 +92,8 @@ export const SavantFreeLandingScreen: React.FC<
     // 'text' forces the one-line variant; 'none' is handled by not rendering.
     maxHeight: logoMode === 'full' ? undefined : 1,
   })
-  // Always enable ads on the landing screen — this is where monetization lives.
-  // forceStart bypasses the "wait for first user message" gate inside the hook,
-  // which would otherwise block ads here since no conversation exists yet.
-  // The server tries Gravity first, then falls back to ZeroClick and Carbon.
+  // Ads always on here (monetization lives here); forceStart bypasses the
+  // "wait for first user message" gate. Server tries Gravity first.
   const { ads, recordClick, recordImpression } = useGravityAd({
     enabled: true,
     forceStart: true,
@@ -390,14 +150,9 @@ export const SavantFreeLandingScreen: React.FC<
     ? Object.values(rateLimitsByModel)[0]
     : undefined
   const sharedSessionUsed = sessionRateLimit?.recentCount ?? 0
-  // Hide the "0 of 5 … used" line entirely for a fresh user — a zeroed counter
-  // is noise on the landing screen. It appears once any session is consumed.
-  //
-  // For the regular tiers the PREMIUM section header inside the picker now
-  // carries this quota inline, so the below-picker line only survives for the
-  // limited tier (which has no premium section to host it). Regular tiers don't
-  // need it when collapsed either — the collapsed recommended model is
-  // unlimited, so a premium-session count there is irrelevant.
+  // Hide the "0 of N used" line for a fresh user — noise on the landing
+  // screen. Regular tiers carry the quota inline in the PREMIUM section header,
+  // so the below-picker line survives only for the limited tier.
   const showSessionCounter = sharedSessionUsed > 0
   const showBelowPickerCounter = showSessionCounter && accessTier === 'limited'
   const isSessionExhausted =
@@ -422,59 +177,22 @@ export const SavantFreeLandingScreen: React.FC<
     sessionResetAt,
     now,
   )
-  // Rows the picker may occupy = terminal height minus the fixed chrome
-  // around it. Each term mirrors the real layout exactly (no padded
-  // estimate, no blanket safety row) so the scrollbox fills the available
-  // space with no dead band below it:
-  //   - top bar: paddingTop 1 + the ✕ row = 2
-  //   - ad banner: AD_CARD_HEIGHT, only when shown
-  //   - main box: its paddingTop (text-logo tier only) + paddingBottom 1
-  //   - logo block: lines + marginBottom 1 (always, when shown) + gap (full)
-  //   - the prompt/counter (landing)
-  // Line wrapping is derived from the actual strings vs contentMaxWidth, so
-  // a wrapped counter is accounted for precisely instead of guessed at.
-  const wrappedRows = (text: string) =>
-    Math.max(1, Math.ceil(text.length / contentMaxWidth))
   const counterText =
     `${formattedSharedSessionUsed} of ${sessionLimit} ${sessionLabel} used, ` +
     `resets in ${sessionResetCountdown}`
-  const logoBlockRows =
-    logoMode === 'none'
-      ? 0
-      : logoLines + 1 /* marginBottom */ + (logoMode === 'full' ? 1 : 0)
-  const mainPaddingRows = (logoMode === 'text' ? 1 : 0) + 1
-  const adRows = showAds ? AD_CARD_HEIGHT : 0
-  // Status lines render below the picker, each with marginTop 1: the session
-  // counter (landing only), then the limited-mode notice, then the streak.
-  // They still eat into the picker's height budget regardless of being above
-  // or below it. Placement varies: on a wide landing screen the streak shares
-  // the heading row (0 extra rows, already counted in landingTextRows); on a
-  // narrow landing screen it drops to its own line under the heading (1 row,
-  // no top margin).
-  const streakRows = !reserveStreakSlot ? 0 : streakOnHeadingRow ? 0 : 1
-  const noticeRows = limitedModeNotice
-    ? 1 /* marginTop */ + wrappedRows(limitedModeNotice)
-    : 0
-  // Streak perk note (landing, streak >= 7): one marginTop row + wrap.
-  const streakBonusRows = streakBonusNote
-    ? 1 /* marginTop */ + wrappedRows(streakBonusNote)
-    : 0
-  // The referral/GLM card now lives inside the model selector's scrollbox, so
-  // only genuinely fixed status lines below the selector reduce its viewport.
-  const belowPickerRows = streakRows + noticeRows + streakBonusRows
-  const counterRows = showBelowPickerCounter
-    ? 1 /* marginTop */ + wrappedRows(counterText)
-    : 0
-  const reservedChrome = 2 + adRows + mainPaddingRows + logoBlockRows
-  const landingTextRows =
-    wrappedRows(LANDING_HEADING) +
-    textMarginBottom +
-    counterRows +
-    belowPickerRows
-  const selectorMaxHeight = Math.max(
-    3,
-    terminalHeight - reservedChrome - landingTextRows,
-  )
+  const { selectorMaxHeight } = computeLandingLayout({
+    terminalHeight,
+    contentMaxWidth,
+    logoMode,
+    logoLines,
+    showAds,
+    showBelowPickerCounter,
+    counterText,
+    limitedModeNotice,
+    streakBonusNote,
+    reserveStreakSlot,
+    streakOnHeadingRow,
+  })
   useEffect(() => {
     if (!isLanding || !sessionRateLimit) return
     const delayMs = Math.max(0, sessionResetAtMs - Date.now() + 1000)
@@ -492,9 +210,8 @@ export const SavantFreeLandingScreen: React.FC<
         backgroundColor: theme.background,
       }}
     >
-      {/* Top-right exit affordance so mouse users have a clear way out even
-            when they don't know Ctrl+C works. width: '100%' is required for
-            justifyContent to actually push the X to the right. */}
+      {/* Top-right exit affordance for mouse users; width '100%' is required
+            for justifyContent to push the X right. */}
       <box
         style={{
           width: '100%',
@@ -587,7 +304,7 @@ export const SavantFreeLandingScreen: React.FC<
                   justifyContent: 'space-between',
                   alignItems: 'center',
                   alignSelf: 'stretch',
-                  marginBottom: textMarginBottom,
+                  marginBottom: 1,
                 }}
               >
                 <text style={{ wrapMode: 'word' }}>
@@ -643,95 +360,20 @@ export const SavantFreeLandingScreen: React.FC<
 
           {session?.status === 'takeover_prompt' && <TakeoverPrompt />}
 
-          {/* Country outside the free-mode allowlist. Terminal — polling has
-            stopped. Tell the user up front rather than letting them send a
-            request that the chat/completions gate would reject. */}
           {session?.status === 'country_blocked' && (
-            <>
-              <text style={{ fg: theme.secondary, marginBottom: 1 }}>
-                ⚠ Free mode isn't available in your region
-              </text>
-              <text style={{ fg: theme.muted, wrapMode: 'word' }}>
-                {session.countryBlockReason === 'anonymous_network' ? (
-                  <>
-                    We detected{' '}
-                    {formatSavantFreeHardBlockedPrivacySignals(
-                      session.ipPrivacySignals,
-                    )}{' '}
-                    traffic
-                    {session.countryCode === 'UNKNOWN' ? (
-                      ''
-                    ) : (
-                      <>
-                        {' '}
-                        from{' '}
-                        <span fg={theme.foreground}>{session.countryCode}</span>
-                      </>
-                    )}
-                    . SavantFree can't be used from VPN, proxy, or Tor traffic.
-                    Disable it and restart SavantFree to try again.
-                  </>
-                ) : session.countryCode === 'UNKNOWN' ? (
-                  <>
-                    We couldn't verify an eligible location for this request.
-                    VPN, Tor, proxy, or unknown-location traffic can't use
-                    savant-free. Press Ctrl+C to exit.
-                  </>
-                ) : (
-                  <>
-                    We detected your location as{' '}
-                    <span fg={theme.foreground}>{session.countryCode}</span>,
-                    which is outside the countries where savant-free is
-                    currently offered. Press Ctrl+C to exit.
-                  </>
-                )}
-              </text>
-            </>
+            <CountryBlockedPanel session={session} />
           )}
 
-          {/* Account banned. Terminal — polling has stopped. Blocking here
-            stops banned bots from re-entering free mode. */}
-          {session?.status === 'banned' && (
-            <>
-              <text style={{ fg: theme.secondary, marginBottom: 1 }}>
-                ⚠ Account unavailable
-              </text>
-              <text style={{ fg: theme.muted, wrapMode: 'word' }}>
-                This account has been suspended and can't use savant-free. If
-                you think this is a mistake, contact support@savant-code.com.
-                Press Ctrl+C to exit.
-              </text>
-            </>
-          )}
+          {session?.status === 'banned' && <BannedPanel />}
 
-          {/* Shared free-session quota exhausted. Terminal for this run —
-            the user can exit and come
-            back once the daily Pacific reset passes. */}
           {session?.status === 'rate_limited' && (
-            <>
-              <text style={{ fg: theme.secondary, marginBottom: 1 }}>
-                ⚠ Session limit reached
-              </text>
-              <text style={{ fg: theme.muted, wrapMode: 'word' }}>
-                You've used{' '}
-                <span fg={theme.foreground}>
-                  {formatSessionUnits(session.recentCount)} of {session.limit}
-                </span>{' '}
-                sessions today. Try again in{' '}
-                <span fg={theme.foreground}>
-                  {formatRetryAfter(session.retryAfterMs)}
-                </span>
-                . Press Ctrl+C to exit.
-              </text>
-            </>
+            <RateLimitedPanel session={session} />
           )}
         </box>
       </box>
 
-      {/* Reserve the ad banner slot before the async ad fetch resolves so the
-            landing content does not jump when the banner fills. On very
-            short terminals the banner is dropped entirely to give the picker
-            back its 5 rows. */}
+      {/* Reserve the ad slot before the async fetch resolves so content does
+            not jump when the banner fills; dropped on very short terminals. */}
       {showAds && (
         <box
           style={{

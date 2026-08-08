@@ -1,14 +1,15 @@
 {
   "name": "@savant-code/evals",
-  "version": "0.0.1",
-  "description": "Evaluation scripts for Savant-Code (public benchmark subset)",
+  "version": "0.0.21",
+  "description": "Evaluation scripts for Savant-Code (benchmark v2 + graph-export e2e)",
   "private": true,
   "type": "module",
   "scripts": {
     "typecheck": "tsc --noEmit -p .",
-    "run-benchmark": "bun run benchmark/main.ts",
     "test:v2": "bun test v2/tests",
-    "harness:v2": "bun run v2/src/cli.ts --tasks-dir v2/tasks --output-dir v2/reports --mode baseline"
+    "harness:v2": "bun run v2/src/cli.ts --tasks-dir v2/tasks --output-dir v2/reports --mode baseline",
+    "test:graph-e2e": "playwright test graph-export-e2e",
+    "test:graph-e2e:install": "playwright install chromium"
   },
   "sideEffects": false,
   "engines": {
@@ -18,14 +19,12 @@
     "@savant-code/code-map": "workspace:*",
     "@savant-code/common": "workspace:*",
     "@savant-code/sdk": "workspace:*",
-    "async": "^3.2.6",
     "diff": "^8.0.2",
     "p-limit": "^6.2.0",
-    "pino": "^9.6.0",
     "yaml": "^2.5.0",
     "zod": "^4.2.1"
   },
   "devDependencies": {
-    "@types/async": "^3.2.24"
+    "@playwright/test": "^1.54.1"
   }
 }

@@ -1,4 +1,3 @@
- 
 /**
  * E2E test script for the librarian agent.
  *

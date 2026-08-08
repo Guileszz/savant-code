@@ -5,7 +5,7 @@ import { truncateString } from '@savant-code/common/util/string'
 import z from 'zod/v4'
 
 import { getWebsiteUrl } from '../constants'
-import { getInferenceBaseUrlFromEnv } from '../env'
+import { isDirectProviderMode } from '../env'
 import {
   createNetworkError,
   createServerError,
@@ -113,10 +113,9 @@ export async function getUserInfoFromApiKey<T extends UserColumn>(
 ): GetUserInfoFromApiKeyOutput<T> {
   const { apiKey, fields, logger } = params
 
-  // Dev-mode bypass: when INFERENCE_BASE_URL is set (no SavantCode backend),
-  // return stub user info instead of making a network request.
-  const inferenceBaseUrl = getInferenceBaseUrlFromEnv()
-  if (inferenceBaseUrl) {
+  // Dev-mode bypass: when DIRECT_PROVIDER or INFERENCE_BASE_URL is set (no
+  // SavantCode backend), return stub user info instead of a network request.
+  if (isDirectProviderMode()) {
     // FID-2026-0802-008 D5: expected in BYOK mode, not a warning.
     logger.debug('getUserInfoFromApiKey: no-backend mode, returning stub user')
     const stubUser: Record<string, string> = {
@@ -245,6 +244,15 @@ export async function fetchAgentFromDatabase(
   const { apiKey, parsedAgentId, logger } = params
   const { publisherId, agentId, version } = parsedAgentId
 
+  // No-backend mode (FID-2026-0806-009): remote agent registry is backend-only.
+  if (isDirectProviderMode()) {
+    logger.debug(
+      { parsedAgentId },
+      'fetchAgentFromDatabase: no-backend mode, returning null',
+    )
+    return null
+  }
+
   const url = new URL(
     `/api/v1/agents/${publisherId}/${agentId}/${version ? version : 'latest'}`,
     getWebsiteUrl(),
@@ -341,11 +349,10 @@ export async function startAgentRun(
 ): ReturnType<StartAgentRunFn> {
   const { apiKey, agentId, ancestorRunIds, logger } = params
 
-  // Dev-mode bypass: when INFERENCE_BASE_URL is set (no SavantCode backend),
-  // return a generated runId instead of making a network request.
-  const inferenceBaseUrl = getInferenceBaseUrlFromEnv()
-  if (inferenceBaseUrl) {
-    logger.warn('startAgentRun: no-backend mode, returning generated runId')
+  // Dev-mode bypass: when DIRECT_PROVIDER or INFERENCE_BASE_URL is set (no
+  // SavantCode backend), return a generated runId instead of a network request.
+  if (isDirectProviderMode()) {
+    logger.debug('startAgentRun: no-backend mode, returning generated runId')
     return crypto.randomUUID()
   }
 
@@ -404,6 +411,12 @@ export async function finishAgentRun(
     logger,
   } = params
 
+  // No-backend mode (FID-2026-0806-009): nothing to report — return.
+  if (isDirectProviderMode()) {
+    logger.debug('finishAgentRun: no-backend mode, skipping')
+    return
+  }
+
   const url = new URL(`/api/v1/agent-runs`, getWebsiteUrl())
 
   try {
@@ -458,6 +471,12 @@ export async function addAgentStep(
     startTime,
     logger,
   } = params
+
+  // No-backend mode (FID-2026-0806-009): nothing to record — return.
+  if (isDirectProviderMode()) {
+    logger.debug('addAgentStep: no-backend mode, skipping')
+    return null
+  }
 
   const url = new URL(`/api/v1/agent-runs/${agentRunId}/steps`, getWebsiteUrl())
 

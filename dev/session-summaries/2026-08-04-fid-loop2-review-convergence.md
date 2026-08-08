@@ -10,7 +10,7 @@
 
 ## What happened
 
-FreeBuff session: re-ran the Perfection Loop (RED → GREEN → AUDIT) on the 5 pending
+Savant session: re-ran the Perfection Loop (RED → GREEN → AUDIT) on the 5 pending
 FIDs authored earlier on 2026-08-04 (all at "RED complete, GREEN pending"). Each FID
 was ground-truth verified against the working tree, converged through a new Loop 2
 section, double-audited (manual re-read + independent reviewer), and presented for

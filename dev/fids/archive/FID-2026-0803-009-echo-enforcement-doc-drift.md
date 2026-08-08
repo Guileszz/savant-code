@@ -3,8 +3,9 @@
 **Filename:** `FID-2026-0803-009-echo-enforcement-doc-drift.md`
 **ID:** FID-2026-0803-009
 **Severity:** low
-**Status:** analyzed
+**Status:** closed
 **Created:** 2026-08-03
+**Closed:** 2026-08-06 (status normalized during the 2026-08-06 FID audit — implementation + double-audit evidence was already present; the `analyzed` status was stale)
 **Author:** Savant
 
 **Summary:**

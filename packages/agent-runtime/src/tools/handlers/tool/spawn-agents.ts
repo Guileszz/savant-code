@@ -113,6 +113,7 @@ export const handleSpawnAgents = (async (
           agentTemplate,
           parentAgentState,
           {},
+          params.fileContext?.projectRoot,
         )
 
         // FID-2026-0718-009 M3: surface sub-agent activity on parent.

@@ -24,14 +24,15 @@ FID-2026-0803-001 ECHO-4.
 | # | Agent | Phase | Responsibility | Tools |
 |---|-------|-------|----------------|-------|
 | 1 | **Orchestrator** | ALL | Routes work through Perfection Loop, enforces protocol compliance, spawns all agents | spawn_agents, read_files, read_subtree, run_readonly_command, write_todos, suggest_followups, ask_user, read_url, skill, set_output, list_directory, glob, render_ui, gravity_index, transition_phase, write_file, str_replace, apply_patch (phase-gated), set_scaffold_complete (scaffold mode) |
-| 2 | **Detective** | RED | Codebase analysis, grep call-graphs, find issues, catalog evidence with file paths | code_search, set_output, list_directory, glob, read_files, read_subtree |
+| 2 | **Detective** | RED | Codebase analysis, grep call-graphs, find issues, catalog evidence with file paths | code_search, set_output, list_directory, glob, read_files, read_subtree, query_blast_radius, query_node_edges, query_domain_clusters |
 | 3 | **Forge** | GREEN | Implementation only. Writes code following the converged FID spec. Cannot self-verify. | write_file, str_replace, set_output |
 | 4 | **Verifier** | AUDIT | Double-audit, run tests, check call-graph reachability, reject hallucinated claims | *(no tools — reads only via message history)* |
 | 5 | **Recorder** | FID | Create, track, archive FIDs. Update CHANGELOG. Ensure no FID closes without AUDIT evidence | write_file, read_files, glob, code_search, set_output |
 | 6 | **Thinker** | Planning | Deep reasoning via sequential thinking engine. Critiques specs, plans, implementations | sequentialthinking, end_turn |
-| 7 | **Scout** | Explore | File/code search, glob, read subtrees, context gathering | glob, list_directory, read_files, read_subtree, set_output |
+| 7 | **Scout** | Explore | File/code search, glob, read subtrees, context gathering | glob, list_directory, read_files, read_subtree, set_output, query_blast_radius, query_node_edges, query_domain_clusters |
 | 8 | **Researcher** | Research | Web search, documentation lookup, external API research | web_search, read_url (web); read_docs (docs); deep_research (FID-2026-0804-002) |
 | 9 | **Scribe** | Docs | Session summaries, LESSONS.md, knowledge files, end-of-session capture | read_files, write_file, glob, code_search, set_output |
+| 10 | **Adversary** | ADVERSARIAL | Meta-verification: refutes every Verifier FAIL, re-audits every unevidenced PASS, resolves citations, re-rates severities; verdicts override the Verifier's (FID-2026-0805-004) | read_files, code_search, glob, list_directory, set_output |
 
 > **Note on Orchestrator write tools:** Per FID-2026-0718-008, the Orchestrator has `write_file` + `str_replace` in its
   toolName list, but they are GATED to exempt paths only (`dev/fids/`, `dev/scratchpad/`, `dev/nova/`) by
@@ -56,19 +57,23 @@ Code implementation begins only after the FID converges to COMPLETE.
 │                 FID PERFECTION LOOP                       │
 │  (iterates on the FID document until convergence)         │
 │                                                          │
-│  ┌─────────┐   ┌──────────┐   ┌─────────┐   ┌─────────┐ │
-│  │   RED   │──>│  GREEN   │──>│  AUDIT  │──>│COMPLETE │ │
-│  │ PHASE   │   │  PHASE   │   │  PHASE  │   │(fid     │ │
-│  └─────────┘   └────┬─────┘   └─────────┘   │converged│ │
-│       ^              │             │         └────┬────┘ │
-│       │              │     ┌───────┴───────┐      │      │
-│       │              │     │ SELF-CORRECT  │      │      │
-│       │              │     │ (audit failed) │      │      │
-│       │              │     └───────────────┘      │      │
-│       │              │                            │      │
-│       └──────────────┘ (new issues → re-enter RED)│      │
-│                                                    │      │
-└────────────────────────────────────────────────────────┘      │
+│  ┌─────────┐   ┌──────────┐   ┌─────────┐   ┌──────────────┐ │
+│  │   RED   │──>│  GREEN   │──>│  AUDIT  │──>│ ADVERSARIAL  │ │
+│  │ PHASE   │   │  PHASE   │   │  PHASE  │   │    PHASE     │ │
+│  └─────────┘   └────┬─────┘   └─────────┘   └───┬──────┬────┘ │
+│       ^              │             │            │      │      │
+│       │              │     ┌───────┴───────┐    │      │      │
+│       │              │     │ SELF-CORRECT  │<───┘      │      │
+│       │              │     │ (findings)    │            │      │
+│       │              │     └───────┬───────┘            │      │
+│       │              │             │     ┌──────────────┘      │
+│       │              │             ▼     ▼                     │
+│       │              │        ┌──────────────┐                 │
+│       │              │        │   COMPLETE   │                 │
+│       │              │        │ (converged)  │                 │
+│       │              │        └──────────────┘                 │
+│       └──────────────┘ (new issues → re-enter RED)             │
+└────────────────────────────────────────────────────────────────┘
                                                            │
                     ┌──────────────────────────────────────┘
                     ▼
@@ -90,7 +95,8 @@ Code implementation begins only after the FID converges to COMPLETE.
 |-----------|-------|-------------------|
 | **RED** | Detective | Issue catalog with evidence: file paths, line numbers, grep output, call-graph |
 | **GREEN** | Thinker + Recorder | Proposed fix in FID, all questions answered, most robust defaults chosen |
-| **AUDIT** | Verifier + Recorder | Verification output pasted into FID, call-graph grep results, double-audit evidence |
+| **AUDIT** | Verifier + Recorder | Verification output pasted into FID, call-graph grep results, double-audit evidence, per-finding `file:line` citations (FID-2026-0805-004) |
+| **ADVERSARIAL** | Adversary | Meta-verification: refuted/evaluated Verifier findings (CONFIRMED/REFUTED/ADJUSTED), resolved citations, re-rated severities; verdicts override (FID-2026-0805-004) |
 | **SELF-CORRECT** | Thinker + Recorder | Revised fix, updated FID sections |
 | **COMPLETE** | Recorder | FID closed, archived to `dev/fids/archive/`, CHANGELOG.md updated |
 | *Post-FID: Forge* | Forge | Code implementation matching the FID spec |
@@ -161,7 +167,14 @@ persisting across steps within a single think session:
 The Orchestrator tracks current Perfection Loop phase in AgentState:
 
 ```typescript
-type PerfectionLoopPhase = 'idle' | 'red' | 'green' | 'audit' | 'self_correct' | 'complete'
+type PerfectionLoopPhase =
+  | 'idle'
+  | 'red'
+  | 'green'
+  | 'audit'
+  | 'adversarial'
+  | 'self_correct'
+  | 'complete'
 ```
 
 - Phase transitions are explicit via the `transition_phase` tool
@@ -188,7 +201,7 @@ Tools are gated by FSM phase in `tool-executor.ts`:
 | Tool | Allowed Phases | Status |
 |------|---------------|--------|
 | write_file, str_replace, apply_patch | GREEN + SELF_CORRECT (exempt paths: dev/fids/, dev/nova/, dev/scratchpad/) | ✅ Active |
-| run_terminal_command (bash) | AUDIT + GREEN | ✅ Active |
+| run_terminal_command (bash) | AUDIT + GREEN + SELF_CORRECT | ✅ Active (FID-2026-0806-016 F4) |
 | sequentialthinking | Thinker only (id starts with `thinker`) | ✅ Active |
 | code_search, read_files, glob, list_directory | ALL | ✅ Active (no gating needed) |
 | spawn_agents | ALL | ✅ Active (template-level only) |
@@ -211,16 +224,17 @@ Tools are gated by FSM phase in `tool-executor.ts`:
 
 ## Helper Tool Libraries (Filesystem-Only) — Added 2026-07-19
 
-The 9-agent roster above represents **ECHO runtime roles** — the conversational agents that the Orchestrator spawns
+The 10-agent roster above represents **ECHO runtime roles** — the conversational agents that the Orchestrator spawns
 through the Perfection Loop.
 
-The filesystem under `agents/` may also contain **helper tool libraries** which are consumed by the canonical 9 roles
+The filesystem under `agents/` may also contain **helper tool libraries** which are consumed by the canonical 10 roles
 but do NOT constitute independent conversational agents:
 
 | Helper Dir | Consumed By | Notes |
 |------------|-------------|-------|
 | `browser-use/` | `agents/savant/savant.ts:132`, `agents/context-pruner.ts`, `common/src/constants/free-agents.ts`, `common/src/__tests__/free-agents.test.ts` | Browser automation helper used by Orchestrator + context-pruner |
 | `database/` | `agents/savant/savant.ts`, `common/src/constants/free-agents.ts`, `common/src/__tests__/free-agents.test.ts` | SQLite schema inspection + safe queries (FID-2026-0804-004) — native handlers with adapter-enforced read-only/write-approval guardrails |
+| *(package)* `knowledge-graph/` | `agents/detective/detective.ts`, `agents/scout/scout.ts`, `packages/agent-runtime/src/tools/handlers/tool/graph/*`, `packages/agent-runtime/src/util/graph-injection.ts` | Deterministic codebase knowledge graph (FID-2026-0806-002) — `query_blast_radius`/`query_node_edges`/`query_domain_clusters` read-only native tools; Verifier/Thinker reachability evidence injected via message history (zero-tool contracts unchanged) |
 | `github/` | `agents/savant/savant.ts`, `common/src/constants/free-agents.ts`, `common/src/__tests__/free-agents.test.ts`, `agents/github/github.test.ts` | GitHub PR/issue/CI/code-search via the official MCP server (FID-2026-0804-003) — remote HTTP route, read-only default |
 | `editor/` | `cli/src/utils/implementor-helpers.ts`, `agents/editor/best-of-n/*` | Editor scaffolding/best-of-N helper agents used by the CLI implementor flow |
 | `file-explorer/` | `common/src/constants/agents.ts`, `agents/file-explorer/*` | File listing helpers (`directory-lister`, `glob-matcher`) |
@@ -230,16 +244,16 @@ but do NOT constitute independent conversational agents:
 
 **Hierarchy:**
 
-- 9 canonical ECHO runtime roles (Orchestrator + 8 specialists)
+- 10 canonical ECHO runtime roles (Orchestrator + 9 specialists)
 - + 8 helper tool libraries (above; `debug/` is a transient trace-output dir;
   `database/` + `github/` added per FID-2026-0804-006)
-- = 17 directories in `agents/` (FID-2026-0803-001 ECHO-9 reconciled the count
+- = 19 directories in `agents/` (FID-2026-0803-001 ECHO-9 reconciled the count
   after the `savant-deep`/`e2e`/`__tests__` removals; FID-2026-0804-006 added
-  `database/` + `github/`)
+  `database/` + `github/`; FID-2026-0805-004 added `adversary/`)
 
-These two counts are NOT in conflict: the 9-agent roster represents runtime conversation entities; the 14-dir count
+These two counts are NOT in conflict: the 10-agent roster represents runtime conversation entities; the 19-dir count
 represents filesystem entries. Future checklists/audits should not confuse them.
 
-**Current release note (0.0.15):** The repository uses the `@savant-code/*` workspace names and import paths. Historical
+**Current release note (0.0.21):** The repository uses the `@savant-code/*` workspace names and import paths. Historical
 rebrand and checkpoint decisions remain in the archived session records and release history; this architecture document
 tracks the current repository state.

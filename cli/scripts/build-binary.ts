@@ -3,6 +3,7 @@
 import { spawnSync, type SpawnSyncOptions } from 'child_process'
 import {
   chmodSync,
+  copyFileSync,
   existsSync,
   mkdirSync,
   mkdtempSync,
@@ -61,6 +62,26 @@ export const CANONICAL_NEXT_PUBLIC_DEFAULTS: Record<string, string> = {
   NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION_ID: 'release_placeholder',
 }
 
+/** Runtime route embedded in Savant-Code release binaries' sibling env.json. */
+export const CANONICAL_RELEASE_RUNTIME_DEFAULTS: Record<string, string> = {
+  DIRECT_PROVIDER: 'openrouter',
+  INFERENCE_BASE_URL: 'https://openrouter.ai/api/v1',
+  SAVANT_CODE_DEFAULT_MODEL_ID: 'openrouter/free',
+}
+
+/**
+ * Keep Savant-Free's backend/session flow intact while making the paid
+ * Savant-Code release artifact direct-provider-first. Both variants share the
+ * compiler, so this decision must be explicit and testable at build time.
+ */
+export function getReleaseRuntimeDefaults(
+  binaryName: string,
+): Record<string, string> {
+  return binaryName === 'savant-free'
+    ? {}
+    : { ...CANONICAL_RELEASE_RUNTIME_DEFAULTS }
+}
+
 export interface BinaryEnvLeak {
   key: string
   expected: string
@@ -111,9 +132,7 @@ export function evaluateBinaryEnvIntegrity(
       ? `⚠️  ${leaks.length} NEXT_PUBLIC_* override(s) accepted (${
           devBuild ? 'dev build' : 'explicit override'
         }):\n` +
-          leaks
-            .map(({ key, actual }) => `  ${key} = "${actual}"`)
-            .join('\n')
+        leaks.map(({ key, actual }) => `  ${key} = "${actual}"`).join('\n')
       : null,
     reason: accepted ? (devBuild ? 'dev-build' : 'override') : null,
     leaks,
@@ -168,8 +187,7 @@ function runCommand(
   args: string[],
   options: SpawnSyncOptions = {},
 ) {
-  const executable =
-    command === 'bun' ? getBunExecutable() : command
+  const executable = command === 'bun' ? getBunExecutable() : command
   const result = spawnSync(executable, args, {
     cwd: options.cwd,
     stdio: VERBOSE ? 'inherit' : 'pipe',
@@ -305,6 +323,10 @@ async function main() {
     SAVANT_CODE_CLI_VERSION: version,
     SAVANT_CODE_CLI_TARGET: getCliTargetLabel(targetInfo),
     SAVANT_FREE_MODE: process.env.SAVANT_FREE_MODE ?? 'false',
+    // Savant-Code release binaries use the same direct OpenRouter free route
+    // as local onboarding. Savant-Free intentionally receives no direct
+    // provider values here; its backend/session flow remains intact.
+    ...getReleaseRuntimeDefaults(binaryName),
     // Canonical runtime defaults so a locally built (or released) binary can
     // boot without relying on the build shell exporting every NEXT_PUBLIC_*.
     ...CANONICAL_NEXT_PUBLIC_DEFAULTS,
@@ -408,6 +430,48 @@ async function main() {
   writeFileSync(siblingWasm, readFileSync(sourceWasm))
   logAlways(`Copied tree-sitter.wasm sibling: ${sourceWasm} → ${siblingWasm}`)
 
+  // FID-2026-0806-017: ship elkjs's GWT worker bundle as a sibling file too.
+  // The export-time ELK layout reads it at runtime (manual-eval extraction
+  // under Bun, see cli/src/commands/graph-export/layout.ts). Same rationale as
+  // tree-sitter.wasm: bun --compile asset embedding is unreliable on Windows,
+  // and the bundle is a plain disk read next to the binary.
+  const sourceElkWorker = findElkWorkerBundle()
+  const siblingElkWorker = join(binDir, 'elk-worker.min.js')
+  writeFileSync(siblingElkWorker, readFileSync(sourceElkWorker))
+  logAlways(
+    `Copied elkjs worker sibling: ${sourceElkWorker} → ${siblingElkWorker}`,
+  )
+
+  // FID-2026-0807-007: ship the six verified Kenney CC0 OGG cues beside
+  // compiled binaries. The export generator reads this directory when the
+  // binary cannot resolve source files from its bundled module tree.
+  const sourceGraphAudio = join(
+    cliRoot,
+    'src',
+    'commands',
+    'graph-export',
+    'audio',
+  )
+  const siblingGraphAudio = join(binDir, 'graph-export-audio')
+  const graphAudioFiles = [
+    'click1.ogg',
+    'switch1.ogg',
+    'switch2.ogg',
+    'switch3.ogg',
+    'switch4.ogg',
+    'switch5.ogg',
+    'License.txt',
+  ]
+  mkdirSync(siblingGraphAudio, { recursive: true })
+  for (const audioFile of graphAudioFiles) {
+    const source = join(sourceGraphAudio, audioFile)
+    if (!existsSync(source)) {
+      throw new Error(`Missing graph export audio asset: ${source}`)
+    }
+    copyFileSync(source, join(siblingGraphAudio, audioFile))
+  }
+  logAlways(`Copied graph export audio assets: ${siblingGraphAudio}`)
+
   // Ship the runtime environment as a sibling JSON file. This is more
   // reliable than `--define` because workspace packages are pre-built to
   // dist and minified, so compile-time replacements can miss references.
@@ -440,6 +504,39 @@ if (import.meta.main) {
     }
     process.exit(1)
   })
+}
+
+/**
+ * Find elkjs's GWT worker bundle (elk-worker.min.js) in any plausible
+ * node_modules layout, same as findWebTreeSitterWasm. The graph export reads
+ * it at runtime to run the export-time ELK layout (FID-2026-0806-017).
+ */
+function findElkWorkerBundle(): string {
+  const candidates = [
+    join(cliRoot, 'node_modules', 'elkjs', 'lib', 'elk-worker.min.js'),
+    join(cliRoot, '..', 'node_modules', 'elkjs', 'lib', 'elk-worker.min.js'),
+    join(
+      cliRoot,
+      '..',
+      'sdk',
+      'node_modules',
+      'elkjs',
+      'lib',
+      'elk-worker.min.js',
+    ),
+  ]
+  const found = candidates.find((p) => existsSync(p))
+  if (found) return found
+  try {
+    const cliRequire = createRequire(join(cliRoot, 'package.json'))
+    return cliRequire.resolve('elkjs/lib/elk-worker.min.js')
+  } catch (err) {
+    throw new Error(
+      `Could not locate elkjs/lib/elk-worker.min.js. Searched:\n  - ` +
+        candidates.join('\n  - ') +
+        `\nAnd createRequire failed: ${err instanceof Error ? err.message : String(err)}`,
+    )
+  }
 }
 
 /**

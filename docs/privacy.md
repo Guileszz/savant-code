@@ -3,7 +3,7 @@
 > **Scope:** This document describes what data Savant Code collects, where it
 > goes, and how users control it. It covers the CLI, SDK, and agent-runtime.
 >
-> **Version:** v0.0.19
+> **Version:** v0.0.21
 >
 > **Applies to:** `cli`, `sdk`, `packages/agent-runtime`, `common`
 
@@ -35,7 +35,7 @@
 ### What May Leave the Machine
 
 - **Inference requests** to the user's chosen provider (OpenRouter, Ollama,
-  gateway, etc.) when using BYOK mode.
+  TokenHarbor, another gateway, etc.) when using BYOK mode.
 - **Authentication requests** to Savant Code backend when the user logs in.
 - **Telemetry events** while remote analytics is enabled; users can disable them
   with `/telemetry disable`.
@@ -51,8 +51,8 @@
 
 - Environment-provided BYOK keys are read at runtime and are never copied to
   disk by Savant Code. Current direct-provider variables include
-  `OPENCODE_GO_API_KEY`, `TOKENROUTER_API_KEY`, `NVIDIA_API_KEY`, and
-  `COMMAND_CODE_API_KEY`.
+  `OPENCODE_GO_API_KEY`, `TOKENROUTER_API_KEY`, `TOKENHARBOR_API_KEY`,
+  `NVIDIA_API_KEY`, and `COMMAND_CODE_API_KEY`.
 - Keys entered through the masked `/provider` flow are stored in the user's
   local `credentials.json` so npm-installed users can configure a provider
   without editing shell profiles.
@@ -81,8 +81,13 @@
 - **Endpoint:** Public registry/GitHub releases API.
 - **Data sent:** Current CLI version and user-agent string only.
 - **Data NOT sent:** Code, prompts, file names, or identifiers.
-- **Trigger:** On CLI startup (when enabled) or when the user runs
-  `/version --check`.
+- **Trigger:** On CLI startup (when enabled) only. There is no `/version`
+  slash command; the launcher performs the check on launch and stages any
+  pending update.
+- **Apply requires consent (FID-2026-0806-014):** the launcher never stops a
+  running session. A newer version is staged with a pending-update marker and
+  applied on the **next launch** after an interactive y/N prompt; non-TTY
+  launches defer the prompt. `SAVANT_CODE_NO_AUTO_UPDATE=1` opts out entirely.
 
 ### Provider Inference (BYOK)
 
@@ -100,12 +105,11 @@
 - **Default:** `true` for new users and legacy settings without an explicit
   value; users can disable remote analytics with `/telemetry disable`.
 
-### Ads (SavantFree Tier)
+### Ads
 
 - **Destination:** Carbon Ads or Gravity Index network.
 - **Data sent:** Minimal impression/click events required for ad serving.
-- **Default:** `false` for paid tiers; free tier may prompt for opt-in on first
-  use.
+- **Default:** `false`; contextual ads are disabled unless the user opts in.
 
 ## 5. Telemetry & Ad Controls
 
@@ -168,6 +172,13 @@ re-authenticate after updating.
 Tests and advanced users can set `SAVANT_CODE_CONFIG_DIR` (non-production only)
 to override the config directory. This is used by
 `cli/src/utils/__tests__/settings.test.ts` to isolate on-disk state.
+
+### First-run analytics notice
+
+The first launch prints a one-line notice to stderr disclosing that remote
+analytics are enabled by default, with the `/telemetry disable` escape hatch;
+the notice is shown once and never again (tracked in
+`~/.savant-code[-env]/settings.json` `analyticsNoticeShown`).
 
 ## 9. Verification
 

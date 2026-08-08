@@ -144,7 +144,11 @@ export {
   runTerminalCommand,
 } from './tools/run-terminal-command'
 export type { ActiveTerminalCommandProcess } from './tools/run-terminal-command'
-export { getInferenceBaseUrlFromEnv, getInferenceApiKeyFromEnv } from './env'
+export {
+  getInferenceBaseUrlFromEnv,
+  getInferenceApiKeyFromEnv,
+  getTokenHarborApiKeyFromEnv,
+} from './env'
 export {
   resolveOpenRouterApiKey,
   resetOpenRouterApiKeyCache,
@@ -158,4 +162,5 @@ export {
   resetChatGptOAuthRateLimit,
   isCloudflareModel,
   isCommandCodeModel,
+  isTokenHarborModel,
 } from './impl/model-provider'

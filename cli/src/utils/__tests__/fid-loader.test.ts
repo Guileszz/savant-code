@@ -99,7 +99,10 @@ describe('loadFidInventory — table format (production agent output)', () => {
 describe('loadFidInventory — legacy format (**Field:** value)', () => {
   test('parses ID, status, severity, and summary from ## Summary', () => {
     const dir = setupFidsDir()
-    writeFileSync(join(dir, 'FID-2026-0804-001-provider-key-management.md'), LEGACY_FORMAT_FID)
+    writeFileSync(
+      join(dir, 'FID-2026-0804-001-provider-key-management.md'),
+      LEGACY_FORMAT_FID,
+    )
 
     const { active } = loadFidInventory(dir)
 
@@ -114,7 +117,10 @@ describe('loadFidInventory — legacy format (**Field:** value)', () => {
 describe('loadFidInventory — active + archived split', () => {
   test('counts archived FIDs separately from active', () => {
     const dir = setupFidsDir()
-    writeFileSync(join(dir, 'FID-2026-0804-005-semantic-caching-engine.md'), TABLE_FORMAT_FID)
+    writeFileSync(
+      join(dir, 'FID-2026-0804-005-semantic-caching-engine.md'),
+      TABLE_FORMAT_FID,
+    )
     writeFileSync(
       join(dir, 'archive', 'FID-2026-0804-001-provider-key-management.md'),
       LEGACY_FORMAT_FID,
@@ -131,7 +137,10 @@ describe('loadFidInventory — active + archived split', () => {
 describe('loadFids — backward compatibility', () => {
   test('returns only active FIDs, never archived ones', () => {
     const dir = setupFidsDir()
-    writeFileSync(join(dir, 'FID-2026-0804-005-semantic-caching-engine.md'), TABLE_FORMAT_FID)
+    writeFileSync(
+      join(dir, 'FID-2026-0804-005-semantic-caching-engine.md'),
+      TABLE_FORMAT_FID,
+    )
     writeFileSync(
       join(dir, 'archive', 'FID-2026-0804-001-provider-key-management.md'),
       LEGACY_FORMAT_FID,
@@ -150,7 +159,10 @@ describe('Law 14 — error paths', () => {
 
   test('malformed FID files are skipped without blocking the rest', () => {
     const dir = setupFidsDir()
-    writeFileSync(join(dir, 'FID-2026-0804-005-semantic-caching-engine.md'), TABLE_FORMAT_FID)
+    writeFileSync(
+      join(dir, 'FID-2026-0804-005-semantic-caching-engine.md'),
+      TABLE_FORMAT_FID,
+    )
     writeFileSync(join(dir, 'FID-2026-0804-099-malformed.md'), MALFORMED_FID)
 
     const { active } = loadFidInventory(dir)
@@ -172,17 +184,17 @@ describe('sorting', () => {
     const dir = setupFidsDir()
     writeFileSync(
       join(dir, 'FID-2026-0804-007-low.md'),
-      LEGACY_FORMAT_FID.replace('**ID:** FID-2026-0804-001', '**ID:** FID-2026-0804-007').replace(
-        '**Severity:** high',
-        '**Severity:** low',
-      ),
+      LEGACY_FORMAT_FID.replace(
+        '**ID:** FID-2026-0804-001',
+        '**ID:** FID-2026-0804-007',
+      ).replace('**Severity:** high', '**Severity:** low'),
     )
     writeFileSync(
       join(dir, 'FID-2026-0804-008-critical.md'),
-      LEGACY_FORMAT_FID.replace('**ID:** FID-2026-0804-001', '**ID:** FID-2026-0804-008').replace(
-        '**Severity:** high',
-        '**Severity:** critical',
-      ),
+      LEGACY_FORMAT_FID.replace(
+        '**ID:** FID-2026-0804-001',
+        '**ID:** FID-2026-0804-008',
+      ).replace('**Severity:** high', '**Severity:** critical'),
     )
 
     const ids = loadFids(dir).map((f) => f.id)

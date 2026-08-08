@@ -154,7 +154,9 @@ describe('OpenAICompatibleCompletionLanguageModel (FID-006 LLM1/LLM2)', () => {
 
   it('LLM6: doStream error part carries a string message (unified with chat)', async () => {
     const model = createModel(
-      streamFetch([{ error: { message: 'stream exploded', type: 'server_error' } }]),
+      streamFetch([
+        { error: { message: 'stream exploded', type: 'server_error' } },
+      ]),
     )
 
     const { stream } = await model.doStream(generateOptions())

@@ -55,7 +55,7 @@ export const SAVANT_FREE_DEEPSEEK_V4_PRO_MODEL_ID = 'deepseek/deepseek-v4-pro'
 export const SAVANT_FREE_DEEPSEEK_V4_FLASH_MODEL_ID =
   'deepseek/deepseek-v4-flash'
 /** DeepSeek V4 Flash served by Fireworks instead of DeepSeek's direct API.
- *  Used only by savant-free.com/chat, where Fireworks' faster inference is worth
+ *  Used only by savant-code.com/chat, where Fireworks' faster inference is worth
  *  a slightly less capable serving stack. Not in SUPPORTED_SAVANT_FREE_MODELS or
  *  the free-mode allowlists — the CLI and web builder keep DeepSeek direct. */
 export const SAVANT_FREE_DEEPSEEK_V4_FLASH_FIREWORKS_MODEL_ID =

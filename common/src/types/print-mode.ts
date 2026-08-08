@@ -3,7 +3,10 @@ import z from 'zod/v4'
 import { jsonValueSchema } from './json'
 import { toolResultOutputSchema } from './messages/content-part'
 
-import type { ComplianceLaw, ComplianceSeverity } from './echo-compliance'
+import type {
+  ComplianceSeverity,
+  ComplianceWarningLaw,
+} from './echo-compliance'
 
 export const printModeStartSchema = z.object({
   type: z.literal('start'),
@@ -151,11 +154,15 @@ export const printModeActivitySchema = z.object({
 export type PrintModeActivity = z.infer<typeof printModeActivitySchema>
 
 // FID-2026-0804-009 — harness ECHO compliance receipt. Emitted at write time
-// (law1) and at step boundaries (law3 / verifier_criteria / fid). Always
+// (law1), at step boundaries (law3 / verifier_criteria / fid), and by the EHEL
+// enforcement layer for its pre-write advisories (law7 / law8). Always
 // non-blocking; the CLI renders it as a muted transcript line.
 export const printModeComplianceWarningSchema = z.object({
   type: z.literal('compliance_warning'),
-  law: z.enum(['law1', 'law3', 'verifier_criteria', 'fid']),
+  law: z.union([
+    z.enum(['law1', 'law3', 'verifier_criteria', 'fid']),
+    z.string().regex(/^law\d+$/, 'law must be lawN (e.g. law7/law8)'),
+  ]),
   severity: z.enum(['info', 'warning', 'critical']),
   message: z.string(),
   path: z.string().optional(),
@@ -164,7 +171,7 @@ export const printModeComplianceWarningSchema = z.object({
 })
 export type PrintModeComplianceWarning = z.infer<
   typeof printModeComplianceWarningSchema
-> & { law: ComplianceLaw; severity: ComplianceSeverity }
+> & { law: ComplianceWarningLaw; severity: ComplianceSeverity }
 
 export const printModeEventSchema = z.discriminatedUnion('type', [
   printModeDownloadStatusSchema,

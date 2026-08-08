@@ -1,7 +1,7 @@
 import { API_KEY_ENV_VAR } from '@savant-code/common/constants/paths'
 
 import { getWebsiteUrl } from './constants'
-import { getSavantCodeApiKeyFromEnv } from './env'
+import { getSavantCodeApiKeyFromEnv, isDirectProviderMode } from './env'
 import { run } from './run'
 
 import type { RunOptions, SavantCodeClientOptions } from './run'
@@ -65,6 +65,11 @@ export class SavantCodeClient {
    * @returns Promise that resolves to true if connected, false otherwise
    */
   public async checkConnection(): Promise<boolean> {
+    // No-backend mode (FID-2026-0806-009): there is no backend to ping — the
+    // direct/BYOK path is self-sufficient, so report connected without a call.
+    if (isDirectProviderMode()) {
+      return true
+    }
     try {
       const response = await fetch(`${getWebsiteUrl()}/api/healthz`, {
         method: 'GET',

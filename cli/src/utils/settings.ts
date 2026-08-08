@@ -11,8 +11,12 @@ import type { AgentMode } from './constants'
 import type { ModelProvider } from './openrouter-models'
 import type { JSONValue } from '@savant-code/common/types/json'
 
-export const DEFAULT_SAVANT_CODE_MODEL_ID = 'opencode-go/mimo-v2.5' as const
-export const DEFAULT_SAVANT_CODE_MODEL_PROVIDER: ModelProvider = 'opencode-go'
+const RELEASE_DEFAULT_MODEL_ID =
+  process.env.SAVANT_CODE_DEFAULT_MODEL_ID?.trim()
+
+export const DEFAULT_SAVANT_CODE_MODEL_ID =
+  RELEASE_DEFAULT_MODEL_ID || ('openrouter/free' as const)
+export const DEFAULT_SAVANT_CODE_MODEL_PROVIDER: ModelProvider = 'openrouter'
 
 const DEFAULT_SETTINGS: Settings = {
   mode: 'HYBRID' as const,
@@ -83,6 +87,9 @@ export interface Settings {
   /** Set when the user acknowledges the SCAFFOLD-mode confirmation dialog.
    *  Persists the first-click warning so it only appears once per user. */
   scaffoldAcknowledged?: boolean
+  /** Set once the analytics disclosure notice has been shown (FID-2026-0806-015).
+   *  The one-line first-run notice only prints to brand-new users, then retires. */
+  analyticsNoticeShown?: boolean
 }
 
 /**
@@ -206,6 +213,11 @@ const validateSettings = (parsed: JSONValue): Settings => {
     settings.scaffoldAcknowledged = obj.scaffoldAcknowledged
   }
 
+  // Validate analyticsNoticeShown
+  if (typeof obj.analyticsNoticeShown === 'boolean') {
+    settings.analyticsNoticeShown = obj.analyticsNoticeShown
+  }
+
   // Validate savantCodeModelPreference — pass through any string; the /model
   // picker fetches live OpenRouter models so all returned ids are valid.
   // Backward-compat: migrate the legacy `savantCode$1` key.
@@ -221,6 +233,7 @@ const validateSettings = (parsed: JSONValue): Settings => {
   const validProviders = new Set<ModelProvider>([
     'openrouter',
     'tokenrouter',
+    'tokenharbor',
     'nvidia',
     'opencode-go',
     'ollama',
@@ -316,6 +329,20 @@ export const loadAnalyticsEnabled = (): boolean => {
 /** Persist the user's remote analytics consent preference. */
 export const saveAnalyticsEnabled = (enabled: boolean): void => {
   saveSettings({ analyticsEnabled: enabled })
+}
+
+/**
+ * Whether the one-line analytics disclosure notice has been shown yet
+ * (FID-2026-0806-015). False only for users who have never seen it.
+ */
+export const hasAnalyticsNoticeBeenShown = (): boolean => {
+  return loadSettings().analyticsNoticeShown === true
+}
+
+/** Mark the analytics disclosure notice as shown. Idempotent. */
+export const markAnalyticsNoticeShown = (): void => {
+  if (loadSettings().analyticsNoticeShown === true) return
+  saveSettings({ analyticsNoticeShown: true })
 }
 
 /**

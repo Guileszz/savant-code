@@ -35,8 +35,7 @@ Pro, MiMo 2.5 Pro, Kimi K2.7 Code, DeepSeek V4 Flash, MiMo 2.5, and MiniMax M3. 
 and MiMo 2.5. Gemini 3.1 Flash Lite handles file finding and research.
 
 **Which countries is SavantFree available in?** All countries. SavantFree runs in "full" mode in the US, Canada,
-UK, EU, and other select countries, and in "limited" mode everywhere else (or while using a VPN). See
-[savant-free.com](https://savant-free.com) for the full list.
+UK, EU, and other select countries, and in "limited" mode everywhere else (or while using a VPN).
 
 **What is limited mode?** Limited mode lets you use SavantFree outside the full-access countries, or while using a
 VPN. It includes DeepSeek V4 Flash and MiMo 2.5, with 5 one-hour sessions per day.

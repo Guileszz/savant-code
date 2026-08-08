@@ -111,7 +111,7 @@ describe('settings telemetry defaults', () => {
     }
   })
 
-  test('default savant-code model preference is MiMo 2.5 from OpenCode Go on first run', async () => {
+  test('default savant-code model preference is openrouter/free on first run (FID-2026-0806-010)', async () => {
     const { loadSettings } = await import('../settings')
     const settings = loadSettings()
 
@@ -152,6 +152,18 @@ describe('settings telemetry defaults', () => {
     const settings = loadSettings()
     expect(settings.savantCodeModelPreference).toBe('openrouter/gpt-5')
     expect(settings.savantCodeModelProviderPreference).toBe('openrouter')
+  })
+
+  test('analytics notice is shown exactly once (FID-2026-0806-015)', async () => {
+    const { hasAnalyticsNoticeBeenShown, markAnalyticsNoticeShown } =
+      await import('../settings')
+
+    expect(hasAnalyticsNoticeBeenShown()).toBe(false)
+    markAnalyticsNoticeShown()
+    expect(hasAnalyticsNoticeBeenShown()).toBe(true)
+    // Idempotent: a second mark does not churn or reset the flag.
+    markAnalyticsNoticeShown()
+    expect(hasAnalyticsNoticeBeenShown()).toBe(true)
   })
 
   test('opencode-go provider preference round-trips through validation', async () => {

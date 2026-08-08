@@ -19,6 +19,9 @@ export type ToolName =
   | 'lookup_agent_info'
   | 'propose_str_replace'
   | 'propose_write_file'
+  | 'query_blast_radius'
+  | 'query_domain_clusters'
+  | 'query_node_edges'
   | 'read_docs'
   | 'read_files'
   | 'read_subtree'
@@ -61,6 +64,9 @@ export interface ToolParamsMap {
   lookup_agent_info: LookupAgentInfoParams
   propose_str_replace: ProposeStrReplaceParams
   propose_write_file: ProposeWriteFileParams
+  query_blast_radius: QueryBlastRadiusParams
+  query_domain_clusters: QueryDomainClustersParams
+  query_node_edges: QueryNodeEdgesParams
   read_docs: ReadDocsParams
   read_files: ReadFilesParams
   read_subtree: ReadSubtreeParams
@@ -249,6 +255,36 @@ export interface ProposeWriteFileParams {
 }
 
 /**
+ * Return every file within maxDepth hops of a file over the undirected codebase dependency graph (cycle-safe, depth-capped).
+ */
+export interface QueryBlastRadiusParams {
+  /** Project-relative file path (forward slashes). Must exist in the indexed snapshot. */
+  filePath: string
+  /** Maximum hops to traverse (1–50). Default 50. */
+  maxDepth?: number
+  /** Maximum files to return. Default 1000. */
+  limit?: number
+}
+
+/**
+ * List Louvain domain clusters over the indexed snapshot, largest first, with sizes and representative files.
+ */
+export interface QueryDomainClustersParams {
+  /** Maximum clusters to return. Default 100. */
+  limit?: number
+}
+
+/**
+ * Return a file's symbol nodes, cluster assignment, and direct incoming/outgoing edges (CALLS/IMPORTS/EXTENDS).
+ */
+export interface QueryNodeEdgesParams {
+  /** Project-relative file path (forward slashes). Must exist in the indexed snapshot. */
+  filePath: string
+  /** Maximum direct edges per direction. Default 500. */
+  limit?: number
+}
+
+/**
  * Fetch up-to-date documentation for libraries and frameworks using Context7 API.
  */
 export interface ReadDocsParams {
@@ -429,7 +465,14 @@ export interface ThinkDeeplyParams {
  */
 export interface TransitionPhaseParams {
   /** The phase to transition to. */
-  phase: 'idle' | 'red' | 'green' | 'audit' | 'self_correct' | 'complete'
+  phase:
+    | 'idle'
+    | 'red'
+    | 'green'
+    | 'audit'
+    | 'adversarial'
+    | 'self_correct'
+    | 'complete'
   /** Reason for the transition. */
   reason: string
 }

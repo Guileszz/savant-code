@@ -128,7 +128,7 @@ Integrate GitHub MCP server capabilities natively into Savant Code, enabling aut
 - [ ] Audit trail for all operations
 - [ ] All operations governed by ECHO Protocol
 
-## Perfection Loop Re-Run (Loop 2 — Independent FreeBuff Review)
+## Perfection Loop Re-Run (Loop 2 — Independent Savant Code Review)
 
 ### RED (Ground-Truth Verification)
 

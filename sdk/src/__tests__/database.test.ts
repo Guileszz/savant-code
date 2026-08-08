@@ -1,6 +1,12 @@
 import { afterEach, beforeEach, describe, expect, mock, test } from 'bun:test'
 
-import { addAgentStep, getUserInfoFromApiKey } from '../impl/database'
+import {
+  addAgentStep,
+  fetchAgentFromDatabase,
+  finishAgentRun,
+  getUserInfoFromApiKey,
+  startAgentRun,
+} from '../impl/database'
 
 import type { Logger } from '@savant-code/common/types/contracts/logger'
 
@@ -15,21 +21,28 @@ describe('getUserInfoFromApiKey', () => {
       error: mock(() => {}),
     }) as unknown as Logger
 
-  // FID-016 Fix C: getUserInfoFromApiKey has an env-stub bypass that returns
-  // early when INFERENCE_BASE_URL is set. To exercise the real fetch path in
-  // these tests we clear the env var in beforeEach and restore it in
-  // afterEach. Ensures fetchMock is actually called rather than short-
-  // circuited by the dev-mode stub.
+  // FID-016 Fix C / FID-2026-0806-009: getUserInfoFromApiKey has an env-stub
+  // bypass that returns early when isDirectProviderMode() is true (DIRECT_PROVIDER
+  // OR INFERENCE_BASE_URL). To exercise the real fetch path in these tests we
+  // clear both env vars in beforeEach and restore them in afterEach.
   let originalInferenceBaseUrl: string | undefined
+  let originalDirectProvider: string | undefined
   beforeEach(() => {
     originalInferenceBaseUrl = process.env.INFERENCE_BASE_URL
+    originalDirectProvider = process.env.DIRECT_PROVIDER
     delete process.env.INFERENCE_BASE_URL
+    delete process.env.DIRECT_PROVIDER
   })
   afterEach(() => {
     if (originalInferenceBaseUrl !== undefined) {
       process.env.INFERENCE_BASE_URL = originalInferenceBaseUrl
     } else {
       delete process.env.INFERENCE_BASE_URL
+    }
+    if (originalDirectProvider !== undefined) {
+      process.env.DIRECT_PROVIDER = originalDirectProvider
+    } else {
+      delete process.env.DIRECT_PROVIDER
     }
     globalThis.fetch = originalFetch
     mock.restore()
@@ -114,6 +127,34 @@ describe('getUserInfoFromApiKey', () => {
 })
 
 describe('addAgentStep', () => {
+  const originalFetch = globalThis.fetch
+
+  // FID-2026-0806-009: the direct-mode gate reads DIRECT_PROVIDER /
+  // INFERENCE_BASE_URL, which bun auto-loads from a repo .env.local. Clear
+  // both so the real fetch path is exercised.
+  let originalInferenceBaseUrl: string | undefined
+  let originalDirectProvider: string | undefined
+  beforeEach(() => {
+    originalInferenceBaseUrl = process.env.INFERENCE_BASE_URL
+    originalDirectProvider = process.env.DIRECT_PROVIDER
+    delete process.env.INFERENCE_BASE_URL
+    delete process.env.DIRECT_PROVIDER
+  })
+  afterEach(() => {
+    if (originalInferenceBaseUrl !== undefined) {
+      process.env.INFERENCE_BASE_URL = originalInferenceBaseUrl
+    } else {
+      delete process.env.INFERENCE_BASE_URL
+    }
+    if (originalDirectProvider !== undefined) {
+      process.env.DIRECT_PROVIDER = originalDirectProvider
+    } else {
+      delete process.env.DIRECT_PROVIDER
+    }
+    globalThis.fetch = originalFetch
+    mock.restore()
+  })
+
   test('classifies a non-JSON error response as a request failure', async () => {
     const fetchMock = mock(
       async () => new Response('<html>Bad Request</html>', { status: 400 }),
@@ -149,5 +190,142 @@ describe('addAgentStep', () => {
       expect.objectContaining({ response: expect.anything() }),
       'addAgentStep request failed',
     )
+  })
+})
+
+describe('direct-mode gates (FID-2026-0806-009)', () => {
+  const originalFetch = globalThis.fetch
+  const originalInferenceBaseUrl = process.env.INFERENCE_BASE_URL
+  const originalDirectProvider = process.env.DIRECT_PROVIDER
+
+  const createLoggerMocks = (): Logger =>
+    ({
+      debug: mock(() => {}),
+      info: mock(() => {}),
+      warn: mock(() => {}),
+      error: mock(() => {}),
+    }) as unknown as Logger
+
+  afterEach(() => {
+    if (originalInferenceBaseUrl !== undefined) {
+      process.env.INFERENCE_BASE_URL = originalInferenceBaseUrl
+    } else {
+      delete process.env.INFERENCE_BASE_URL
+    }
+    if (originalDirectProvider !== undefined) {
+      process.env.DIRECT_PROVIDER = originalDirectProvider
+    } else {
+      delete process.env.DIRECT_PROVIDER
+    }
+    globalThis.fetch = originalFetch
+    mock.restore()
+  })
+
+  const setDirectMode = (): void => {
+    process.env.DIRECT_PROVIDER = 'openrouter'
+    process.env.INFERENCE_BASE_URL = 'https://openrouter.ai/api/v1'
+  }
+
+  test('startAgentRun returns a generated runId without fetching', async () => {
+    const fetchMock = mock(async () => {
+      throw new Error('fetch should not be called in direct mode')
+    })
+    globalThis.fetch = fetchMock as unknown as typeof fetch
+    setDirectMode()
+
+    const result = await startAgentRun({
+      apiKey: 'test-api-key',
+      agentId: 'savant',
+      ancestorRunIds: [],
+      logger: createLoggerMocks(),
+    })
+
+    expect(typeof result).toBe('string')
+    expect(result).toMatch(/^[0-9a-f-]{36}$/)
+    expect(fetchMock).toHaveBeenCalledTimes(0)
+  })
+
+  test('finishAgentRun skips without fetching', async () => {
+    const fetchMock = mock(async () => {
+      throw new Error('fetch should not be called in direct mode')
+    })
+    globalThis.fetch = fetchMock as unknown as typeof fetch
+    setDirectMode()
+
+    await finishAgentRun({
+      apiKey: 'test-api-key',
+      userId: 'user-1',
+      runId: 'run-1',
+      status: 'completed',
+      totalSteps: 1,
+      directCredits: 0,
+      totalCredits: 0,
+      logger: createLoggerMocks(),
+    })
+
+    expect(fetchMock).toHaveBeenCalledTimes(0)
+  })
+
+  test('addAgentStep returns null without fetching', async () => {
+    const fetchMock = mock(async () => {
+      throw new Error('fetch should not be called in direct mode')
+    })
+    globalThis.fetch = fetchMock as unknown as typeof fetch
+    setDirectMode()
+
+    const result = await addAgentStep({
+      apiKey: 'test-api-key',
+      userId: 'user-1',
+      agentRunId: 'run-1',
+      stepNumber: 1,
+      credits: 0,
+      childRunIds: [],
+      messageId: 'msg-1',
+      status: 'completed',
+      startTime: new Date('2026-08-03T00:00:00Z'),
+      logger: createLoggerMocks(),
+    })
+
+    expect(result).toBeNull()
+    expect(fetchMock).toHaveBeenCalledTimes(0)
+  })
+
+  test('fetchAgentFromDatabase returns null without fetching', async () => {
+    const fetchMock = mock(async () => {
+      throw new Error('fetch should not be called in direct mode')
+    })
+    globalThis.fetch = fetchMock as unknown as typeof fetch
+    setDirectMode()
+
+    const result = await fetchAgentFromDatabase({
+      apiKey: 'test-api-key',
+      parsedAgentId: {
+        publisherId: 'savant',
+        agentId: 'base',
+        version: 'latest',
+      },
+      logger: createLoggerMocks(),
+    })
+
+    expect(result).toBeNull()
+    expect(fetchMock).toHaveBeenCalledTimes(0)
+  })
+
+  test('getUserInfoFromApiKey returns a stub user without fetching when only DIRECT_PROVIDER is set', async () => {
+    const fetchMock = mock(async () => {
+      throw new Error('fetch should not be called in direct mode')
+    })
+    globalThis.fetch = fetchMock as unknown as typeof fetch
+    process.env.DIRECT_PROVIDER = 'openrouter'
+    delete process.env.INFERENCE_BASE_URL
+
+    const result = await getUserInfoFromApiKey({
+      apiKey: 'test-api-key',
+      fields: ['id', 'email'],
+      logger: createLoggerMocks(),
+    })
+
+    expect(result).toEqual({ id: 'dev', email: 'dev@localhost' })
+    expect(fetchMock).toHaveBeenCalledTimes(0)
   })
 })

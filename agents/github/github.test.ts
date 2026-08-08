@@ -33,9 +33,7 @@ describe('github agent definition', () => {
     expect(mcp.url).toBe('https://api.githubcopilot.com/mcp/')
     // $VAR interpolation is performed by the harness MCP client
     // (common/src/mcp/client.ts substituteEnvInValue supports "Bearer $VAR").
-    expect(mcp.headers?.Authorization).toBe(
-      'Bearer $SAVANT_CODE_GITHUB_TOKEN',
-    )
+    expect(mcp.headers?.Authorization).toBe('Bearer $SAVANT_CODE_GITHUB_TOKEN')
   })
 
   test('surfaces the documented tool groups in the system prompt', () => {

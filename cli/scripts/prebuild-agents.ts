@@ -1,5 +1,5 @@
 #!/usr/bin/env bun
- 
+
 /**
  * Prebuild script that scans the agents/ directory and generates a TypeScript
  * module with all agent definitions embedded as static data.
@@ -16,6 +16,11 @@
 
 import * as fs from 'fs'
 import * as path from 'path'
+
+import {
+  format as formatWithPrettier,
+  resolveConfig as resolvePrettierConfig,
+} from 'prettier'
 
 import { writeFileAtomic } from '../src/utils/write-file-atomic'
 
@@ -85,7 +90,19 @@ async function loadAgentDefinition(filePath: string): Promise<AgentLoadResult> {
     const definition = module.default
 
     if (!definition) {
-      console.warn(`⚠️  Skipped ${filePath}: no default export found`)
+      // Helper modules (prompts, handle-steps, system-prompt, output-schema,
+      // …) legitimately export named helpers and no default agent definition.
+      // They are expected in the agents/ tree and are silently skipped. Only
+      // warn when a file exports neither a default nor any named symbol — a
+      // genuinely unexpected empty module.
+      const namedExports = Object.keys(module).filter(
+        (key) => key !== 'default',
+      )
+      if (namedExports.length === 0) {
+        console.warn(
+          `⚠️  Skipped ${filePath}: no default export and no named exports found`,
+        )
+      }
       return { definition: null, failed: false }
     }
 
@@ -231,13 +248,25 @@ async function main() {
   // Generate the output file
   const output = generateBundledAgentsFile(agents)
 
+  // Format with prettier so the regenerated bundle stays compliant with the
+  // declared format gate (protocol.config.yaml `commands.format`), matching the
+  // repo .prettierrc (semi: false, singleQuote: true, trailingComma: all).
+  // FID-2026-0805-00X hardening session.
+  const prettierConfig = await resolvePrettierConfig(import.meta.dir).catch(
+    () => null,
+  )
+  const formatted = await formatWithPrettier(output, {
+    parser: 'typescript',
+    ...(prettierConfig ?? {}),
+  })
+
   // Ensure output directory exists
   const outputDir = path.dirname(OUTPUT_FILE)
   if (!fs.existsSync(outputDir)) {
     fs.mkdirSync(outputDir, { recursive: true })
   }
 
-  writeFileAtomic(OUTPUT_FILE, output)
+  writeFileAtomic(OUTPUT_FILE, formatted)
   if (DEBUG) {
     console.log(`\n✨ DEBUG: Generated ${OUTPUT_FILE}`)
     console.log(`   DEBUG: ${Object.keys(agents).length} agents bundled`)

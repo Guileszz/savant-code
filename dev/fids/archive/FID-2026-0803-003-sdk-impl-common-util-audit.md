@@ -3,7 +3,7 @@
 **Filename:** `FID-2026-0803-003-sdk-impl-common-util-audit.md`
 **ID:** FID-2026-0803-003
 **Severity:** medium
-**Status:** verified
+**Status:** closed
 **Created:** 2026-08-03
 **Author:** Savant
 
@@ -209,7 +209,7 @@ green only because the failing/hanging files were never run to completion on Win
   CMN-2 confirmed (createFsWithFiles dirname loop at :24-27); CMN-3 confirmed (safeReplace/parseToolCallXml/
   MinHeap/genAuthCode/buildLogRows zero callers; splitData's only hits are the internal `splitDataWithLengths`
   name, so the exported `splitData` is also dead). One citation correction applied (SDK-2 fallback line numbers
-  :606/:654 → :586/:630). markdownlint 0 issues; 18 findings; 4 MEDIUM / 14 LOW; zero Buffy/FreeBuff.
+  :606/:654 → :586/:630). markdownlint 0 issues; 18 findings; 4 MEDIUM / 14 LOW; zero Savant/Savant.
 - **SELF-CORRECT:** Corrected SDK-2 fallback line citations in the finding text.
 
 ### Loop 2 (implementation)

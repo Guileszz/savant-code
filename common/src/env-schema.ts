@@ -7,6 +7,9 @@ export const clientEnvSchema = z.object({
   NEXT_PUBLIC_CB_ENVIRONMENT: z.enum(['dev', 'test', 'prod']),
   NEXT_PUBLIC_SAVANT_CODE_APP_URL: z.url().min(1),
   NEXT_PUBLIC_SAVANT_FREE_APP_URL: z.url().optional(),
+  // Legacy alias (pre-rebrand). Read as a fallback so old env files keep
+  // working (FID-2026-0806-013).
+  NEXT_PUBLIC_FREEBUFF_APP_URL: z.url().optional(),
   NEXT_PUBLIC_SUPPORT_EMAIL: z.email().min(1),
   NEXT_PUBLIC_POSTHOG_API_KEY: z.string().min(1),
   NEXT_PUBLIC_POSTHOG_HOST_URL: z.url().min(1),
@@ -28,6 +31,7 @@ export const clientProcessEnv: ClientInput = {
   NEXT_PUBLIC_CB_ENVIRONMENT: process.env.NEXT_PUBLIC_CB_ENVIRONMENT,
   NEXT_PUBLIC_SAVANT_CODE_APP_URL: process.env.NEXT_PUBLIC_SAVANT_CODE_APP_URL,
   NEXT_PUBLIC_SAVANT_FREE_APP_URL: process.env.NEXT_PUBLIC_SAVANT_FREE_APP_URL,
+  NEXT_PUBLIC_FREEBUFF_APP_URL: process.env.NEXT_PUBLIC_FREEBUFF_APP_URL,
   NEXT_PUBLIC_SUPPORT_EMAIL: process.env.NEXT_PUBLIC_SUPPORT_EMAIL,
   NEXT_PUBLIC_POSTHOG_API_KEY: process.env.NEXT_PUBLIC_POSTHOG_API_KEY,
   NEXT_PUBLIC_POSTHOG_HOST_URL: process.env.NEXT_PUBLIC_POSTHOG_HOST_URL,

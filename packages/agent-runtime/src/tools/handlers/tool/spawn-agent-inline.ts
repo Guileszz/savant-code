@@ -108,6 +108,7 @@ export const handleSpawnAgentInline = (async (
       inlineTemplate,
       parentAgentState,
       parentAgentState.agentContext,
+      params.fileContext?.projectRoot,
     ),
     systemPrompt: system,
     toolDefinitions: mapValues(inheritedTools, (tool) => ({

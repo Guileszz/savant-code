@@ -89,6 +89,23 @@ describe('CLI Argument Parsing', () => {
     expect(result.initialPrompt).toBe('hello')
   })
 
+  test('parses --print flag', () => {
+    const result = parseArgs({
+      argv: ['node', 'savant-code', '--print', 'hello'],
+      version: '1.0.0',
+    })
+    expect(result.print).toBe(true)
+    expect(result.initialPrompt).toBe('hello')
+  })
+
+  test('--print defaults to false', () => {
+    const result = parseArgs({
+      argv: ['node', 'savant-code', 'hello'],
+      version: '1.0.0',
+    })
+    expect(result.print).toBe(false)
+  })
+
   test('handles multiple flags together', () => {
     const result = parseTestArgs([
       '--agent',

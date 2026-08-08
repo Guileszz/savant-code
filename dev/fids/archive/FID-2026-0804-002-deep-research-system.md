@@ -125,7 +125,7 @@ Implement a deep research system inspired by Gemini Deep Research that transform
 - [ ] Citation verification (optional)
 - [ ] Rate limiting with sequential execution
 
-## Perfection Loop Re-Run (Loop 2 — Independent FreeBuff Review)
+## Perfection Loop Re-Run (Loop 2 — Independent Savant Code Review)
 
 ### RED (Ground-Truth Verification)
 

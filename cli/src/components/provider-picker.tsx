@@ -7,6 +7,13 @@ import { useTheme } from '../hooks/use-theme'
 import type { ProviderSetupName } from '../utils/provider-setup'
 import type { KeyEvent } from '@opentui/core'
 
+export function getProviderPickerHeight(providerCount: number): number {
+  const safeCount = Number.isFinite(providerCount)
+    ? Math.max(0, Math.floor(providerCount))
+    : 0
+  return safeCount + 2
+}
+
 interface ProviderPickerProps {
   providers: Array<{
     name: ProviderSetupName
@@ -56,6 +63,10 @@ export const ProviderPicker: React.FC<ProviderPickerProps> = ({
           onClose()
           return
         }
+        if (providers.length === 0) {
+          prevent()
+          return
+        }
         if (name === 'up' || (name === 'tab' && key.shift)) {
           prevent()
           onSelectIndex(
@@ -78,11 +89,20 @@ export const ProviderPicker: React.FC<ProviderPickerProps> = ({
     ),
   )
 
+  // Keep the provider menu intrinsic-sized so the bottom chat panel cannot
+  // shrink it into a clipped/scrollable-looking viewport. The two extra rows
+  // account for the bordered box; every provider row is explicitly one line.
+  const pickerHeight = getProviderPickerHeight(providers.length)
+
   return (
     <box
       style={{
         flexDirection: 'column',
         width: 50,
+        height: pickerHeight,
+        minHeight: pickerHeight,
+        flexGrow: 0,
+        flexShrink: 0,
         backgroundColor: theme.surface,
         borderStyle: 'single',
         borderColor: theme.border,
@@ -106,6 +126,10 @@ export const ProviderPicker: React.FC<ProviderPickerProps> = ({
             onClick={() => commit(idx)}
             style={{
               width: '100%',
+              height: 1,
+              minHeight: 1,
+              flexGrow: 0,
+              flexShrink: 0,
               paddingLeft: 1,
               paddingRight: 1,
               backgroundColor: isSelected ? theme.surfaceHover : theme.surface,

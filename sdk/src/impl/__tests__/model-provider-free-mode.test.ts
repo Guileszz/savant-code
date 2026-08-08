@@ -9,6 +9,7 @@ import type { LanguageModelV2 } from '@ai-sdk/provider'
 const REAL_FETCH = globalThis.fetch
 const COMMAND_CODE_MODEL = 'commandcode/deepseek/deepseek-v4-pro'
 const COMMAND_CODE_CLAUDE_MODEL = 'commandcode/claude-sonnet-4.6'
+const TOKEN_HARBOR_MODEL = 'tokenharbor/anthropic/claude-opus-5'
 const COMMAND_CODE_PROMPT = [
   {
     role: 'user' as const,
@@ -19,10 +20,25 @@ const COMMAND_CODE_PROMPT = [
 describe('getModelForRequest ChatGPT OAuth fallback behavior', () => {
   const mockGetValidChatGptOAuthCredentials = mock(() => Promise.resolve(null))
   let originalCommandCodeApiKey: string | undefined
+  let originalTokenHarborApiKey: string | undefined
+  let originalOpenRouterApiKey: string | undefined
+  let originalOrMasterKey: string | undefined
+  let originalInferenceApiKey: string | undefined
 
   beforeEach(async () => {
     originalCommandCodeApiKey = process.env.COMMAND_CODE_API_KEY
     delete process.env.COMMAND_CODE_API_KEY
+    originalTokenHarborApiKey = process.env.TOKENHARBOR_API_KEY
+    delete process.env.TOKENHARBOR_API_KEY
+    originalOpenRouterApiKey = process.env.OPENROUTER_API_KEY
+    originalOrMasterKey = process.env.OR_MASTER_KEY
+    originalInferenceApiKey = process.env.INFERENCE_API_KEY
+    delete process.env.OPENROUTER_API_KEY
+    delete process.env.OR_MASTER_KEY
+    delete process.env.INFERENCE_API_KEY
+    const { resetOpenRouterApiKeyCache } =
+      await import('../openrouter-key-resolver')
+    resetOpenRouterApiKeyCache()
     // Mock CHATGPT_OAUTH_ENABLED to true so the ChatGPT OAuth path is entered.
     // Uses mockModule helper since this is an absolute package specifier.
     await mockModule('@savant-code/common/constants/chatgpt-oauth', () => ({
@@ -46,6 +62,26 @@ describe('getModelForRequest ChatGPT OAuth fallback behavior', () => {
       delete process.env.COMMAND_CODE_API_KEY
     } else {
       process.env.COMMAND_CODE_API_KEY = originalCommandCodeApiKey
+    }
+    if (originalTokenHarborApiKey === undefined) {
+      delete process.env.TOKENHARBOR_API_KEY
+    } else {
+      process.env.TOKENHARBOR_API_KEY = originalTokenHarborApiKey
+    }
+    if (originalOpenRouterApiKey === undefined) {
+      delete process.env.OPENROUTER_API_KEY
+    } else {
+      process.env.OPENROUTER_API_KEY = originalOpenRouterApiKey
+    }
+    if (originalOrMasterKey === undefined) {
+      delete process.env.OR_MASTER_KEY
+    } else {
+      process.env.OR_MASTER_KEY = originalOrMasterKey
+    }
+    if (originalInferenceApiKey === undefined) {
+      delete process.env.INFERENCE_API_KEY
+    } else {
+      process.env.INFERENCE_API_KEY = originalInferenceApiKey
     }
     clearMockedModules()
   })
@@ -82,6 +118,52 @@ describe('getModelForRequest ChatGPT OAuth fallback behavior', () => {
     })
 
     expect(result.isChatGptOAuth).toBe(false)
+  })
+
+  test('requires the TokenHarbor API key', async () => {
+    const { getModelForRequest } = await importFresh()
+
+    await expect(
+      getModelForRequest({
+        apiKey: 'test-key',
+        model: 'tokenharbor/th-orchestra',
+      }),
+    ).rejects.toThrow(
+      'TokenHarbor API key not set. Set TOKENHARBOR_API_KEY environment variable or run /provider tokenharbor.',
+    )
+  })
+
+  test('routes TokenHarbor models with one-prefix normalization', async () => {
+    process.env.TOKENHARBOR_API_KEY = 'tokenharbor-test-key'
+    const fetchMock = mock(() =>
+      Promise.resolve(
+        new Response('data: [DONE]\\n\\n', {
+          status: 200,
+          headers: { 'content-type': 'text/event-stream' },
+        }),
+      ),
+    )
+    // @ts-expect-error - test fetch has the same runtime contract
+    globalThis.fetch = fetchMock
+
+    const { getModelForRequest } = await importFresh()
+    const result = await getModelForRequest({
+      apiKey: 'test-key',
+      model: TOKEN_HARBOR_MODEL,
+    })
+    await (result.model as LanguageModelV2).doStream({
+      prompt: COMMAND_CODE_PROMPT,
+    })
+
+    const [input, init] = fetchMock.mock.calls[0] as unknown as [
+      RequestInfo | URL,
+      RequestInit | undefined,
+    ]
+    expect(String(input)).toBe('https://tokenharbor.ai/v1/chat/completions')
+    expect(new Headers(init?.headers).get('authorization')).toBe(
+      'Bearer tokenharbor-test-key',
+    )
+    expect(JSON.parse(String(init?.body)).model).toBe('anthropic/claude-opus-5')
   })
 
   test('requires the CommandCode API key', async () => {
@@ -126,7 +208,9 @@ describe('getModelForRequest ChatGPT OAuth fallback behavior', () => {
     expect(new Headers(init?.headers).get('authorization')).toBe(
       'Bearer commandcode-test-key',
     )
-    expect(JSON.parse(String(init?.body)).model).toBe('deepseek/deepseek-v4-pro')
+    expect(JSON.parse(String(init?.body)).model).toBe(
+      'deepseek/deepseek-v4-pro',
+    )
   })
 
   test('routes CommandCode Claude models to Anthropic messages with x-api-key', async () => {
@@ -162,5 +246,49 @@ describe('getModelForRequest ChatGPT OAuth fallback behavior', () => {
       'commandcode-test-key',
     )
     expect(JSON.parse(String(init?.body)).model).toBe('claude-sonnet-4.6')
+  })
+
+  test('requires an OpenRouter key for openrouter/ models (FID-2026-0806-010)', async () => {
+    const { getModelForRequest } = await importFresh()
+
+    await expect(
+      getModelForRequest({ apiKey: 'test-key', model: 'openrouter/free' }),
+    ).rejects.toThrow(
+      'OpenRouter API key not set. Set OPENROUTER_API_KEY or OR_MASTER_KEY environment variable.',
+    )
+  })
+
+  test('routes openrouter/free directly with the full slug unchanged (FID-2026-0806-010)', async () => {
+    process.env.OPENROUTER_API_KEY = 'openrouter-test-key'
+    const fetchMock = mock(() =>
+      Promise.resolve(
+        new Response('data: [DONE]\\n\\n', {
+          status: 200,
+          headers: { 'content-type': 'text/event-stream' },
+        }),
+      ),
+    )
+    // @ts-expect-error - test fetch has the same runtime contract
+    globalThis.fetch = fetchMock
+
+    const { getModelForRequest } = await importFresh()
+    const result = await getModelForRequest({
+      apiKey: 'test-key',
+      model: 'openrouter/free',
+    })
+    await (result.model as LanguageModelV2).doStream({
+      prompt: COMMAND_CODE_PROMPT,
+    })
+
+    const [input, init] = fetchMock.mock.calls[0] as unknown as [
+      RequestInfo | URL,
+      RequestInit | undefined,
+    ]
+    expect(String(input)).toBe('https://openrouter.ai/api/v1/chat/completions')
+    expect(new Headers(init?.headers).get('authorization')).toBe(
+      'Bearer openrouter-test-key',
+    )
+    // The `openrouter/` prefix is part of the real slug — must NOT be stripped.
+    expect(JSON.parse(String(init?.body)).model).toBe('openrouter/free')
   })
 })

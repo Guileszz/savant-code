@@ -6,14 +6,21 @@ import { env, IS_DEV } from '@savant-code/common/env'
 
 import { IS_SAVANT_FREE } from '../utils/constants'
 
-// Get the website URL from environment or use default
-export const WEBSITE_URL =
-  env.NEXT_PUBLIC_SAVANT_FREE_APP_URL || 'https://savant-code.com'
+// Get the website URL from environment or use default. FID-2026-0806-013:
+// the legacy NEXT_PUBLIC_FREEBUFF_APP_URL env name is read as a fallback so
+// pre-rebrand env files keep pointing at the right app.
+const envWebUrl =
+  env.NEXT_PUBLIC_SAVANT_FREE_APP_URL ??
+  env.NEXT_PUBLIC_FREEBUFF_APP_URL ??
+  undefined
 
-// SavantFree login flow uses the savant-free web app instead of savant-code.com
+export const WEBSITE_URL = envWebUrl || 'https://savant-code.com'
+
+// SavantFree login flow uses the SavantFree web app URL (now on
+// savant-code.com, FID-2026-0806-013)
 const SAVANT_FREE_WEB_URL = IS_DEV
   ? 'http://localhost:3002'
-  : (env.NEXT_PUBLIC_SAVANT_FREE_APP_URL ?? SAVANT_FREE_WEB_URL_PROD)
+  : (envWebUrl ?? SAVANT_FREE_WEB_URL_PROD)
 export const LOGIN_WEBSITE_URL = IS_SAVANT_FREE
   ? SAVANT_FREE_WEB_URL
   : WEBSITE_URL

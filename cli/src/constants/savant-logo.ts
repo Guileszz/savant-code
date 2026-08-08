@@ -7,8 +7,7 @@
  * data URI in every environment — source tree, npm launcher, and the packaged
  * binary all render the same brand mark with zero runtime file lookups.
  */
-export const SAVANT_LOGO_PNG_BASE64 =
-  `iVBORw0KGgoAAAANSUhEUgAAAPoAAAD6CAYAAACI7Fo9AAAACXBIWXMAAAsTAAALEwEAmpwYAAE/tklEQVR4nOz9B7hk13UdCK+bK4dXL+fOGWikRiYI5ihS
+export const SAVANT_LOGO_PNG_BASE64 = `iVBORw0KGgoAAAANSUhEUgAAAPoAAAD6CAYAAACI7Fo9AAAACXBIWXMAAAsTAAALEwEAmpwYAAE/tklEQVR4nOz9B7hk13UdCK+bK4dXL+fOGWikRiYI5ihS
 JBVIJUqyJf2yPLJle/TbHtuyx7LGnm/s0W+Ngi2JCpZEUSTFnAGSCA2gAXQD6G50zi/HylU3z7f2ufUattAg7d/htYnTLKL7hQr3nn323muvvbYWxzFeX6+v
 19f/3Ev/H/0GXl+vr9fXf/v1uqG/vl5f3wPrdUN/fb2+vgfW64b++np9fQ+s1w399fX6+h5Yrxv66+v19T2wXjf019fr63tgvW7or6/X1/fAet3QX1+vr++B
 ZWKTrX//h7/3V75mGDpqtcaPZNOl8ZHR0X+VzmbiWq2BCCEatQZSlg3LseB2ffidNoqlApxcDm6nC2hAJpNGdWUVhmXBtlOwHRvLi0vIZbMI4gie62N4eBCW

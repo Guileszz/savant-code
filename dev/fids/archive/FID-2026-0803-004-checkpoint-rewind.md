@@ -3,7 +3,7 @@
 **Filename:** `FID-2026-0803-004-checkpoint-rewind.md`
 **ID:** FID-2026-0803-004
 **Severity:** medium
-**Status:** verified
+**Status:** closed
 **Created:** 2026-08-03
 **Author:** Savant
 

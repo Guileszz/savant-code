@@ -76,6 +76,7 @@ export const AgentTemplateTypeList = [
   'thinker',
   'scout',
   'verifier',
+  'adversary',
   'forge',
   'recorder',
   'scribe',

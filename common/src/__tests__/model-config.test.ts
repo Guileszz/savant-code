@@ -4,6 +4,7 @@ import {
   COMMANDCODE_PROTOCOLS,
   commandcodeModels,
   supportsAssistantPrefill,
+  tokenharborModels,
 } from '../constants/model-config'
 
 describe('CommandCode catalog', () => {
@@ -12,7 +13,42 @@ describe('CommandCode catalog', () => {
 
     expect(modelIds.length).toBeGreaterThan(0)
     expect(new Set(modelIds).size).toBe(modelIds.length)
-    expect(Object.keys(COMMANDCODE_PROTOCOLS).sort()).toEqual([...modelIds].sort())
+    expect(Object.keys(COMMANDCODE_PROTOCOLS).sort()).toEqual(
+      [...modelIds].sort(),
+    )
+  })
+})
+
+describe('TokenHarbor catalog', () => {
+  test('defines the complete published 20-model catalog', () => {
+    const modelIds = Object.values(tokenharborModels)
+
+    const expectedModelIds: typeof modelIds = [
+      'tokenharbor/claude-opus-5',
+      'tokenharbor/claude-fable-5',
+      'tokenharbor/gpt-5.6-sol',
+      'tokenharbor/kimi-k3',
+      'tokenharbor/qwen3.8-max',
+      'tokenharbor/gpt-5.6-terra',
+      'tokenharbor/grok-4.5',
+      'tokenharbor/claude-sonnet-5',
+      'tokenharbor/gemini-3.6-flash',
+      'tokenharbor/glm-5.2',
+      'tokenharbor/gpt-5.6-luna',
+      'tokenharbor/deepseek-v4-flash',
+      'tokenharbor/minimax-m3',
+      'tokenharbor/deepseek-v4-pro',
+      'tokenharbor/mimo-v2.5-pro',
+      'tokenharbor/mimo-v2.5',
+      'tokenharbor/kimi-k3:free',
+      'tokenharbor/deepseek-v4-flash:free',
+      'tokenharbor/mimo-v2.5:free',
+      'tokenharbor/th-orchestra',
+    ]
+
+    expect(modelIds).toEqual(expectedModelIds)
+    expect(new Set(modelIds).size).toBe(modelIds.length)
+    expect(modelIds.every((id) => id.startsWith('tokenharbor/'))).toBe(true)
   })
 })
 

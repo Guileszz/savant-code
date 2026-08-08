@@ -31,7 +31,7 @@ CHANGELOG entry written.
 - `resetCodebuffClient` → `resetSavantCodeClient` (5 files)
 - `getCodebuffClient` → `getSavantCodeClient` (2 files)
 - `CODEBUFF_API_KEY` → `SAVANT_CODE_API_KEY` (2 files)
-- `NEXT_PUBLIC_CODEBUFF_APP_URL` → `NEXT_PUBLIC_FREEBUFF_APP_URL` (4 files + fallback)
+- `NEXT_PUBLIC_CODEBUFF_APP_URL` → `NEXT_PUBLIC_SAVANT_FREE_APP_URL` (4 files + fallback)
 - `CODEBUFF_IS_BINARY` → `SAVANT_CODE_IS_BINARY` (5 files + CliEnv type)
 
 ### Cleanup
@@ -57,9 +57,10 @@ CHANGELOG entry written.
 - **Never use sed for rebrands at scale.** `SavantFree$1` was a prior sed artifact.
   All fixes done via `str_replace` with exact context strings — no regex, no cascading
   corruption.
-- **Mangled identifiers cascade badly.** A single prior-broken `Freebuff$1` → `SavantFree$1`
-  mangling contaminated 27 files with a name that mapped to 8 different types.
-  Context-specific per-file replacements were the only safe approach.
+- **Mangled identifiers cascade badly.** A single prior-broken legacy
+  identifier mangling (mangled to `SavantFree$1`) contaminated 27 files with a
+  name that mapped to 8 different types. Context-specific per-file
+  replacements were the only safe approach.
 - **Wire protocol references must stay.** The `codebuff_tool_call` XML tag, Gravity ads
   surface identifiers, and analytics event string values cannot be renamed without
   breaking server/LLM/ads compatibility.

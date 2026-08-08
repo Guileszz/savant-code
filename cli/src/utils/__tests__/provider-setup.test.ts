@@ -19,6 +19,7 @@ import { saveSettings } from '../settings'
 const PROVIDER_ENV_VARS = [
   'OPENROUTER_API_KEY',
   'OPENCODE_GO_API_KEY',
+  'TOKENHARBOR_API_KEY',
   'NVIDIA_API_KEY',
   'COMMAND_CODE_API_KEY',
   'CLOUDFLARE_API_TOKEN',
@@ -70,6 +71,15 @@ describe('provider setup', () => {
     expect(getConfiguredProviderNames()).toContain('opencode-go')
   })
 
+  test('saves TokenHarbor credentials for direct-provider mode', () => {
+    saveProviderApiKey('tokenharbor', '  test-tokenharbor-key  ')
+
+    expect(process.env.TOKENHARBOR_API_KEY).toBe('test-tokenharbor-key')
+    expect(process.env.DIRECT_PROVIDER).toBe('tokenharbor')
+    expect(process.env.INFERENCE_BASE_URL).toBe('https://tokenharbor.ai/v1')
+    expect(getConfiguredProviderNames()).toContain('tokenharbor')
+  })
+
   test('saves OpenRouter credentials for direct-provider mode', () => {
     saveProviderApiKey('openrouter', '  test-openrouter-key  ')
 
@@ -119,6 +129,7 @@ describe('provider setup', () => {
       JSON.stringify({
         providerApiKeys: {
           OPENCODE_GO_API_KEY: 'stored-key',
+          TOKENHARBOR_API_KEY: 'stored-tokenharbor-key',
           NVIDIA_API_KEY: 'stored-nvidia-key',
         },
       }),
@@ -128,6 +139,7 @@ describe('provider setup', () => {
     applyPersistedProviderApiKeys()
 
     expect(process.env.OPENCODE_GO_API_KEY).toBe('shell-key')
+    expect(process.env.TOKENHARBOR_API_KEY).toBe('stored-tokenharbor-key')
     expect(process.env.NVIDIA_API_KEY).toBe('stored-nvidia-key')
   })
 
@@ -155,9 +167,9 @@ describe('provider setup', () => {
   test('configures the default gateway without inventing a provider key', () => {
     configureDefaultDirectProvider()
 
-    expect(process.env.DIRECT_PROVIDER).toBe('opencode-go')
-    expect(process.env.INFERENCE_BASE_URL).toBe('https://opencode.ai/zen/go/v1')
-    expect(process.env.OPENCODE_GO_API_KEY).toBeUndefined()
+    expect(process.env.DIRECT_PROVIDER).toBe('openrouter')
+    expect(process.env.INFERENCE_BASE_URL).toBe('https://openrouter.ai/api/v1')
+    expect(process.env.OPENROUTER_API_KEY).toBeUndefined()
   })
 
   test('does not override an explicit direct provider or backend token', () => {
@@ -224,6 +236,11 @@ describe('provider setup', () => {
     expect(getProviderSetupInfo('OpenCode-Go')).toMatchObject({
       provider: 'opencode-go',
       envVar: 'OPENCODE_GO_API_KEY',
+    })
+    expect(getProviderSetupInfo('TokenHarbor')).toMatchObject({
+      provider: 'tokenharbor',
+      envVar: 'TOKENHARBOR_API_KEY',
+      baseUrl: 'https://tokenharbor.ai/v1',
     })
     expect(getProviderSetupInfo('unknown')).toBeUndefined()
   })

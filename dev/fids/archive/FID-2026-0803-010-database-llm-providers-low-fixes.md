@@ -3,7 +3,7 @@
 **Filename:** `FID-2026-0803-010-database-llm-providers-low-fixes.md`
 **ID:** FID-2026-0803-010
 **Severity:** low
-**Status:** verified (archived)
+**Status:** closed
 **Created:** 2026-08-03
 **Author:** Savant
 

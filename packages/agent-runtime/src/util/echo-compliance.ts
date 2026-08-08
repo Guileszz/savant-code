@@ -128,10 +128,8 @@ export class EchoComplianceTracker implements EchoComplianceTrackerLike {
   /** Violations emitted at the most recent step boundary (for steering). */
   private pendingSteering: ComplianceViolation[] = []
   private steeringCount = 0
-  private readonly steeringPerLaw: Record<
-    ComplianceViolation['law'],
-    number
-  > = { law1: 0, law3: 0, verifier_criteria: 0, fid: 0 }
+  private readonly steeringPerLaw: Record<ComplianceViolation['law'], number> =
+    { law1: 0, law3: 0, verifier_criteria: 0, fid: 0 }
   private lastEvaluatedStep = -1
   private readonly emittedKeys = new Set<string>()
   private readonly steeredKeys = new Set<string>()
@@ -277,7 +275,10 @@ export class EchoComplianceTracker implements EchoComplianceTrackerLike {
     const needsIndependentReview =
       !verifierSpawned && !this.verifiedAfterLastWrite
 
-    if (needsIndependentReview && (criteriaMet || (fidTouched && writes.length > 0))) {
+    if (
+      needsIndependentReview &&
+      (criteriaMet || (fidTouched && writes.length > 0))
+    ) {
       const reasons: string[] = []
       if (linesAdded >= 10) reasons.push('10+ lines added')
       if (filesTouched >= 2) reasons.push(`${filesTouched} files touched`)
@@ -346,7 +347,8 @@ export class EchoComplianceTracker implements EchoComplianceTrackerLike {
     if (!this.userPrompt) return false
     const base = path.split('/').pop() ?? ''
     return (
-      base.length > 0 && this.userPrompt.toLowerCase().includes(base.toLowerCase())
+      base.length > 0 &&
+      this.userPrompt.toLowerCase().includes(base.toLowerCase())
     )
   }
 

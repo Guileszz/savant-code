@@ -3,9 +3,14 @@ import { describe, expect, it } from 'bun:test'
 import {
   simplifyReadFileResults,
   simplifyTerminalCommandResults,
+  simplifyVerboseToolResults,
+  TOOL_OUTPUT_LIMITS,
+  truncateToolOutputValue,
+  VERBOSE_TOOL_NAMES,
 } from '../simplify-tool-results'
 
 import type { SavantCodeToolOutput } from '@savant-code/common/tools/list'
+import type { JSONValue } from '@savant-code/common/types/json'
 
 // Mock logger for tests
 const logger = {
@@ -378,5 +383,107 @@ describe('simplifyTerminalCommandResults', () => {
         },
       },
     ])
+  })
+})
+
+describe('truncateToolOutputValue (P2c deterministic limits)', () => {
+  it('passes small values through untouched by reference', () => {
+    const value: JSONValue = { ok: true, results: ['a', 'b'] }
+    const result = truncateToolOutputValue(value)
+    expect(result).toBe(value) // by reference — no-op
+  })
+
+  it('truncates an over-byte-limit value and attaches metadata', () => {
+    const big = { data: 'x'.repeat(TOOL_OUTPUT_LIMITS.maxBytes + 100) }
+    const result = truncateToolOutputValue(big) as Record<string, JSONValue>
+    expect(result.truncated).toBeDefined()
+    const meta = result.truncated as Record<string, unknown>
+    expect(meta.reason).toContain('bytes')
+    expect(meta.preview).toBeDefined()
+    // The original object keys are preserved alongside the marker.
+    expect(result.data).toBeDefined()
+  })
+
+  it('truncates an over-line-limit value by lines', () => {
+    // JSON.stringify preserves the embedded \n chars, so the serialized form
+    // genuinely exceeds the line cap while staying under the byte cap.
+    const manyLines = {
+      log: Array.from(
+        { length: TOOL_OUTPUT_LIMITS.maxLines + 50 },
+        (_, i) => `line ${i}\n`,
+      ).join(''),
+    }
+    const result = truncateToolOutputValue(manyLines) as Record<
+      string,
+      JSONValue
+    >
+    expect(result.truncated).toBeDefined()
+    const meta = result.truncated as Record<string, unknown>
+    expect(meta.reason).toContain('lines')
+    expect(meta.preview).toBeDefined()
+  })
+
+  it('accepts custom limits', () => {
+    const small: JSONValue = { data: 'x'.repeat(5_000) }
+    const result = truncateToolOutputValue(small, {
+      maxBytes: 1_000,
+      maxLines: 100,
+      previewChars: 50,
+    }) as Record<string, JSONValue>
+    expect(result.truncated).toBeDefined()
+  })
+
+  it('never throws on non-serializable values', () => {
+    const circular: Record<string, unknown> = {}
+    circular.self = circular
+    const result = truncateToolOutputValue(circular as unknown as JSONValue)
+    expect(() =>
+      truncateToolOutputValue(circular as unknown as JSONValue),
+    ).not.toThrow()
+    expect(result).toBe(circular as unknown as JSONValue)
+  })
+})
+
+describe('simplifyVerboseToolResults (P2c pre-pass)', () => {
+  it('truncates the JSON part of a verbose tool message', () => {
+    const content = [
+      {
+        type: 'json' as const,
+        value: {
+          matches: Array.from(
+            { length: TOOL_OUTPUT_LIMITS.maxLines + 10 },
+            (_, i) => `file${i}.ts:${i}\n`,
+          ).join(''),
+        },
+      },
+    ]
+    const result = simplifyVerboseToolResults({ messageContent: content })
+    expect(result).not.toBe(content) // changed -> new array
+    expect(result[0].type).toBe('json')
+    const value = result[0] as { value: Record<string, JSONValue> }
+    expect(value.value.truncated).toBeDefined()
+  })
+
+  it('returns the original content by reference when no truncation needed', () => {
+    const content = [{ type: 'json' as const, value: { ok: true } }]
+    const result = simplifyVerboseToolResults({ messageContent: content })
+    expect(result).toBe(content)
+  })
+
+  it('covers the documented verbose tool set', () => {
+    for (const name of [
+      'code_search',
+      'glob',
+      'list_directory',
+      'find_files',
+      'read_subtree',
+      'read_url',
+      'web_search',
+      'gravity_index',
+      'read_docs',
+      'run_readonly_command',
+    ]) {
+      expect(VERBOSE_TOOL_NAMES.has(name)).toBe(true)
+    }
   })
 })

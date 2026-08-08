@@ -10,7 +10,7 @@ place. Every downstream project inherits protocol changes automatically:
 | Project | ECHO File | Version | Relationship to v0.1.2 |
 |---------|-----------|---------|------------------------|
 | **savant-protocol** | `ECHO.md` | **v0.1.2** | **CANONICAL** — the protocol itself |
-| savant-code (this repo) | `ECHO.md` | v0.2.0 | v0.1.2 + Savant-harness 9-agent roster binding |
+| savant-code (this repo) | `ECHO.md` | v0.2.0 | v0.1.2 + Savant-harness agent roster binding (9 → 10, FID-2026-0805-004) |
 | Savant (Rust framework) | `ECHO.md` | v0.1.1 | v0.1.2-equivalent for the Rust harness |
 
 The harness-specific layers (agent roster, FID-Bound Execution, Thinker/Sequential-Thinking) live *only* in the
@@ -39,7 +39,7 @@ that didn't hold. Only two branches survived:
 |---------|------------|-------|------|
 | **v0.1.2** | `savant-protocol/ECHO.md` | 447 | **CANONICAL** — universal bootstrap, FID-151 grep amendment, Cross-Agent Claim Rule |
 | v0.1.1 | `Savant/ECHO.md` | 421 | Rust harness binding ("Universal Agent Bootstrap") |
-| v0.2.0 | `codebuff/ECHO.md` | 581 | savant-code binding (9-agent roster + FID-Bound Execution + Thinker Protocol) |
+| v0.2.0 | `codebuff/ECHO.md` | 581 | savant-code binding (10-agent roster + FID-Bound Execution + Thinker Protocol) |
 
 ## The Evolution Arc
 
@@ -61,8 +61,9 @@ that didn't hold. Only two branches survived:
 ## Key Insight
 
 ECHO shrank from 3,037 lines (v1.3.4) to 447 (v0.1.2) but got *stronger* — because enforcement moved from *rules in the
-document* to *structure in the harness*. v0.2.0 doesn't need a 19-point GUARDIAN checklist because the 9-agent roster
-*physically prevents* the Verifier from writing code. The protocol got lean because the *system* enforces it.
+document* to *structure in the harness*. v0.2.0 doesn't need a 19-point GUARDIAN checklist because the agent roster
+*physically prevents* the Verifier (and Adversary) from writing code. The
+protocol got lean because the *system* enforces it.
 
 ## SAVANT VERSIONING NOTE
 

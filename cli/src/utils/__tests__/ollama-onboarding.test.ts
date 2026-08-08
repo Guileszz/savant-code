@@ -167,11 +167,9 @@ describe('ollama-onboarding', () => {
       expect(isOllamaAutoConfigured()).toBe(false)
       expect(loadSettings().directProvider).toBeUndefined()
       expect(loadSettings().directProviderBaseUrl).toBeUndefined()
-      expect(loadSettings().savantCodeModelPreference).toBe(
-        'opencode-go/mimo-v2.5',
-      )
+      expect(loadSettings().savantCodeModelPreference).toBe('openrouter/free')
       expect(loadSettings().savantCodeModelProviderPreference).toBe(
-        'opencode-go',
+        'openrouter',
       )
       expect(loadSettings().savantCodeModelAutoConfigured).toBe(false)
     },

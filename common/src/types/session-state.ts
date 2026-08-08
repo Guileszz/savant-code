@@ -26,13 +26,20 @@ export const subgoalSchema = z.object({
 export type Subgoal = z.infer<typeof subgoalSchema>
 
 export type FsmPhase =
-  'idle' | 'red' | 'green' | 'audit' | 'self_correct' | 'complete'
+  | 'idle'
+  | 'red'
+  | 'green'
+  | 'audit'
+  | 'adversarial'
+  | 'self_correct'
+  | 'complete'
 
 const FSM_PHASE_LIST: readonly FsmPhase[] = [
   'idle',
   'red',
   'green',
   'audit',
+  'adversarial',
   'self_correct',
   'complete',
 ] as const
@@ -186,6 +193,7 @@ export const AgentTemplateTypeList = [
   'thinker',
   'scout',
   'verifier',
+  'adversary',
   'forge',
   'recorder',
   'scribe',

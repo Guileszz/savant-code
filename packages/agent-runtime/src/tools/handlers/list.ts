@@ -19,9 +19,13 @@ import { handleDeepResearch } from './tool/deep-research'
 import { handleEndTurn } from './tool/end-turn'
 import { handleFindFiles } from './tool/find-files'
 import { handleGlob } from './tool/glob'
+import { handleQueryBlastRadius } from './tool/graph/query-blast-radius'
+import { handleQueryDomainClusters } from './tool/graph/query-domain-clusters'
+import { handleQueryNodeEdges } from './tool/graph/query-node-edges'
 import { handleGravityIndex } from './tool/gravity-index'
 import { handleListDirectory } from './tool/list-directory'
 import { handleLookupAgentInfo } from './tool/lookup-agent-info'
+import { handlePonytailDebt } from './tool/ponytail-debt'
 import { handleProposeStrReplace } from './tool/propose-str-replace'
 import { handleProposeWriteFile } from './tool/propose-write-file'
 import { handleReadDocs } from './tool/read-docs'
@@ -86,8 +90,12 @@ export const savantCode$1: {
   list_directory: handleListDirectory,
   list_tables: handleListTables,
   lookup_agent_info: handleLookupAgentInfo,
+  ponytail_debt: handlePonytailDebt,
   propose_str_replace: handleProposeStrReplace,
   propose_write_file: handleProposeWriteFile,
+  query_blast_radius: handleQueryBlastRadius,
+  query_domain_clusters: handleQueryDomainClusters,
+  query_node_edges: handleQueryNodeEdges,
   read_docs: handleReadDocs,
   read_files: handleReadFiles,
   read_subtree: handleReadSubtree,

@@ -1,0 +1,291 @@
+import { getErrorObject } from '@savant-code/common/util/error'
+
+import { finalizeQueueState } from './queue-state'
+import { useChatStore } from '../../../state/chat-store'
+import { IS_SAVANT_FREE } from '../../../utils/constants'
+import {
+  getCountryBlockFromFreeModeError,
+  getFreeModeUnavailableErrorMessage,
+  getSavantFreeGateErrorKind,
+  getSavantFreeRateLimitErrorMessage,
+  isOutOfCreditsError,
+  isFreeModeUnavailableError,
+  OUT_OF_CREDITS_MESSAGE,
+} from '../../../utils/error-handling'
+import { formatElapsedTime } from '../../../utils/format-elapsed-time'
+import { logger } from '../../../utils/logger'
+import { invalidateActivityQuery } from '../../use-activity-query'
+import {
+  markSavantFreeSessionCountryBlocked,
+  markSavantFreeSessionEnded,
+  markSavantFreeSessionSuperseded,
+  refreshSavantFreeSession,
+} from '../../use-savant-free-session'
+import { usageQueryKeys } from '../../use-usage-query'
+
+import type { AgentMode } from '../../../utils/constants'
+import type { BatchedMessageUpdater } from '../../../utils/message-updater'
+import type { SendMessageTimerController } from '../../../utils/send-message-timer'
+import type { StreamStatus } from '../../use-message-queue'
+import type { RunState } from '@savant-code/sdk'
+import type { MutableRefObject } from 'react'
+
+const DEFAULT_RUN_OUTPUT_ERROR_MESSAGE = 'No output from agent run'
+
+export const handleRunCompletion = (params: {
+  runState: RunState
+  actualCredits: number | undefined
+  agentMode: AgentMode
+  timerController: SendMessageTimerController
+  updater: BatchedMessageUpdater
+  aiMessageId: string
+  wasAbortedByUser: boolean
+  /** Whether the run streamed any content before finishing. A savant-free gate
+   *  rejection with no content means the prompt was consumed unprocessed —
+   *  surfaced as an inline error instead of silently looking sent. */
+  hasReceivedContent?: boolean
+  setStreamStatus: (status: StreamStatus) => void
+  setCanProcessQueue: (can: boolean) => void
+  updateChainInProgress: (value: boolean) => void
+  setHasReceivedPlanResponse: (value: boolean) => void
+  resumeQueue?: () => void
+  isProcessingQueueRef?: MutableRefObject<boolean>
+  isQueuePausedRef?: MutableRefObject<boolean>
+}) => {
+  const {
+    runState,
+    actualCredits,
+    agentMode: _agentMode,
+    timerController,
+    updater,
+    wasAbortedByUser,
+    setStreamStatus,
+    setCanProcessQueue,
+    updateChainInProgress,
+    setHasReceivedPlanResponse: _setHasReceivedPlanResponse,
+    resumeQueue,
+    isProcessingQueueRef,
+    isQueuePausedRef,
+  } = params
+  // If user aborted, the abort handler already handled UI updates and released the
+  // chain lock. Don't finalize queue state again to avoid interfering with any new
+  // run that may have started after the abort. Uses per-run abort signal (not shared
+  // streamRefs) so a newer run's reset() can't clear this flag.
+  if (wasAbortedByUser) {
+    return
+  }
+  const output = runState.output
+  const finalizeAfterError = () => {
+    finalizeQueueState({
+      setStreamStatus,
+      setCanProcessQueue,
+      updateChainInProgress,
+      isProcessingQueueRef,
+      isQueuePausedRef,
+    })
+    timerController.stop('error')
+  }
+  if (!output) {
+    if (!wasAbortedByUser) {
+      updater.setError(DEFAULT_RUN_OUTPUT_ERROR_MESSAGE)
+      finalizeAfterError()
+    }
+    return
+  }
+  if (output.type === 'error') {
+    if (isOutOfCreditsError(output)) {
+      updater.setError(OUT_OF_CREDITS_MESSAGE)
+      useChatStore.getState().setInputMode('outOfCredits')
+      invalidateActivityQuery(usageQueryKeys.current())
+      finalizeAfterError()
+      return
+    }
+    if (isFreeModeUnavailableError(output)) {
+      updater.setError(getFreeModeUnavailableErrorMessage(output))
+      if (IS_SAVANT_FREE) {
+        markSavantFreeSessionCountryBlocked(
+          getCountryBlockFromFreeModeError(output) ?? {
+            countryCode: 'UNKNOWN',
+          },
+        )
+      }
+      finalizeAfterError()
+      return
+    }
+    const gateKind = getSavantFreeGateErrorKind(output)
+    if (gateKind) {
+      handleSavantFreeGateError(gateKind, updater, {
+        messageWasDropped: params.hasReceivedContent === false,
+      })
+      finalizeAfterError()
+      return
+    }
+    const rateLimitMsg = IS_SAVANT_FREE
+      ? getSavantFreeRateLimitErrorMessage(output)
+      : null
+    if (rateLimitMsg) {
+      updater.setError(rateLimitMsg)
+      finalizeAfterError()
+      return
+    }
+    // Pass the raw error message to setError (displayed in UserErrorBanner without additional wrapper formatting)
+    updater.setError(output.message ?? DEFAULT_RUN_OUTPUT_ERROR_MESSAGE)
+    finalizeAfterError()
+    return
+  }
+  invalidateActivityQuery(usageQueryKeys.current())
+  finalizeQueueState({
+    setStreamStatus,
+    setCanProcessQueue,
+    updateChainInProgress,
+    isProcessingQueueRef,
+    isQueuePausedRef,
+    resumeQueue,
+  })
+  const timerResult = timerController.stop('success')
+  const elapsedMs = timerResult?.elapsedMs ?? 0
+  const elapsedSeconds = Math.floor(elapsedMs / 1000)
+  let completionTime: string | undefined
+  if (elapsedSeconds > 0) {
+    completionTime = formatElapsedTime(elapsedSeconds)
+  }
+  updater.markComplete({
+    ...(completionTime && { completionTime }),
+    ...(actualCredits !== undefined && { credits: actualCredits }),
+    metadata: {
+      runState,
+    },
+  })
+}
+
+export const handleRunError = (params: {
+  error: unknown
+  timerController: SendMessageTimerController
+  updater: BatchedMessageUpdater
+  setIsRetrying: (value: boolean) => void
+  setStreamStatus: (status: StreamStatus) => void
+  setCanProcessQueue: (can: boolean) => void
+  updateChainInProgress: (value: boolean) => void
+  isProcessingQueueRef?: MutableRefObject<boolean>
+  isQueuePausedRef?: MutableRefObject<boolean>
+  /** See handleRunCompletion — flags an unprocessed prompt on gate errors. */
+  hasReceivedContent?: boolean
+}) => {
+  const {
+    error,
+    timerController,
+    updater,
+    setIsRetrying,
+    setStreamStatus,
+    setCanProcessQueue,
+    updateChainInProgress,
+    isProcessingQueueRef,
+    isQueuePausedRef,
+    hasReceivedContent,
+  } = params
+  const errorInfo = getErrorObject(error, { includeRawError: true })
+  logger.error({ error: errorInfo }, 'SDK client.run() failed')
+  setIsRetrying(false)
+  finalizeQueueState({
+    setStreamStatus,
+    setCanProcessQueue,
+    updateChainInProgress,
+    isProcessingQueueRef,
+    isQueuePausedRef,
+  })
+  timerController.stop('error')
+  if (isOutOfCreditsError(error)) {
+    updater.setError(OUT_OF_CREDITS_MESSAGE)
+    useChatStore.getState().setInputMode('outOfCredits')
+    invalidateActivityQuery(usageQueryKeys.current())
+    return
+  }
+  if (isFreeModeUnavailableError(error)) {
+    updater.setError(getFreeModeUnavailableErrorMessage(error))
+    if (IS_SAVANT_FREE) {
+      markSavantFreeSessionCountryBlocked(
+        getCountryBlockFromFreeModeError(error) ?? {
+          countryCode: 'UNKNOWN',
+        },
+      )
+    }
+    return
+  }
+  const gateKind = getSavantFreeGateErrorKind(error)
+  if (gateKind) {
+    handleSavantFreeGateError(gateKind, updater, {
+      messageWasDropped: hasReceivedContent === false,
+    })
+    return
+  }
+  const rateLimitMsg = IS_SAVANT_FREE
+    ? getSavantFreeRateLimitErrorMessage(error)
+    : null
+  if (rateLimitMsg) {
+    updater.setError(rateLimitMsg)
+    return
+  }
+  // Use setError for all errors so they display in UserErrorBanner consistently
+  const errorMessage = errorInfo.message || 'An unexpected error occurred'
+  updater.setError(errorMessage)
+}
+
+/**
+ * Surface + recover from a session gate rejection. The server rejected
+ * the request because our session is no longer valid; update local state so
+ * the UI reflects reality and we stop sending requests until we re-admit.
+ */
+function handleSavantFreeGateError(
+  kind: ReturnType<typeof getSavantFreeGateErrorKind>,
+  updater: BatchedMessageUpdater,
+  opts: {
+    messageWasDropped?: boolean
+  } = {},
+) {
+  switch (kind) {
+    case 'session_expired':
+    case 'waiting_room_required':
+    case 'session_model_mismatch':
+      // Our seat is gone mid-chat. Finalize the AI message so its streaming
+      // indicator stops — otherwise `isComplete` stays false and the message
+      // keeps rendering a blinking cursor forever, making the user think the
+      // agent is still working even though the SessionEndedBanner is visible
+      // and actionable. Also disposes the batched-updater flush interval.
+      updater.markComplete()
+      // Rejected before producing anything (the run-start guard missed
+      // because only the server knew the slot was gone): the prompt won't be
+      // processed and isn't re-queued, so say so instead of leaving it
+      // looking sent. Runs that got partway keep the quieter banner-only UX.
+      if (opts.messageWasDropped) {
+        updater.setError(
+          'Your free session ended before this message was processed. Send it again after starting a new session.',
+        )
+      }
+      // Flip to `ended` instead of auto re-queuing: the Chat surface stays
+      // mounted so any in-flight agent work can finish under the server-side
+      // grace period, and the session-ended banner prompts the user to press
+      // Enter when they're ready to rejoin.
+      markSavantFreeSessionEnded()
+      return
+    case 'waiting_room_queued':
+      // Legacy error code: sessions are admitted immediately now, so this is
+      // only reachable in a transient race with a concurrent session request.
+      updater.setError(
+        'Your free session is still being set up. Try again in a moment.',
+      )
+      // Re-sync without resetting chat — this is a "we'll wait", not a
+      // "let's start fresh".
+      refreshSavantFreeSession().catch(() => {})
+      return
+    case 'session_superseded':
+      updater.setError(
+        'Another savant-free CLI took over this account. Close the other instance, then restart.',
+      )
+      // Terminal state: stop polling and flip UI to a "please restart" screen
+      // so we don't silently fight the other instance for the seat.
+      markSavantFreeSessionSuperseded()
+      return
+    default:
+      return
+  }
+}

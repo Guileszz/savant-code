@@ -3,11 +3,7 @@ import React from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 
 import { initializeThemeStore } from '../../../hooks/use-theme'
-import {
-  blendHex,
-  NEON_GREEN,
-  NEON_RED,
-} from '../../../utils/diff-stats'
+import { blendHex, NEON_GREEN, NEON_RED } from '../../../utils/diff-stats'
 import { chatThemes } from '../../../utils/theme-system'
 import { CopyableBlock } from '../../blocks/copyable-block'
 import { DiffStatsBar, DiffViewer } from '../diff-viewer'

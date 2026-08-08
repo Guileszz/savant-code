@@ -51,7 +51,8 @@ valid Savant backend key is required for a meaningful evaluate pass.
    the working tree but still tracked in git, breaking `evals/benchmark`.
    Restored via `git restore`.
 2. **RR-2** — `main.ts` / `main-single-eval.ts` referenced the never-existing
-   `eval-savant-code.json`; retargeted to the real `eval-codebuff.json`.
+   `eval-savant-code.json`; retargeted to the real `eval-codebuff.json` (the
+   codebuff-named v1 fixtures were later retired with the v1 default profiles).
 3. **RR-5a** — `add-fix` task's golden patch had a stale single-line pre-image
    for the multi-line `add.js`; regenerated the patch → baseline now 4/4.
 4. **RR-5b** — v2 evaluate mode passed **no `agentDefinitions`**, so every run

@@ -7,3 +7,25 @@
 resources/
 research/
 .eslint-recovery.json
+
+# /export + /graph-export command output — generated fresh on every export;
+# formatting the artifact is pure churn (a 2MB HTML reflow) and the next
+# export would not match. dev/exports/ is the default single-file-rotation
+# target (FID-2026-0806-016).
+dev/exports/
+**/dev/exports/
+savant-export-*.html
+
+# Playwright and browser harness output — disposable local test artifacts.
+**/test-results/
+savant-graph-*.html
+
+# Cytoscape.js inline constant — generated single-token template literal (373KB,
+# no newlines). Prettier cannot parse a template literal this wide in one pass
+# (unlike fontawesome.ts whose CSS carries real newlines); formatting it would
+# be pure churn anyway. Regenerate via cli/scripts/generate-cytoscape.ts.
+cli/src/constants/cytoscape.ts
+# Generated single-token base64 data URI for the Code Universe document
+# watermark (FID-2026-0807-009) — regenerate via
+# cli/scripts/generate-character-watermark.ts.
+cli/src/commands/graph-export/character.ts

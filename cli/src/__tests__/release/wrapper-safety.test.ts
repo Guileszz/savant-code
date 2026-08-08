@@ -116,13 +116,20 @@ describe('shared release launcher safety', () => {
   const launcherPath = join(repoRoot, 'cli/release-core/launcher.js')
   const { createLauncher } = require(launcherPath)
 
-  test('stages an update before stopping the running process', () => {
+  // FID-2026-0806-014: consent before apply. An update is staged in the
+  // background and recorded as pending; the running session is never stopped
+  // and the binary is never replaced mid-session. The install happens only on
+  // the next launch, after a y/N prompt in main() (applyPendingUpdateIfApproved).
+  test('stages an update and defers install to next launch with consent', () => {
     const source = readFileSync(launcherPath, 'utf8')
     const updateFunction = source.slice(
       source.indexOf('async function checkForUpdates'),
     )
     const stageIndex = updateFunction.indexOf(
       'const stagedBinary = await stageBinary',
+    )
+    const writeMarkerIndex = updateFunction.indexOf(
+      'writePendingUpdateMarker(stagedBinary)',
     )
     const stopIndex = updateFunction.indexOf(
       'await stopRunningProcess(runningProcess)',
@@ -131,9 +138,16 @@ describe('shared release launcher safety', () => {
       'installStagedBinary(stagedBinary)',
     )
 
+    // The background check stages the download and records the pending marker...
     expect(stageIndex).toBeGreaterThan(-1)
-    expect(stopIndex).toBeGreaterThan(stageIndex)
-    expect(installIndex).toBeGreaterThan(stopIndex)
+    expect(writeMarkerIndex).toBeGreaterThan(stageIndex)
+    // ...but the mid-session stop + install are gone from checkForUpdates.
+    expect(stopIndex).toBe(-1)
+    expect(installIndex).toBe(-1)
+    // The consent prompt + opt-out exist in the launcher.
+    expect(source.indexOf('SAVANT_CODE_NO_AUTO_UPDATE')).toBeGreaterThan(-1)
+    expect(source.indexOf('askYesNo')).toBeGreaterThan(-1)
+    expect(source.indexOf('applyPendingUpdateIfApproved')).toBeGreaterThan(-1)
   })
 
   test('cleans up process-stop listeners and timers', async () => {

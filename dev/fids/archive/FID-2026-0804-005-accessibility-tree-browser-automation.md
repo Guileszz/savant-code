@@ -129,7 +129,7 @@ Tools: `navigate`, `click`, `fill`, `get_accessibility_tree`, `screenshot`, `get
 - [ ] Error recovery with checkpoint
 - [ ] All operations governed by ECHO Protocol
 
-## Perfection Loop Re-Run (Loop 2 — Independent FreeBuff Review)
+## Perfection Loop Re-Run (Loop 2 — Independent Savant Code Review)
 
 ### RED (Ground-Truth Verification)
 

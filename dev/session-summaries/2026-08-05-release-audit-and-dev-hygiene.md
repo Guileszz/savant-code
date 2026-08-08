@@ -34,7 +34,7 @@ and release gates across the whole repo, (3) clean up what was genuinely dead.
   unreferenced by any code (only `resources/` vendored fixtures mention the
   name). Staged for deletion.
 - **`.gitignore` += `.commandcode/`** — the untracked CommandCode CLI local state
-  (`settings.json` + `taste/`) is now ignored alongside `.freebuff/` /
+  (`settings.json` + `taste/`) is now ignored alongside `.savant/` /
   `.savant-code/` instead of being a commit risk.
 
 ## Version consistency (0.0.19)

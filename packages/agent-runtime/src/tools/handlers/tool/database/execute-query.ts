@@ -57,7 +57,11 @@ export const handleExecuteQuery = (async (params: {
       let rows: Array<Record<string, JSONValue>> = []
       let changes = 0
 
-      if (sqlType === 'insert' || sqlType === 'update' || sqlType === 'delete') {
+      if (
+        sqlType === 'insert' ||
+        sqlType === 'update' ||
+        sqlType === 'delete'
+      ) {
         // Write: parameterless prepared statement; row cap not applicable.
         const stmt = db.prepare(limitedSql)
         const info = stmt.run()

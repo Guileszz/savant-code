@@ -64,6 +64,23 @@ export const getInferenceBaseUrlFromEnv = (): string | undefined => {
 }
 
 /**
+ * True when the SDK runs in direct/BYOK mode with no SavantCode backend:
+ * either `DIRECT_PROVIDER` or `INFERENCE_BASE_URL` is set. Mirrors the CLI's
+ * `isDirectProviderMode()` (cli/src/utils/env.ts) so backend-bound SDK calls
+ * (agent runs, steps, composio, healthz) can be gated consistently. The
+ * backend is intentionally not deployed yet (FID-2026-0806-009) — in direct
+ * mode every backend call must short-circuit.
+ */
+export const isDirectProviderMode = (): boolean => {
+  const directProvider = process.env['DIRECT_PROVIDER']
+  const inferenceBaseUrl = getInferenceBaseUrlFromEnv()
+  return (
+    (directProvider ?? '').trim().length > 0 ||
+    (inferenceBaseUrl ?? '').trim().length > 0
+  )
+}
+
+/**
  * Get the inference API key from environment.
  */
 export const getInferenceApiKeyFromEnv = (): string | undefined => {
@@ -78,6 +95,13 @@ export const getChatGptOAuthTokenFromEnv = (): string | undefined => {
  */
 export const getTokenRouterApiKeyFromEnv = (): string | undefined => {
   return process.env['TOKENROUTER_API_KEY']
+}
+
+/**
+ * Get the TokenHarbor API key from environment.
+ */
+export const getTokenHarborApiKeyFromEnv = (): string | undefined => {
+  return process.env['TOKENHARBOR_API_KEY']
 }
 
 /**

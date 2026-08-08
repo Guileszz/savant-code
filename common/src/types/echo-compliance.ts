@@ -9,12 +9,17 @@
  * dependency.
  */
 
-/** Laws the harness can flag. */
-export type ComplianceLaw =
-  | 'law1'
-  | 'law3'
-  | 'verifier_criteria'
-  | 'fid'
+/** Laws the harness tracker can flag. */
+export type ComplianceLaw = 'law1' | 'law3' | 'verifier_criteria' | 'fid'
+
+/**
+ * Wire law values accepted on `compliance_warning` events: the tracker's
+ * laws plus the EHEL enforcement layer's numeric laws (7 = search-before-
+ * create, 8 = intent-before-coding) rendered as `law7` / `law8`. The
+ * template-literal form keeps the wire open to future EHEL laws without
+ * widening the tracker's own `ComplianceLaw` union (which it never emits).
+ */
+export type ComplianceWarningLaw = ComplianceLaw | `law${number}`
 
 /** Receipt severity. `critical` is reserved for future hard-block mode. */
 export type ComplianceSeverity = 'info' | 'warning' | 'critical'

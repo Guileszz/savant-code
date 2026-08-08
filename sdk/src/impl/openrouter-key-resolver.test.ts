@@ -5,7 +5,11 @@ import {
   resolveOpenRouterApiKey,
 } from './openrouter-key-resolver'
 
-const ENV_KEYS = ['OR_MASTER_KEY', 'OPENROUTER_API_KEY', 'INFERENCE_API_KEY'] as const
+const ENV_KEYS = [
+  'OR_MASTER_KEY',
+  'OPENROUTER_API_KEY',
+  'INFERENCE_API_KEY',
+] as const
 
 describe('OpenRouter API key resolver', () => {
   let originalEnv: Record<string, string | undefined>

@@ -2,7 +2,9 @@ import { describe, test, expect } from 'bun:test'
 
 import {
   CANONICAL_NEXT_PUBLIC_DEFAULTS,
+  CANONICAL_RELEASE_RUNTIME_DEFAULTS,
   evaluateBinaryEnvIntegrity,
+  getReleaseRuntimeDefaults,
   findBinaryEnvLeaks,
 } from '../../../scripts/build-binary'
 
@@ -18,10 +20,24 @@ function canonicalEnv(): Record<string, string> {
   }
 }
 
+describe('release runtime defaults', () => {
+  test('routes Savant-Code release binaries through OpenRouter direct mode', () => {
+    expect(getReleaseRuntimeDefaults('savant-code')).toEqual({
+      ...CANONICAL_RELEASE_RUNTIME_DEFAULTS,
+      SAVANT_CODE_DEFAULT_MODEL_ID: 'openrouter/free',
+    })
+  })
+
+  test('preserves Savant-Free backend/session routing', () => {
+    expect(getReleaseRuntimeDefaults('savant-free')).toEqual({})
+  })
+})
+
 describe('findBinaryEnvLeaks', () => {
   test('clean canonical env yields zero leaks', () => {
-    expect(findBinaryEnvLeaks(canonicalEnv(), CANONICAL_NEXT_PUBLIC_DEFAULTS))
-      .toEqual([])
+    expect(
+      findBinaryEnvLeaks(canonicalEnv(), CANONICAL_NEXT_PUBLIC_DEFAULTS),
+    ).toEqual([])
   })
 
   test('flags a dev NEXT_PUBLIC_* value (localhost / personal email / dummy key)', () => {
@@ -55,7 +71,9 @@ describe('findBinaryEnvLeaks', () => {
       { NODE_ENV: 'production' },
       CANONICAL_NEXT_PUBLIC_DEFAULTS,
     )
-    expect(leaks).toHaveLength(Object.keys(CANONICAL_NEXT_PUBLIC_DEFAULTS).length)
+    expect(leaks).toHaveLength(
+      Object.keys(CANONICAL_NEXT_PUBLIC_DEFAULTS).length,
+    )
     for (const leak of leaks) {
       expect(leak.actual).toBe('<unset>')
     }

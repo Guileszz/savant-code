@@ -46,12 +46,15 @@ export async function handleHealthCommand(params: RouterParams): Promise<void> {
 
   // When running against a direct provider, report the required credential
   // variable and whether a key is configured (shell or stored).
-  const providerName = directProvider ?? (inferenceBaseUrl ? 'custom' : undefined)
-  const providerInfo = providerName ? getProviderSetupInfo(providerName) : undefined
+  const providerName =
+    directProvider ?? (inferenceBaseUrl ? 'custom' : undefined)
+  const providerInfo = providerName
+    ? getProviderSetupInfo(providerName)
+    : undefined
   const requiredEnvVar = providerInfo?.envVar
   const keyConfigured = Boolean(
     (requiredEnvVar && process.env[requiredEnvVar]?.trim()) ||
-      (providerName ? getConfiguredProviderKey(providerName) : undefined),
+    (providerName ? getConfiguredProviderKey(providerName) : undefined),
   )
 
   const providerSection = isDirectProvider

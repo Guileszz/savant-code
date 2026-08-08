@@ -31,7 +31,10 @@ interface ModeHovertipProps {
  * can never capture hover and flicker. Tree order (rendered after the control)
  * keeps it painting on top.
  */
-export function ModeHovertip({ text, offsetBottom = MODE_CONTROL_HEIGHT }: ModeHovertipProps) {
+export function ModeHovertip({
+  text,
+  offsetBottom = MODE_CONTROL_HEIGHT,
+}: ModeHovertipProps) {
   const theme = useTheme()
   if (!text) return null
 

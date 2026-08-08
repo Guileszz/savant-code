@@ -3,7 +3,7 @@
 **Filename:** `FID-2026-0803-002-llm-providers-database-audit.md`
 **ID:** FID-2026-0803-002
 **Severity:** high
-**Status:** verified
+**Status:** closed
 **Created:** 2026-08-03
 **Author:** Savant
 
@@ -292,7 +292,7 @@ affected-rows checks on UPDATEs; `maxImagesPerCall` validation in the image mode
 - **GREEN:** Not started — awaiting operator approval (audit-only FID).
 - **COMPLETE:** Not started.
 
-### Loop 2 (rerun per FreeBuff ECHO)
+### Loop 2 (rerun per Savant ECHO)
 
 - **RED re-verify:** All 16 findings re-confirmed against the live tree on 2026-08-03 (chat guard still missing at
   `chat-language-model.ts:246`; completion guard present; 0 chat empty-choices tests; `z.any()` at
@@ -300,7 +300,7 @@ affected-rows checks on UPDATEs; `maxImagesPerCall` validation in the image mode
   (llm-providers 55/0, database 8/0).
 - **AUDIT:** Complete — independent re-review (Loop 2) verified all citations and the signing-policy pass;
   minor notes closed (checkbox reword, lint sweep below).
-- **Signing policy:** FID authored as **Savant**; zero `Buffy`/`FreeBuff` attributions (per FreeBuff ECHO "Document
+- **Signing policy:** FID authored as **Savant**; zero `Savant`/`Savant` attributions (per Savant ECHO "Document
   Signing & Attribution").
 
 ### Missed Questions
@@ -317,7 +317,7 @@ affected-rows checks on UPDATEs; `maxImagesPerCall` validation in the image mode
    code.
 2. Dead exported surface (`getLatestModelForChat`, `hasSessions`, `getDatabase`, `closeDatabase`, agent-config and
    cost-record accessors) accumulates when no cleanup pass runs over a package; Law 10/13 require an explicit sweep.
-3. The FreeBuff ECHO governs agent attribution: sign as **Savant** only. Archived artifacts from prior sessions were
+3. The Savant ECHO governs agent attribution: sign as **Savant** only. Archived artifacts from prior sessions were
    corrected in this pass (FID-2026-0802-008, FID-2026-0803-001).
 
 ## Resolution

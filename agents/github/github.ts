@@ -56,8 +56,7 @@ const definition: AgentDefinition = {
         },
         issue: {
           type: 'number' as const,
-          description:
-            'Issue number, when the task targets a specific issue.',
+          description: 'Issue number, when the task targets a specific issue.',
         },
       },
     },

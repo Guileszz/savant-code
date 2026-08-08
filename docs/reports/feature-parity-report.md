@@ -803,7 +803,7 @@ the governance spine.
 
 - `docs/reports/adoptable-features-master.md` — 16-repo feature-first synthesis (20 numbered features, per-repo comparison tables, "Recommended adoption" picks with rationale).
 - `docs/reports/repos/*.md` — 16 individual repo inventories (source for this report's Section 3 snapshots and Section 5 evidence).
-- `docs/AI Coding Agents Market Research.md` — Claude Code / Codex / Cursor / OpenCode competitive synthesis.
+- `docs/research/AI Coding Agents Market Research.md` — Claude Code / Codex / Cursor / OpenCode competitive synthesis.
 
 ---
 

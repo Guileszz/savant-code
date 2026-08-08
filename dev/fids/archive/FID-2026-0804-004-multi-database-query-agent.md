@@ -130,7 +130,7 @@ Tools: `list_tables`, `describe_table`, `execute_query`, `analyze_query` ~~`gene
 - [ ] Audit logging for all operations
 - [ ] All operations governed by ECHO Protocol
 
-## Perfection Loop Re-Run (Loop 2 — Independent FreeBuff Review)
+## Perfection Loop Re-Run (Loop 2 — Independent Savant Code Review)
 
 ### RED (Ground-Truth Verification)
 

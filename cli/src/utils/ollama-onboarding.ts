@@ -168,7 +168,7 @@ export async function detectOllamaAndConfigureDirectProvider(
         directProvider: undefined,
         directProviderBaseUrl: undefined,
         savantCodeModelPreference: DEFAULT_SAVANT_CODE_MODEL_ID,
-        savantCodeModelProviderPreference: 'opencode-go',
+        savantCodeModelProviderPreference: 'openrouter',
         savantCodeModelAutoConfigured: false,
       })
     }

@@ -1,5 +1,965 @@
 # Changelog
 
+## TokenHarbor provider and complete model catalog (FID-2026-0807-025)
+
+> Completed 2026-08-07. Added TokenHarbor as a first-class OpenAI-compatible
+> gateway provider at `https://tokenharbor.ai/v1`, configured through
+> `/provider tokenharbor` or `TOKENHARBOR_API_KEY`. The shared and CLI catalogs
+> now include all 20 published TokenHarbor model IDs across the Frontier, Value,
+> Free, and Orchestra groups, preserving nested IDs and `:free` suffixes.
+> Supported-provider documentation is aligned across the README, Chinese README,
+> installation, privacy, feature, index, SDK, and release guides.
+>
+> **Verification:** common and CLI typechecks passed; exact catalog tests,
+> ESLint, Prettier, and markdownlint passed; no live TokenHarbor credential was
+> used. FID: `dev/fids/archive/FID-2026-0807-025-tokenharbor-provider-integration.md`.
+
+## Code Universe stale-document reconciliation + watermark centering (FID-2026-0807-024)
+
+> Completed and archived 2026-08-08. Graph export now refreshes the project index under a shared per-project operation lock before serialization, preventing stale FID rows and embedding current files. Progress reports the refresh stage. The character watermark is centered as a full-panel background behind the grid and document content.
+>
+> **Verification:** knowledge-graph typecheck + 18/18 tests; CLI typecheck + 41/41 focused graph-export tests (428 assertions); ESLint zero warnings; Prettier clean; source safety/fallback audit; final adversarial review. Browser pixel centering remains `NEEDS-REVIEW`.
+> FID archived at `dev/fids/archive/FID-2026-0807-024-graph-export-stale-documents-and-watermark-centering.md`.
+
+## Code Universe branded universe hover tooltip (FID-2026-0807-023)
+
+> Completed and archived 2026-08-08. Universe-node hover now uses a dark navy/cyan neon DOM tooltip with kind, title, path, and metadata hierarchy; safe `textContent` rendering; viewport-aware positioning and flipping; camera repositioning; leave/stage/reset cleanup; pointer-event isolation; reduced-motion styling; and Sigma native hover-label suppression.
+>
+> **Verification:** CLI typecheck exit 0; graph-export tests 40 pass / 0 fail; ESLint clean; Prettier clean; final adversarial review found no critical runtime findings. FID archived at `dev/fids/archive/FID-2026-0807-023-branded-universe-hover-tooltip.md`.
+
+## Code Universe export progress feedback (FID-2026-0807-022)
+
+> Completed 2026-08-07. `/graph-export` now provides immediate, command-owned
+> progress feedback instead of appearing frozen during the 2–5 second export
+> pipeline. A unique transient status message advances through graph
+> serialization, layout, document embedding, compression, HTML assembly, and
+> file writing before being replaced by exactly one final success or failure
+> message. UI-update failures are isolated from the export, and missing-index
+> preflight errors remain immediate and accurate.
+>
+> **Verification:** CLI typecheck passed; focused graph-export tests **40 pass /
+> 0 fail**; ESLint passed with zero warnings; Prettier passed; final adversarial
+> review found no critical runtime findings. FID verified at
+> `dev/fids/archive/FID-2026-0807-022-graph-export-progress-feedback.md`.
+
+## Code Universe document-viewer polish (FID-2026-0807-021)
+
+> Completed and archived 2026-08-08. The document viewer now keeps long source lines wrapped without horizontal overflow, places bracketed line/byte metadata beside the title, keeps copy controls inside the header layout, removes the font-size controls, and remains contained across desktop, tablet, and mobile widths. Window stacking remains intentional: the independently closable/draggable sidebar overlays the center document by design.
+>
+> **Verification:** typecheck, graph-export tests, ESLint, and Prettier passed; generated-artifact and responsive fixture checks passed across desktop, tablet, portrait-tablet, mobile, and phone-sized viewports. The full 9 MB Sigma/WebGL DOM dump timed out and remains explicitly `NEEDS-REVIEW`; FID archived at `dev/fids/archive/FID-2026-0807-021-code-universe-document-viewer-polish.md`.
+
+## Code Universe architecture evaluation — payload, render-time, CI (FID-2026-0807-020)
+
+> Completed and archived 2026-08-07. Full evaluation backlog implemented with
+> unlimited text preserved. Payload purge: the legacy `elements` array is
+> stripped from the shipped payload (~1.5 MB dead weight), the duplicated
+> "Savant Code Code Universe" title is fixed, and stale Cytoscape comments are
+> swept. Compression: documents now ship as a gzip+base64 block
+> (`savant-docs-payload`) decoded lazily in the browser via
+> `Uint8Array.fromBase64` + `DecompressionStream("gzip")`, with a plain-mode
+> export knob and `</script>` breakout escaping on both paths. Render-time:
+> integer coordinate rounding, a precomputed export-time search index,
+> `forEachNode`/`forEachEdge` iteration instead of array allocation, and
+> verified LOD/reduced-motion contracts. CI: a byte-determinism SHA-256 gate
+> (double export, timestamp normalization) and a new Playwright `file://`
+> zero-network suite in `evals/` (WebGL init, search, clean console, every
+> external route aborted). Artifact shrank from 22.3 MB to 10.1 MB.
+>
+> **Verification:** knowledge-graph typecheck + 17/17 tests; CLI typecheck +
+> 37/37 graph-export tests (incl. the determinism gate and the plain-mode
+> breakout-escaping regression); evals typecheck; ESLint/Prettier clean;
+> markdownlint clean; Playwright `file://` suite 1/1; real-artifact Chrome
+> probe at desktop + 900px narrow (zero console errors, docs open, search
+> aligned under the input).
+
+## Graph export sidebar responsiveness + document budgets (FID-2026-0807-019)
+
+> Completed and archived 2026-08-07. Responsive wide drill-down sidebar with
+> count badges, shared scrollbar tokens and a single document scroll owner,
+> contained single-line document navigation, character watermark reduced to
+> 0.06 opacity, unlimited text documents by default with explicit-cap
+> messaging (the HEAD PREVIEW / FILE TOO LARGE walls are gone), binary
+> probing, and compact rendering for very large files.
+>
+> **Verification:** knowledge-graph typecheck + 17/17 tests; CLI typecheck +
+> 34/34 graph-export tests at closeout (37/37 as of FID-2026-0807-020);
+> ESLint/Prettier clean; deterministic artifact regeneration; Chrome `file://`
+> probe with zero console errors; no retired HEAD PREVIEW / FILE TOO LARGE
+> messaging in active UI.
+
+## `/dev` folder and FID lifecycle hygiene (FID-2026-0807-016)
+
+> Completed and archived 2026-08-07. Added navigation indexes for the
+> development records, separated reusable scratchpad validation from retained
+> historical experiments, preserved all historical FID filenames/content, and
+> removed stale scratchpad path references from the changelog. No files were
+> deleted and unresolved FIDs remain active.
+>
+> **Verification:** Prettier clean; markdownlint clean; 24 moved files present
+> at their categorized destinations; no stale moved scratchpad references;
+> duplicate historical FID IDs unchanged.
+
+## Code Universe head previews + draggable windows (FID-2026-0807-015)
+
+> Completed and archived 2026-08-07. Oversized document cards now carry
+> bounded, readable head previews from a separate 4 MiB pool (configurable via
+> `SAVANT_GRAPH_EXPORT_HEAD_BYTES` and `SAVANT_GRAPH_EXPORT_HEAD_TOTAL_BYTES`),
+> and the real aggregate-budget hint no longer points users at only the
+> per-file limit. Code Universe panels now have always-visible OS-style title
+> bars with pointer dragging, containing-block coordinate clamping, and
+> no-op-click-safe responsive anchoring.
+>
+> **Verification:** KG typecheck + 17 tests; CLI typecheck + 37 graph-export
+> tests; ESLint and Prettier clean; deterministic regeneration; small real
+> Chrome probe 6/6 PASS; graph-export E2E 19 PASS / 0 FAIL.
+
+## Code Universe QC polish pass (FID-2026-0807-014)
+
+> Completed and archived 2026-08-07. Deep quality-control pass over the Code
+> Universe graph export — a live headless-Chrome probe against the real
+> artifact confirmed 3 interaction bugs, 1 dead parameter, and 6 missing
+> enhancements; all 10 were implemented in `cli/src/commands/graph-export/template.ts`.
+>
+> - **F1 — Staged Escape:** the first Escape now only dismisses the overlay
+>   layer (restores a minimized taskbar, otherwise hides the sidebar + center
+>   panels) while preserving selection/zoom state (`STATE_PILL` stays DETAIL);
+>   a second Escape restores the universe. No more losing a document + zoom
+>   in one keypress.
+> - **F2 — Per-window close:** each panel's × closes ONLY that panel — the
+>   sidebar × keeps the open center document and the center × keeps the
+>   sidebar; `resetUniverse()` remains the only close-everything path.
+> - **F3 — Taskbar stacking:** when both panels are minimized, the sidebar
+>   (DOM order index 1) rises via a `docked-sibling` class
+>   (`bottom:calc(8px + 38px + 34px + 6px)` — accounts for the footer offset
+>   between the two containing blocks). Probe: sidebar y 613–651 vs center
+>   y 657–695, `TASKBARS_OVERLAP=false` (was a 152px collision).
+> - **F4 — fitUniverse sound:** `fitUniverse()` now calls
+>   `fitUniverseInternal(false)` so the Fit button's close sound actually
+>   fires; `fitUniverseSilently()` keeps `true` for init.
+> - **F5 — Tree keyboard navigation:** `#region-list` is focusable; ArrowUp/
+>   Down/Left/Right/Home/End move a visible `.nav-key-focus` row, ArrowRight
+>   expands the focused region/folder, ArrowLeft collapses or steps to the
+>   parent row, with `aria-activedescendant` tracking.
+> - **F6 — Collapse/expand all:** `▾ ALL` / `▸ ALL` buttons in the systems
+>   header — expand-all walks each region tree to depth 2 (LEVEL_CAP-capped),
+>   collapse-all re-hides every region-files container and resets chevrons +
+>   ARIA (176 containers expanded in the probe).
+> - **F7 — Document font-size toggle:** `A−` / `A+` cycle the document font
+>   11/12/13/15px via `font-scale-*` classes, session-persistent across file
+>   navigation.
+> - **F8 — Word-wrap toggle:** `⤺ WRAP` flips `.wrap-off` →
+>   `white-space:pre` with horizontal scroll for long lines (default wraps).
+> - **F9 — Document breadcrumbs:** clickable path ancestry under the title
+>   (root → ancestors → file); folder segments navigate via
+>   `navigateToFolder(folderByPath[acc])`.
+> - **F10 — Search shortcut:** `/` or Ctrl/Cmd+K focuses the universe search
+>   (skipped while typing in any input; Escape from search returns focus).
+>
+> **Verification:** cli typecheck 0 · ESLint `--max-warnings 0` clean ·
+> Prettier clean · graph-export suite **32 pass / 0 fail** (342 expects, incl.
+> a new FID-2026-0807-014 contract test) · live E2E **19 PASS / 0 FAIL** ·
+> headless-Chrome probe all 10 contracts green against the regenerated
+> deterministic artifact. FID archived to `dev/fids/archive/`.
+
+## Completion brand scrub — archives, evals, docs, records (operator directive)
+
+> Completed 2026-08-07. Operator directive: remove the remaining legacy
+> FreeBuff/Buffy brand from **all tracked files** (everything except
+> CHANGELOG/LEARNINGS pure history, per the chosen scope option). Follow-up
+> to FID-2026-0807-011, which had declared archives/history as documented
+> non-goals — the operator explicitly rescinded that.
+>
+> - **54 files scrubbed (287 replacements):** 22 FID archives, 8 session
+>   summaries, 18 NOVA correspondence files, 4 docs (gravity starter,
+>   rebranding plan, 2 research docs), 2 test prompts, and the
+>   `protocol.config.yaml` comment. Mapping: `FreeBuff→Savant`,
+>   `freebuff→savant`, `FREEBUFF_→SAVANT_FREE_`, `v0.1.2-freebuff→
+>   v0.1.2-single-agent`, `ECHO-freebuff.md→ECHO-single-agent.md`, etc.
+>   Semantic fixes after review: free-tier tokens in the rebranding plan map
+>   to `savant-free` (not `savant`), inverted "zero/removed/deprecated"
+>   claims reworded to neutral "legacy" phrasing, self-referential
+>   `protocol.config.yaml` comment fixed, dated report timeline preserved.
+> - **2 renames (`git mv`):** `FID-2026-0803-014-freebuff-to-savant-
+>   rebrand-sweep.md` → `...-legacy-to-savant-rebrand-sweep.md`;
+>   `2026-07-31-freebuff-echo-compliance-remediation.md` →
+>   `2026-07-31-echo-compliance-remediation.md` (internal references updated).
+> - **Evals retirement (why the mentions lingered):** the v1 benchmark was
+>   rebuilt (v2 exists) but its codebuff-named fixtures were still the
+>   **default profiles**. Deleted `eval-codebuff.json`,
+>   `eval-codebuff2.json`, `eval-codebuff-hard.json`; rewired
+>   `main.ts` → `eval-saleor.json`, `main-hard-tasks.ts` → manifold/plane/
+>   saleor only, `main-single-eval.ts` → saleor + valid task ID. The stale
+>   `docs/reports` RR-2 note now records the later retirement.
+> - **Documented exemptions (intentional):** `CHANGELOG.md` + `LEARNINGS.md`
+>   (pure history), `cli/src/login/constants.ts` + `common/src/env-schema.ts`
+>   (functional `NEXT_PUBLIC_FREEBUFF_APP_URL` backward-compat env alias,
+>   FID-2026-0806-013 keep), `.gitignore` `.freebuff/` (functional ignore),
+>   `docs/research/*` (external citations: third-party `Quorinex/Freebuff2API`
+>   repo, article titles, YC listing — renaming would falsify sources),
+>   vendored `resources/freebuff-main/` (third-party mirror, lint-excluded).
+>
+> **Verification:** evals typecheck exit 0 · protocol-config 6/6 · evals v2
+> 69/69 · ESLint clean · Prettier clean · markdownlint clean · final sweep:
+> zero brand tokens in tracked records beyond the documented exemptions.
+
+## Code Universe window controls — min / max / close + taskbar minimize (FID-2026-0807-012)
+
+> Completed and archived 2026-08-07. Operator-approved FID-Bound execution
+> (single-agent ECHO protocol). Both panels now carry real OS-style window
+> chrome instead of a lone floating close chip:
+>
+> - **3-button window-control cluster:** `— minimize · □ maximize · × close`
+>   shared by the center document panel and the right details sidebar,
+>   flush to the top-right corner (`top:0; right:0`, square,
+>   `border-radius:0`, flat dark chrome with hairline borders — no floating
+>   chips). Close hovers red/magenta; min/max hover cyan. Content pads right
+>   so nothing hides under the cluster.
+> - **Minimize = taskbar:** the panel docks to the viewport bottom as a slim
+>   taskbar-style bar showing the open file's name (`.window-title-bar`).
+>   The document **stays open** (`browserDocumentId` preserved) — minimize
+>   is a dock-state toggle, never a close. Clicking the bar (or `—` again)
+>   restores the exact same file.
+> - **Maximize:** near-fullscreen document view, toggles back. Mutually
+>   exclusive with minimize, like OS windows.
+> - **Close:** unchanged semantics; resets the focus state.
+> - One shared JS surface `windowMinimize/windowMaximize/windowClose/
+>   windowRestore` exposed on `window`, wired to inline `onclick` (Law 4).
+>
+> **Verification:** cli typecheck exit 0 · ESLint + Prettier clean ·
+> graph-export **31/31 pass (306 expects)** · headless-Chrome click-through
+> all green (2 control groups, `right:0/top:0/radius 0`, 3 buttons,
+> minimize docks with `DOC_KEPT_ALIVE=true`, restore returns the same
+> document, maximize toggles, close resets) · live E2E 19/19 ·
+> deterministic 13.77 MB artifact. FID archived to `dev/fids/archive/`.
+
+## Code Universe UI polish + FreeBuff identity cleanup (FID-2026-0807-011)
+
+> Completed and archived 2026-08-07. Operator-driven UI tweaks plus the
+> pasted FreeBuff identity-cleanup feature request finished:
+>
+> - **A1 — Watermark dimmed:** the character document backdrop drops from
+>   `opacity:.25` to `.12` (≈ half) so it reads as a watermark, not a layer.
+> - **A2 — Window-control close buttons:** the center × and right-sidebar ×
+>   are no longer floating circular chips; both are square buttons flush to
+>   the panel's top-right corner (`right:0;top:0`, `border-radius:0`,
+>   border-left/bottom only). Content clearance added (`.document-toolbar`,
+>   `.browser-heading`, `.graph-sidebar h2/eyebrow` pad right so nothing
+>   slides under the ×).
+> - **A3 — Document budget knobs + honest message:** `eslint.config.js` (7 KB)
+>   reported "FILE TOO LARGE FOR EXPORT" because the 8 MB total-text budget
+>   (`DEFAULT_DOCUMENT_TOTAL_TEXT_BYTES`) is consumed cumulatively — and the
+>   card's "re-run with a larger limit" advice was false because no knob
+>   existed. `buildGraphExportHtml` now forwards optional env limits
+>   (`SAVANT_GRAPH_EXPORT_DOCUMENT_LINES` / `_DOCUMENT_BYTES` /
+>   `_DOCUMENT_IMAGE_BYTES` / `_TOTAL_TEXT_BYTES` / `_TOTAL_MEDIA_BYTES`) to
+>   the serializer; the oversized card shows the source file size
+>   (`formatBytes`) and names the env vars. Behavioral test: line cap 1
+>   truncates the fixture's two-line files.
+> - **B1–B4 — Identity cleanup:** `protocol.config.yaml` `freebuff:` namespace
+>   → `single_agent:` (version `0.1.2-single-agent`); `protocol-config.ts`
+>   `freeBuffLines`/`freeBuffProtocolLines` → `singleAgentLines`/
+>   `singleAgentProtocolLines`; `protocol-config.test.ts` + `enforcement.test.ts`
+>   fixtures updated. (`protocol-summary.ts`, `FREEREADME.md`, and the
+>   gravity-doc rebrand note were already done by the prior session.)
+> - **B5–B6 — Deletions:** `git rm ECHO-freebuff.md` +
+>   `dev/nova/specs/echo-v0.1.2-freebuff.md`; grep-verified zero remaining
+>   references in active source (only legacy env aliases, legal attribution,
+>   and the documented rebrand note remain).
+>
+> **Verification:** typecheck ×3 exit 0; graph-export 31/31 (287 expects),
+> protocol-config 6/6, enforcement 13/13; ESLint clean; Prettier clean; FID
+> markdownlint clean; live E2E 19/19; headless-Chrome probe: watermark
+> opacity 0.12, both close buttons flush 0/0/0, toolbar clearance 36px;
+> deterministic 13.77 MB artifact. FID archived to `dev/fids/archive/`.
+
+## Code Universe sidebar drill-down + nav polish (FID-2026-0807-010)
+
+> Completed and archived 2026-08-07. Deep UI audit of `/graph-export` with the
+> operator-requested sidebar drill-down:
+>
+> - **F1 — Nested per-region directory tree:** the flat 60-file region list is
+>   replaced by a lazy nested tree (`buildRegionTree(files, skipSegments)` +
+>   `renderTreeLevel`/`renderFolderRow`/`renderFileRow`). Region rows expand
+>   into folders that expand into files (chevron + `aria-expanded`/
+>   `aria-controls`), 60-row cap per level with a "+N more in explorer" note;
+>   `regionSkipSegments` strips the region's own top-level segment so the
+>   tree starts at real contents. Region rows still navigate the center to
+>   the region; folder rows expand AND navigate the center to that folder
+>   (`navigateToFolder`); file rows open the document directly.
+> - **F2 — Auto-reveal:** `revealInNav(id)` runs on file navigation (graph /
+>   search): expands the owning region + every ancestor folder and scrolls
+>   the target row into view.
+> - **F3 — Active indicator:** every nav row carries `data-nav-id`;
+>   `highlightNav(id)` marks the selected row (`nav-active`), cleared on
+>   universe reset.
+> - **F4 — Prev/next sibling paging:** `renderDocument` adds `← PREV FILE` /
+>   `NEXT FILE →` toolbar buttons (disabled at the ends) via `siblingFiles()`
+>   so files are browsable without returning to the folder grid.
+> - **F5 — Flat-list path noise removed** with the flat list.
+>
+> **Verification:** typecheck exit 0; graph-export suite 30/30 (278 expects);
+> ESLint clean; Prettier clean; FID markdownlint clean; live E2E 19/19;
+> headless-Chrome click-through probe (22 regions, `.agents → skills →
+> coding-csharp → SKILL.md`, file click opens doc, `nav-active` set, NEXT
+> navigates to `.gitattributes`); deterministic 13.77 MB artifact. Two tree
+> bugs found by the probe and fixed (redundant region-name folder,
+> `relKey` slice index). FID archived to `dev/fids/archive/`.
+
+## Code Universe document-view polish + character watermark (FID-2026-0807-009)
+
+> Completed and archived 2026-08-07. Operator-driven polish batch for `/graph-export` document viewing:
+>
+> - **Character watermark backdrop:** the decorative circle behind the center document view is replaced with the
+>   Savant character art (`assets/logo.png`, user-compressed 868 KB palette PNG) as a `url()` background on
+>   `.center-focus::after` at **25% opacity** with a radial mask fade; the document surface goes translucent so
+>   the mark shows through the code area. Embedded via generated `cli/src/commands/graph-export/character.ts`
+>   (single ~1.19 MB data URI, prettier-ignored, regenerable via `cli/scripts/generate-character-watermark.ts`).
+> - **Close-button fix:** `.center-focus>*:not(.center-focus-grid)` (0,2,0) was overriding
+>   `.center-focus-close{position:absolute}` (0,1,0), dropping the × into top-left flow over the back button;
+>   the rule now excludes the close button and both close chips are restyled as visible bordered buttons.
+> - **Document toolbar:** compact header (BACK + meta + **COPY CONTENT** + title + path) via
+>   `copyDocumentContent()` (clipboard with textarea fallback); document panel taller
+>   (`min(86vh,880px)`), surface `calc(100% - 118px)`; themed scrollbars extended to the content areas;
+>   oversized/unavailable docs get a designed glyph card instead of bare pink text.
+> - **Search alignment:** `.universe-search` becomes the positioning context and the results panel anchors
+>   `left:0` so the dropdown sits directly under the input.
+> - **Left-nav accordion:** systems list expands into clickable per-region file trees (chevron toggle, lazy
+>   60-row build, `aria-expanded`/`aria-controls`, active-row highlight); file rows navigate directly.
+> - **Backdrop legibility:** the ROOT region's sigma node renders as a dim dot (no label) when not selected so
+>   the character logo planet reads as the backdrop; logo draw enlarged to `radius*1.32` with a brightness
+>   filter and a cyan rim ring.
+> - **Amendment (logo IS the character):** the header `<img class="logo">` and the ROOT planet previously
+>   embedded the legacy circular emblem (`constants/savant-logo.ts`); both now use a generated 15 KB circular
+>   crop of the character (`CHARACTER_LOGO_DATA_URI`), matching the document watermark's full character art.
+>   Artifact shrank ~90 KB.
+> - **Chat export alignment:** the `/export` conversation report's header logo and Savant row markers
+>   consumed the legacy circular emblem via `export-conversation/branding.ts` → `constants/savant-logo.ts`;
+>   `branding.ts` now re-exports `CHARACTER_LOGO_DATA_URI` (from the graph-export character module) so both
+>   export surfaces share identical character branding. New test pins the header + row-marker `src`; the
+>   legacy `savant-logo.ts` emblem retains no production consumers.
+>
+> **Verification:** typecheck ×2 exit 0; graph-export 29/29 (263 expect calls) + export-conversation 6/6;
+> ESLint clean (incl. generated `character.ts`); Prettier clean; FID markdownlint clean; live E2E harness
+> 19/19; headless-Chrome probe: watermark bg + opacity 0.25, close button top-right and visible, COPY button
+> present, document surface 478 px, region accordion expands (lazy 33 rows for ROOT), search panel 0 px left
+> delta under the input; deterministic export 13.85 MB. FID archived to `dev/fids/archive/`.
+
+## Code Universe polish batch (FID-2026-0807-008)
+
+> Completed and archived 2026-08-07. Three Code Universe polish items from deep review of `/graph-export`:
+>
+> - **F1 — Honest systems list (verified):** root-level files were emitted as their own 1-file "systems"
+>   (`.bun-version · 1`, …) and clicking one opened the ROOT directory instead of the file's document.
+>   `regionPath()` in `packages/knowledge-graph/src/export-serializer.ts` now groups root files into the ROOT
+>   region, `packages/<file>` into `packages`, sorts ROOT first, and never flags ROOT as isolated. Headless-Chrome
+>   click-probe: 54 nav entries → 22, root-file document opens correctly.
+> - **F2 — Savant brand backdrop:** the ROOT region's background planet emblem (drawn by `#planet-effects` in
+>   `cli/src/commands/graph-export/template.ts`) is now the Savant logo — the data URI is read from the header
+>   `<img>` so the multi-line base64 constant never enters a JS string literal; halo + orbit rings preserved,
+>   procedural fallback while decoding, reduced-motion static.
+> - **F3 — Search depth:** `searchUniverse()` (single first-match probe) replaced with a ranked kind-aware search:
+>   `buildSearchIndex()` covers files/folders/systems, `searchScore()` ranks exact → prefix → path-segment →
+>   contains, live debounced `#search-results` panel with `<mark>` highlighting and `role=listbox` ARIA,
+>   ↑/↓/Enter/Escape + click, folder results route through the center browser, no-match state.
+>
+> **Verification:** typecheck ×2 exit 0; graph-export suite 22/22 (217 expect calls, incl. new F1/F2/F3
+> contracts); ESLint clean; Prettier clean; FID markdownlint clean; live E2E harness 19/19; headless-Chrome
+> probe `BRAND_LOGO_DRAWN=true` with 104,826 canvas pixels, 12 ranked rows for "template", ArrowDown→Enter
+> navigates to a folder, Escape closes; deterministic export 12.71 MB. FID archived to `dev/fids/archive/`.
+
+## Code Universe document + image viewer (FID-2026-0807-006)
+
+> Completed and archived 2026-08-07. Explicit product document enablement with
+> typed text/image/unavailable documents, bounded text/media budgets, raster
+> signature validation, SVG/known-media rejection, safe offline data-URI image
+> rendering with a visible load-failure fallback, document-free layout
+> serialization, and regression coverage.
+>
+> **Verification:** knowledge-graph 17/17; CLI graph-export + containers 20/20;
+> live E2E 18/18; ESLint/Prettier/markdownlint clean; real artifact 13.27 MB,
+> 2,084 documents (1,424 text, 2 PNG, 658 budget-unavailable), deterministic
+> export. Browser residual (NEEDS-REVIEW at closeout) subsequently covered by
+> the FID-019/020 Playwright `file://` suite + Chrome probes.
+
+## Code Universe offline graph initialization + loader failure (FID-2026-0807-005)
+
+> Completed and archived 2026-08-07. Replaced the template-literal newline
+> escape with `String.fromCharCode(10)`, added deterministic loader hiding and
+> fallback handling, and switched the loader ring to linear rotation.
+>
+> **Verification:** focused 17/17 (134 expectations); live harness 18/18; CLI
+> typecheck/ESLint/Prettier/markdownlint clean; real export regenerated
+> (3,340,680 bytes). Browser residual (NEEDS-REVIEW at closeout) subsequently
+> covered by the FID-019/020 Playwright `file://` suite + Chrome probes.
+
+## Code Universe hierarchical browser + document view (FID-2026-0807-004)
+
+> Completed and archived 2026-08-07. Deterministic folder hierarchy and capped
+> opt-in document payloads; center folder grid with explicit parent/back
+> navigation, paging, file-to-document drill-down, line-numbered safe document
+> rendering, preview wiring, symlink containment, and UTF-8-safe byte caps.
+>
+> **Verification:** focused 17/17; live harness 18/18; CLI typecheck,
+> ESLint/Prettier clean; independent review PASS; real export 3.19 MB (2,084
+> files, 14 containers), deterministic minus timestamps. Browser residual
+> (NEEDS-REVIEW at closeout) subsequently covered by the FID-019/020 Playwright
+> `file://` suite + Chrome probes.
+
+## Code Universe post-click navigation + comet physics (FID-2026-0807-003)
+
+> Completed and archived 2026-08-07. Durable `navigateToObject` selection
+> routing, non-destructive stage clicks, explicit sidebar stacking,
+> vector-derived varied comet geometry, and visible reduced-motion comet
+> geometry.
+>
+> **Verification:** focused 16/16; live harness 16/16; CLI typecheck, ESLint,
+> Prettier, independent review PASS. Browser click-persistence/screenshot
+> residual (NEEDS-REVIEW at closeout) subsequently covered by the FID-019/020
+> Playwright `file://` suite + Chrome probes.
+
+## Code Universe WebGL renderer (FID-2026-0807-002)
+
+> Completed and archived 2026-08-07. Renderer-neutral Code Universe
+> serialization, export-time region/file layout, aggregate corridors, an
+> offline Sigma/Graphology bundle, spatial navigation states, search-to-travel,
+> copyable full-path sidebar, reduced-motion toggle, multi-edge support, WebGL
+> fallback, and the cyberpunk ambient layer (drifting stars, shooting-star
+> streaks, neon scrollbars, system halos with orbital rings + pulsing beacons).
+>
+> **Verification:** focused 16/16; knowledge-graph 17/17; live harness 16/16;
+> typecheck/lint/format gates; Chrome file:// load with zero console errors.
+
+## Spatial knowledge-graph experience (FID-2026-0807-001) — superseded design
+
+> Completed and archived 2026-08-07. Design-only FID; no production code
+> changed. The conservative Cytoscape-compound region representation and the
+> macro/meso/micro LOD contract were superseded by FID-2026-0807-002's
+> renderer-neutral Sigma.js/Graphology universe (systems with aggregate + exact
+> edge levels, spatial navigation states, search-to-travel).
+>
+> **Verification:** RED/GREEN/AUDIT/ADVERSARIAL convergence; markdownlint clean.
+
+## Code Universe visible overview + fit (FID-2026-0806-018)
+
+> Completed and archived 2026-08-07. Compact export-time overview coordinates
+> (fixed-size ELK pass) with center-frame child offsets and stable container
+> anchors; shared browser expand/collapse helper for tap + search; visible-node
+> fitting for initial load and toolbar Fit; serializer emits the new contract
+> and omits absolute child positions.
+>
+> **Verification:** FID-018 coordinate-contract test 11/11; e2e harness 15/15;
+> typecheck ×2; ESLint/Prettier clean; independent headless-Chrome probe of the
+> regenerated artifact (zoom 0.39, bbox 1,337 × 764, no drift, 0 errors).
+
+## Code Universe performance: precomputed layout (FID-2026-0806-017)
+
+> Completed and archived 2026-08-07. Export-time ELK two-stage container layout
+> in Bun (elkjs 0.12.0, exact-pinned) replaces the browser's synchronous COSE;
+> all coordinates embedded as preset positions (zero browser layout math).
+> Payload overhaul: inert application/json + JSON.parse (no 2.6 MB object
+> literal), inline 4-glyph SVG sprite (no 1.2 MB Font Awesome CSS), previews
+> opt-in off by default, canvas LOD, haystack edges with directional arrows,
+> sync init, containers collapsed by default with expand-on-tap drill-down.
+>
+> **Verification:** artifact 4.45 MB → 496 KB; interactive in ~80 ms; 0 node
+> overlap; deterministic; typecheck ×2 clean; focused tests pass; ESLint/
+> Prettier clean.
+
+## v0.0.21 — 2026-08-06
+
+### Reversible public release pipeline (FID-2026-0808-001)
+
+> Implemented 2026-08-08. Added `scripts/public-release.ts` as the canonical,
+> reversible public release orchestrator. Preview mode is mutation-free for
+> release targets; normal mode requires explicit interactive confirmation and
+> validates the public remote, `main` branch, aligned versions, changelog order,
+> authenticated GitHub/npm access, package ownership, and clean worktree before
+> applying the non-secret OpenRouter/free profile. It creates the annotated tag,
+> pushes `main` + tag, creates the GitHub release from the current changelog
+> section, publishes `@savant-code/sdk` before `savant-code`, records resumable
+> stages, verifies public artifacts, and restores local settings/environment in
+> `finally`. `savant-free` is excluded.
+>
+> **Verification:** 6 focused contract tests passed; Bun bundle, ESLint,
+> Prettier, Markdownlint, and `git diff --check` passed. No push, tag, GitHub
+> release, or npm publication was executed. FID remains active as implemented
+> pending independent audit and operator-approved release execution.
+
+> **Release note:** this release ships everything accumulated since the v0.0.20 push — gate hardening (format +
+> test now live), the ECHO Harness Enforcement Layer, context-window corrections, the deterministic codebase
+> knowledge graph, and adversarial verification (ADVERSARIAL phase + Adversary agent + design constitution).
+> `VERSION` + all 12 workspaces are unified at **0.0.21**; the intermediate working-tree bumps (0.0.22–0.0.24)
+> were consolidated into this release and never shipped.
+>
+> **Verification (final):** typecheck ×12 → 0 errors; root `bun run test` → 10/10 workspace suites pass (4,793
+> tests / 0 fail); `bun x eslint . --max-warnings 0` → clean; `bunx prettier --check .` → clean;
+> `bun run lint:md` → 0 errors.
+
+### Offline sci-fi sound effects (FID-2026-0807-007)
+
+> Completed and archived 2026-08-07. The Code Universe export now has a self-contained, offline Web Audio layer:
+> six hash-verified Kenney CC0 cues embedded in `savant-audio-data`, first-gesture unlock, SFX enable/mute and
+> volume controls, procedural fallback cues, four-voice/pending-decode limits, graceful decode failure, event
+> wiring for navigation/search/fit/reset/open/close/warning, and compiled-binary asset packaging. The generated
+> UI is functional as intended; physical speaker output remains the only explicitly unverified boundary.
+>
+> **Verification:** focused graph-export tests 19/19; live E2E 19/19; CLI typecheck, ESLint, Prettier, and
+> markdownlint passed; deterministic export `dev/exports/graph/savant-graph.html` measured 13,323,305 bytes with
+> six cues, a 49,246-byte registry, 49,310 bytes growth over the no-audio baseline, and no relative audio assets
+> or runtime provenance URLs. FID archived to `dev/fids/archive/`.
+
+### Post-audit fix batch (FID-2026-0806-016)
+
+> Five issues from the v0.0.21 A–Z audit + Nova inbox (basher phase waste, export
+> org/perf/layout, ELK request, ADHD output-mode question) run through the Perfection Loop
+> (RED → GREEN → AUDIT 8/8 PASS → ADVERSARIAL 6/6 CONFIRMED/ADJUSTED → COMPLETE), all
+> implemented and verified.
+>
+> - **F1 — ESLint gate cleared:** `sdk/examples/readme-example-2.ts` `eslint-disable`
+>   comment moved below the imports (the two `@savant-code/sdk` imports adjacent);
+>   `bun x eslint . --max-warnings 0` now exits 0 — the A–Z verdict flips to GO.
+> - **F2 — basher fail-fast:** `agents/basher.ts` prompt gains a fail-fast clause (on an
+>   FSM-gate block, reply ONE line and stop — no analysis/alternatives); bundled agents
+>   regenerated.
+> - **F3 — export organization/perf/layout:** `/export` + `/graph-export` defaults move to
+>   `dev/exports/{conversation,graph}/` with single-file rotation (user paths honored);
+>   `.gitignore` gains `dev/exports/`; graph template defers Cytoscape init, cluster-seeds
+>   node spread + zoom-to-fit on load, and makes the sidebar viewport-fixed.
+> - **F4 — `self_correct` terminal deadlock fixed:** `run_terminal_command` FSM allowlist
+>   `['audit','green']` → `['audit','green','self_correct']` (`native.ts`), doc note in
+>   `common/src/constants/agents.ts` reconciled, positive self_correct test added — the
+>   harness deadlock that burned tokens in the audit run is gone.
+> - **F5 — ADHD/Caveman retrofit:** three ADHD-derived rules (number multi-step tasks, cap
+>   lists at 5, end with one concrete next step) added to `caveman-rules.ts` behind the
+>   existing `caveman.enabled` flag. No new mode/skill — Nova feature question answered
+>   with the honest retrofit assessment. ELK engine request deferred with trigger
+>   (cluster-seeded COSE is the retrofit; server-side ELK preset re-evaluated if the real
+>   6,916-node export still overlaps).
+>
+> **Verification:** typecheck ×4 exit 0 (sdk/common/agent-runtime/cli) · ESLint exit 0 ·
+> prettier clean · lint:md exit 0 · agent-runtime targeted 38 pass / 0 fail · CLI
+> export/graph targeted 15 pass / 0 fail.
+
+### Fresh-user teardown fixes (FID-2026-0806-009 … 015)
+
+> Seven issues from the fresh-user teardown bug report (`dev/nova/inbox/2026-08-06-fresh-user-teardown-bug-report.md`)
+> were run through the Perfection Loop (RED → GREEN → AUDIT → ADVERSARIAL → COMPLETE), Nova-approved
+> (009–015), operator-approved, implemented, and verified. Backend intentionally undeployed — BYOK/direct
+> mode is the only path; boot default = OpenRouter, not OpenCode Go.
+>
+> - **FID-2026-0806-009 — BYOK gate:** `isDirectProviderMode()` in `sdk/src/env.ts` (`DIRECT_PROVIDER` OR
+>   `INFERENCE_BASE_URL`); short-circuits `finishAgentRun`/`addAgentStep`/`fetchAgentFromDatabase`
+>   (database.ts), composio (composio.ts), healthz (client.ts); `startAgentRun` warns to debug. No backend
+>   call can leak in BYOK/direct mode. 5 direct-mode gate tests + env cleanup in database.test.ts;
+>   `isDirectProviderMode` coverage in env.test.ts; gate tests in composio.test.ts + client.test.ts.
+> - **FID-2026-0806-010 — OpenRouter-first boot default:** boot defaults to `openrouter/free` (settings
+>   `DEFAULT_SAVANT_CODE_MODEL_ID`/`PROVIDER`, provider-setup default, ollama-onboarding); SDK
+>   `isOpenRouterModel` branch in model-provider.ts routes `openrouter/` slugs to
+>   `https://openrouter.ai/api/v1` with resolved key (full slug preserved); `INFERENCE_BASE_URL` override
+>   still wins. Model-provider-free-mode tests (full-slug check, key-required), settings default
+>   assertions, ollama-onboarding + provider-setup tests.
+> - **FID-2026-0806-011 — Visible failures + headless mode:** `--print <prompt>` headless mode
+>   (`cli/src/headless-run.ts` + cli-args.ts + index.tsx): runs one prompt via the SDK, prints the final
+>   answer to stdout (ANSI stripped when piped), exit 0 success / 1 error+timeout / 2 usage. Auto-headless
+>   on piped stdin or CI. `SAVANT_CODE_RUN_TIMEOUT_MS` (default 10 min) aborts hung runs; headless client
+>   skips `ask_user`. 13 headless-run tests + 2 cli-args parse tests.
+> - **FID-2026-0806-012 — Safe chat-state serialization:** `cli/src/utils/safe-stringify.ts` (WeakSet cycle
+>   guard) wired into the 4 `run-state-storage` save sites; cyclic `ChatState` can no longer crash saves.
+>   run-state-storage 43/43 incl. new cyclic-serialization tests.
+> - **FID-2026-0806-013 — Branding strip:** `savant-free.com`/`NEXT_PUBLIC_FREEBUFF_APP_URL` dead constants
+>   re-pointed to `savant-code.com` (hosts.ts, login/constants.ts, base-chat.ts, system-prompt.ts,
+>   analytics-events.ts, savant-free-models.ts, env-schema legacy alias, .env.example); bundled agents
+>   regenerated (0 remaining `savant-free.com` in src); test fixtures updated.
+> - **FID-2026-0806-014 — Auto-update prompt:** launcher (`cli/release-core/launcher.js`) `checkForUpdates`
+>   stages + writes a pending-update marker and never stops the running process; next launch
+>   `applyPendingUpdateIfApproved()` prompts y/N before install; `SAVANT_CODE_NO_AUTO_UPDATE=1` opts out;
+>   non-TTY launches defer. wrapper-safety.test.ts updated to the consent-gated flow.
+> - **FID-2026-0806-015 — Analytics disclosure:** README Privacy & Telemetry section (default-on
+>   disclosure, `/telemetry` disable path); one-line first-run notice in index.tsx (stderr, shown once via
+>   `settings.analyticsNoticeShown`). settings.test.ts notice-shown-once test.
+>
+> **Project-wide alignment:** version intentionally **unchanged at 0.0.21** for this fix set. The
+> npm-publishable release wrapper `cli/release/package.json` was found stale at `0.0.20` and aligned to
+> `0.0.21` (publish blocker — caught in the pre-release sweep). README.md + README.zh-CN.md +
+> docs/features.md + docs/installation.md + docs/privacy.md + docs/index.md + cli/release/README.md aligned with the new behavior (OpenRouter-first boot default `openrouter/free`,
+> `--print` headless mode, consent-gated auto-update, analytics disclosure); savant-free branding kept out
+> of official docs (future product); new harness test prompt
+> `dev/test-prompts/az-test-v0.0.21-all-fixes.md` (15 tiers) covers ALL recently-closed FIDs 005–015
+> — both Nova batches (ECHO enforcement, graph-export interactive fixes, startup playbook, gate
+> failures, fresh-user teardown) plus a knowledge graph / `/graph-export` / `/export` re-test (T13).
+>
+> **Verification:** typecheck ×4 exit 0; `bun x eslint . --max-warnings 0` → clean; prettier clean;
+> `bun run lint:md` → 0 errors; SDK suite 452 pass / 0 fail; CLI suite 2,892 pass / 0 fail; graph/export e2e
+> harness 14 PASS / 0 FAIL. All seven FIDs closed + archived; `dev/fids/` holds zero open FIDs.
+
+### ECHO enforcement + graph export + playbook skill + gate fixes (FID-2026-0806-005 … 008)
+
+> The three Nova feature requests (echo-enforcement, graph-export-fix, startup-playbook) plus the A-Z gate
+> failures (SDK build, ESLint, markdownlint) were run through the Perfection Loop (RED → GREEN → AUDIT →
+> ADVERSARIAL → COMPLETE), Nova-approved (005/006/007), operator-approved, implemented, and verified.
+>
+> - **FID-2026-0806-005 — ECHO Protocol Enforcement System:** session-init `protocolRead` gate in
+>   `EchoEnforcement.beforeToolCall` (strict-only, configurable `requiredProtocolFile`, missing-file
+>   auto-satisfy + log); 15-turn `onStepBoundary` refresh wired in `loop-iteration.ts` with a condensed
+>   `protocol-summary.ts` (≤ 800 tokens) + `<!--echo-critical-->` sentinel; compactor preserves sentinel
+>   messages; subagents pre-seeded `protocolPreSeeded` from `parentId` in `native.ts`; system-prompt
+>   session-init + subagent phase rules. 8 enforcement + 1 compactor tests; agent-runtime 755/0.
+> - **FID-2026-0806-006 — Graph Export Interactive Fixes:** root cause was `#cy` with no explicit height at
+>   init (canvas ~0-height → nodes clump, clicks unusable). Explicit height + `cy.resize()` + tuned COSE
+>   params; `cy.on('tap')` + visible selection + background-tap close; right-drawer sidebar (path/type/
+>   cluster, Connections with edge types + direction, capped code preview); `preview?: string` in the export
+>   serializer (first 20 lines, 2,000-char cap, NUL/binary skip, `SAVANT_GRAPH_EXPORT_NO_PREVIEW=1` opt-out);
+>   privacy comment updated. Verified on a fresh 4.5 MB real export (6,916 nodes / 7,874 edges; 2,031
+>   previews embedded). Interactive browser click-through remains NEEDS-REVIEW (browser automation
+>   unavailable).
+> - **FID-2026-0806-007 — Startup Playbook Skill:** vendored into `.agents/skills/startup-playbook/`
+>   (SKILL.md 4 modes + chapters/ + references/ + prompts/ + playbooks/) with `scripts/verify-provenance.ts`
+>   drift guard (62 claim refs vs. 29-claim ledger); metadata 42 words; BLAKE3 Merkle phase deferred (YAGNI
+>   debt).
+> - **FID-2026-0806-008 — v0.0.21 Gate Failures:** added `exec` to the `bun-sqlite.d.ts` SDK stub (SDK
+>   build was failing on the bundled bun:sqlite type); `eslint --fix` on `sdk/examples/readme-example-2.ts`
+>   (import/order); `.markdownlintignore` policy for `dev/scratchpad/`, `dev/nova/` channels, and the dated
+>   design doc `docs/design/ECHO-Agent-Skills-Integration-Plan.md`.
+>
+> **Verification:** typecheck ×4 exit 0; `bun x eslint . --max-warnings 0` → clean; `bun run lint:md` → 0
+> errors; SDK build + verify exit 0; agent-runtime 755/0. All four FIDs closed + archived; `dev/fids/` holds
+> zero open FIDs.
+
+### Token optimization + context engineering redesign (FID-2026-0806-003)
+
+> Six-phase redesign of the compaction/token/YAGNI stack, grounded in `docs/research/Savant Code Token
+> Optimization Plan.md` and a deep-dive of the vendored harnesses (`resources/`). All six phases shipped:
+>
+> - **P1 — Compaction fidelity:** structured `<structured_state>` summary contract (`Standing facts`, `Goal`,
+>   `Decisions`, `Files & code`, `Open TODOs` (reference-only), `Pending user asks`, `Exact identifiers`,
+>   `Preserved state`); preserved-state JSON block (`buildPreservedState`/`serializePreservedState`/
+>   `extractPreservedState`/`mergePreservedState`, hard caps, re-distill + next-wins merge); first user turn
+>   pinned verbatim + user turns never paraphrased into assistant prose; `ContextCompactor.reactiveCompact`
+>   now preserves `<conversation_summary>`/`<structured_state>` messages (R4 fix).
+> - **P2 — Cache economics:** fixed verbatim recent-tail token budget (default 16 384, `apply-budgets.ts`)
+>   alongside the existing role budgets; generalized tool-result snip pre-pass (`simplify-tool-results.ts`
+>   `truncateToolOutputValue` — byte + line caps, escaped-newline aware) wired into message trimming;
+>   `<compaction-summary>` tags on the summary wrapper.
+> - **P3 — Amortization:** per-turn fold mode (one oldest un-absorbed exchange folded per step, off by default),
+>   anti-thrash scoring on real post-response counts in `ContextCompactor.recordPostResponseContext` +
+>   `prepareStepContext`, idle-compaction + force-ratio triggers in the savant handleSteps factory.
+> - **P4 — Observability:** `token-telemetry.ts` (TokenUsageEvent emitted from the cache-debug usage hook,
+>   cache-hit monitor with `hashesChanged` system+tools check, PostCompact metrics + `context_pruning.completed`
+>   extension); CLI right-sidebar context meter with threshold colors (green/amber/red).
+> - **P5 — YAGNI enforcement:** `yagni-ladder.ts` (6-rung typed evaluator, Law 6/14 exemptions, marker
+>   harvest/validate); Forge `yagni_check` gate in `pre-write-gates.ts` (EnforcementState `yagni`);
+>   `ponytail_debt` tool + handler + `dev/YAGNI-LEDGER.md`; Verifier YAGNI Assessment + Caveman review format;
+>   Adversary over-penalty guard; `YAGNI-Compliance:` field in `templates/FID-TEMPLATE.md`.
+> - **P6 — Config surface + Caveman:** `protocol.config.yaml` gains `compression`/`yagni`/`caveman`/`telemetry`
+>   sections; `ProtocolConfig` schema + loader extended (all keys optional, defaults preserved); P5f Caveman
+>   telegraphic output rules (opt-in, `caveman.enabled`) applied at the runtime prompt boundary for
+>   Orchestrator/Detective/Scribe with Auto-Clarity byte-exact bypasses.
+>
+> **Verification:** agents 55 tests / 0 fail · agent-runtime 730+ tests / 0 fail · common 6/0 (protocol-config) ·
+> typecheck ×5 → 0 errors · eslint 0 · prettier clean · lint:md 0 · `bundled-agents.generated.ts` regenerated.
+
+### Contributor system + CommandCodeBot remediation (FID-2026-0806-004)
+
+> Nova outbox task (remove the `CommandCodeBot` contributor ghost + add a contribution system) run through the
+> Perfection Loop (RED 7 findings → GREEN corrections → AUDIT, two methods) and a **Nova independent audit —
+> Verdict PASS** (all 5 claims verified) before implementation:
+>
+> - **Task 1 — CommandCodeBot (closed as no-code):** six independent checks (local refs, `origin/main`,
+>   fetched tags, `/contributors`, `/commits?author=`, commit-search by name AND email, PR list) prove the
+>   2 bot commits shown on the GitHub contributors page **do not exist in any reachable history** — the page
+>   is a stale graph cache (corroborated by the `v0.0.3-pre-force-recovery` tag). No `filter-branch`/force-push
+>   (a rewrite would be a destructive no-op); remediation = GitHub Support refresh request or natural recompute.
+> - **Task 2 — `/contribute` command:** new `cli/src/commands/contribute.ts` (FID Task 2). `defineCommandWithArgs`
+>   handler; no-arg form reads `git config user.name`; duplicate-safe `CONTRIBUTORS.md` append (header created
+>   when missing); git branch → commit → push → `gh pr create` flow that commits ONLY `CONTRIBUTORS.md` and
+>   returns to the operator's original branch. Git/gh calls use `execFileSync` argv arrays (no shell → no
+>   injection surface) with Law-14 error wrapping; failures post a recovery message while keeping the local
+>   append. Registered in `CORE_COMMANDS` + `ALL_SLASH_COMMANDS` parity entry — ships in **both** builds
+>   (free-removal sets untouched, FID-007 V4 parity test green). Root `CONTRIBUTORS.md` created (`@savant0x`
+>   + `@savant-code` seed rows).
+> - **Task 3 — authorship system:** `.mailmap` maps legacy bot aliases (`CommandCodeBot`, `savant-bot`) →
+>   `savant-code <bot@savant-code.com>` (local `git log` display); `scripts/setup-bot-authorship.sh` sets the
+>   repo-local bot identity idempotently (with `git -c` one-shot + revert documented). Integration point
+>   corrected vs the outbox doc: this repo's release tooling does NOT commit (`release.py` targets
+>   `fame0528/savant-protocol`, `release.ts` dispatches to the private repo) — no `release.yml` invented.
+>
+> **Verification:** `contribute.test.ts` 20 pass · FID-007 registry-gating 5 pass · `cli` suite 2854 pass / 0
+> fail · typecheck exit 0 · eslint 0 · prettier clean · lint:md 0. Nova audit response archived to
+> `dev/nova/inbox/`; FID archived to `dev/fids/archive/`.
+
+### Pre-push repo audit + final harness test prompt (v0.0.21 gate)
+
+> Final repo-wide review before the v0.0.21 push, plus the certification prompt for it:
+>
+> - **Graph + export tested in full:** `graph-export.test.ts` 7/0 · `export-conversation.test.ts` 6/0 ·
+>   knowledge-graph pkg 17/0 · code-map 51/0, plus a **live handler e2e harness**
+>   (`dev/test-prompts/graph-export-e2e.ts`, 14 PASS / 0 FAIL) that indexes a real fixture via
+>   `/graph refresh` (incremental skip verified), writes a self-contained branded `/graph-export` HTML
+>   (1.7 MB, inlined logo + offline Font Awesome + Cytoscape + `GRAPH_DATA`) and a self-contained
+>   `/export` HTML (1.5 MB, copy buttons, zero network refs).
+> - **Doc alignment (user-facing):** `docs/features.md` — 10 agents, ADVERSARIAL phase in the loop, new
+>   Token Optimization & YAGNI + Contributor System sections, slash-command table completed
+>   (`/contribute`, `/telemetry`, `/diagnostics`, `/ads:*`, `/theme:toggle`, `/exit`);
+>   `docs/installation.md` 9→10 agents; `docs/privacy.md` + `docs/SAVANT-VERSIONING.md` → v0.0.21;
+>   `savant-free/README.md` 10 agents + ADVERSARIAL + v0.0.21; root `README.md` + `README.zh-CN.md`
+>   release notes extended. Dated design/launch docs left as historical records.
+> - **Bloat removal:** the two committed 2 MB `savant-export-*.html` artifacts were deleted from
+>   tracking (`git rm`) and both export/graph HTML patterns are now gitignored; stray
+>   `.release-cli-test.log` deleted.
+> - **Version:** `VERSION` + all 12 workspace `package.json` files confirmed `0.0.21`.
+> - **Nova implementation signoff: PASS** (`dev/nova/inbox/2026-08-06-fid-004-commandcodebot-implementation-nova-audit-response.md`)
+>   — FID Loop 4 updated.
+> - **Certification prompt:** `dev/test-prompts/az-test-v0.0.21-release.md` (T1 build/typecheck ×11,
+>   T2 graph, T3 token optimization/YAGNI, T4 contributor system, T5 adversarial, T6 regression, T7 LIVE
+>   tmux tier, T8 repo audit/archival; report contract → `dev/scratchpad/archive/benchmarks/az-test-v0.0.21-results.md`).
+>
+> **Verification:** root `bun run test` → 4,883 pass / 0 fail · typecheck ×11 exit 0 (`savant-free` has no
+> typecheck script — thin wrapper, covered by cli workspace + e2e) · eslint 0 · prettier clean · lint:md 0.
+
+### Adversarial verification + design constitution (FID-2026-0805-004, FID-2026-0806-001)
+
+> The ECHO Perfection Loop gains an **ADVERSARIAL** phase with a new read-only **Adversary** agent —
+> meta-verification that
+> refutes the Verifier's FAILs and re-audits unevidenced PASSes — plus binding evidence-citation rules for every
+> Verifier verdict (`file:line` + quoted code, `NEEDS-REVIEW` for out-of-reach evidence) and a **Savant Agent
+> Design Constitution** skill. Both FIDs converged through the Perfection Loop and were closed + archived;
+> `dev/fids/` now holds zero open FIDs. The FreeBuff spec mirror originally scoped as Phase 4 was dropped per
+> operator correction — FreeBuff is the upstream fork, not a final source; `ECHO.md` is the authoritative
+> harness-specific protocol.
+
+### Added
+
+- **Adversary agent** (`agents/adversary/adversary.ts`, FID-2026-0805-004) — read-only POST-AUDIT
+  meta-verifier (`read_files`, `code_search`, `glob`, `list_directory`, `set_output`; zero write tools; no bash).
+  Refutes every FAIL (CONFIRMED / REFUTED / ADJUSTED with basis), re-audits unevidenced PASSes, resolves
+  citations, re-rates severities, splits half-provable claims, checks for omission; verdicts override the
+  Verifier's. Registered in the Orchestrator `spawnableAgents` + `AGENT_PERSONAS`; bundled in the CLI.
+- **ADVERSARIAL Perfection Loop phase** (FID-2026-0805-004) — `audit → adversarial → complete | self_correct`
+  documented in ECHO.md + ARCHITECTURE.md and enforced at runtime: `FsmPhase` + `transition_phase` schema +
+  `VALID_TRANSITIONS` (`packages/agent-runtime/src/tools/handlers/tool/transition-phase.ts`). Additive — the new
+  state is only reachable from `audit`; 6 new FSM-transition tests.
+- **Verifier evidence rules** (`agents/verifier/verifier.ts`, FID-2026-0805-004) — every PASS/FAIL cites
+  `file:line` + quoted code; absence checks paste the exact NO-MATCH search; `NEEDS-REVIEW` for out-of-reach
+  evidence; fresh-instance rule. Mirrored in the ECHO.md AUDIT row and `templates/FID-TEMPLATE.md`.
+- **Savant Agent Design Constitution skill** (`.agents/skills/savant-design/SKILL.md`, FID-2026-0806-001) — 9
+  applicability-aware hard gates, context-sensitive anti-slop advisories, evidence-based adversarial review
+  protocol, explicit non-goals. Agent governance only; no UI/export/runtime change.
+- **Roster 9 → 10 canonical roles** (FID-2026-0805-004) — reconciled across all four roster-count texts
+  (`agents/savant/system-prompt.ts`, `ECHO.md`, `AGENTS.md`, `ARCHITECTURE.md`) + `cli/README.md`.
+
+### Changed
+
+- ECHO.md + ARCHITECTURE.md: Perfection Loop FSM diagram, state-transition table, phase mapping, and FID-Bound
+  flow updated with the ADVERSARIAL state and evidence-citation rules.
+
+### Fixed
+
+- FID backlog cleared: FID-2026-0805-004 (adversarial verification) and FID-2026-0806-001 (agent design
+  constitution) converged, closed, and archived — `dev/fids/` holds zero open FIDs.
+
+### Verification
+
+- Typecheck ×12 → 0 errors; root `bun run test` → 10/10 workspace suites pass (4,793 tests / 0 fail);
+  `bun x eslint . --max-warnings 0` → clean; `bunx prettier --check .` → clean; `bun run lint:md` → 0 errors.
+
+### Codebase knowledge graph (FID-2026-0806-002)
+
+> deterministic,
+> incremental, SQLite-backed code-structure index with agent query tools,
+> harness-injected Law 4 reachability, and a branded interactive offline
+> export — built end-to-end at automation level 3.
+
+### Added
+
+- **Knowledge-graph engine (`packages/knowledge-graph`):** in-process,
+  deterministic indexer built on `packages/code-map` (tree-sitter). Schema
+  (`files`/`nodes`/`edges`/`file_calls`, cascading FKs, WAL), sha256
+  hash-compare incremental updates (add/modify/delete), `IMPORTS`/`CALLS`/
+  `EXTENDS` edges with deterministic weights (CALLS 2.0, IMPORTS 1.0,
+  cross-directory penalty), and recursive-CTE queries with `instr(path)`
+  cycle detection + ≤50 depth cap. All paths normalized to forward slashes
+  for cross-platform query parity.
+- **Deterministic Louvain clustering:** `graphology` + upgraded
+  `graphology-communities-louvain` 2.0.2 (the 0.2.0 line is incompatible
+  with modern graphology — calls the removed `pgraph.undirected` API).
+  Native `resolution` + seeded RNG make cluster ids reproducible across
+  runs; ids are written back to `nodes.cluster_id`.
+- **Native read-only graph tools:** `query_blast_radius`, `query_node_edges`,
+  `query_domain_clusters` registered through the common tool registry and
+  agent-runtime handlers with adapter-enforced row caps/timeouts (mirroring
+  the database tools). Detective and Scout gained the three tools;
+  `bundled-agents.generated.ts` regenerated.
+- **Verifier/Thinker harness injection:** Law 4 reachability evidence is
+  computed by the harness (`packages/agent-runtime/src/util/graph-injection.ts`)
+  and injected into child message history at spawn — the zero-tool
+  contracts remain unchanged.
+- **`/graph refresh` command:** incremental index rebuild with stats
+  (`--full` forces a complete reindex).
+- **`/graph-export` command:** serializes the graph into a self-contained,
+  branded, fully-offline HTML report reusing the `/export` design system
+  exactly (LOGO_DATA_URI, FONT_AWESOME_ALL_CSS, Neon Slate tokens, corner
+  marks, meta grid, footer). Cytoscape.js 3.30.2 (MIT) is inlined via a
+  generator (`cli/scripts/generate-cytoscape.ts`); the canvas supports
+  fuzzy file search, cluster color-coding, and shortest-path highlighting.
+  Generated-file exemptions added to `.prettierignore` + eslint config.
+- **Docs & hygiene:** `docs/knowledge-graph.md` (new), `docs/features.md`,
+  `docs/index.md`, `ARCHITECTURE.md` (roster + helper-library table),
+  `AGENTS.md`, `README.md` updated; `.savant/` excluded via `.gitignore` +
+  `.savantignore`; root `typecheck`/`test` scripts + `protocol.config.yaml`
+  extended to the 10-workspace set.
+
+### Fixed
+
+- **EHEL Law 1 pre-write gate blocked every new-file write (agent-runtime):**
+  `runPreWriteGates` unconditionally blocked writes to any path not already
+  in `filesRead` — including brand-new files, which cannot have been read —
+  and short-circuited before the non-blocking `EchoComplianceTracker`
+  (FID-2026-0804-009) could emit its advisory receipt. This is what broke
+  `mainPrompt > should handle write_file tool call` (the write never reached
+  `requestToolCall`) and `echo-compliance-wiring`'s law1 receipt (the block
+  pre-empted the tracker) in the default hybrid mode. The gate now matches
+  its documented contract: new files are exempt; hybrid (core_4) mode is
+  advisory (the tracker owns the receipt); strict (all_15) mode still blocks
+  writes to existing files that were never read. Regression tests added at
+  `packages/agent-runtime/src/echo/__tests__/pre-write-gates.test.ts` (6
+  tests covering the new-file exemption, hybrid inertness, strict blocking,
+  read-first pass, and Law 3 preservation).
+- **EHEL advisory warnings emitted with their ACTUAL law (agent-runtime):**
+  the tool executor hardcoded `law: 'law1'` on every enforcement advisory
+  (a latent mislabel for Law 7/8 pre-write advisories), and
+  `EchoEnforcement.beforeToolCall` swallowed gate warnings into an internal
+  list, making the executor's advisory emission unreachable. The wire law is
+  now the superset `ComplianceWarningLaw` (`ComplianceLaw | \`law${number}\``)
+  accepted by the `compliance_warning` schema; `buildComplianceWarningChunks`
+  emits one receipt per advisory with its actual law (`law7` / `law8`),
+  severity, and path; `beforeToolCall` returns the warnings and the strict-
+  mode blocking path surfaces them before its error chunk (so a Law 7/8
+  block now produces a visible `law7`/`law8` receipt); and the CLI renders
+  law7/law8 labels. The now-unused `formatAdvisoryWarnings` helper was
+  removed. Regression tests: `packages/agent-runtime/src/echo/__tests__/
+  violation-handler.test.ts` + a strict-mode law7 receipt wiring test in
+  `src/__tests__/echo-compliance-wiring.test.ts`.
+- **EHEL strict-mode Law 7/8 blocks now steer the agent (agent-runtime):** a
+  blocked pre-write advisory injects budgeted corrective text
+  (`ECHO_STEERING`-tagged user messages) into the agent's message history —
+  "search the codebase first" (Law 7) / "log intent first" (Law 8) — so the
+  running agent self-corrects instead of seeing only a receipt + block error.
+  The budget mirrors the tracker's: one nudge per law, deduped per law+file,
+  defensive total ceiling. The ECHO_STEERING tag is intentionally not
+  context-pruner-excluded (consistent with ECHO_COMPLIANCE). Tests:
+  `packages/agent-runtime/src/echo/__tests__/enforcement.test.ts` (5 tests)
+  + the strict-mode wiring test asserts the steering lands in history.
+- **Graph cluster stats miscomputed (knowledge-graph):** `stats.clusterCount`
+  counted cluster *assignments* (1975 for 1995 files) instead of distinct
+  clusters, and `computeClusters` passed no `resolution` (the FID's
+  node-count-scaled resolution requirement had been dropped), so `/graph
+  refresh` reported near-singleton domains. `update.ts` now counts distinct
+  cluster ids and `clusters.ts` derives `defaultResolution` inversely scaled
+  by node count (clamped); verified live on this repo: ~6.7k nodes → ~415
+  real clusters (vs 1,975 misreported). New tests:
+  `packages/knowledge-graph/src/__tests__/clusters.test.ts` (resolution
+  clamp boundaries) + a clusterCount assertion in `update.test.ts` that
+  proves a 4-file fixture resolves to exactly 2 distinct communities (17/17
+  pass).
+- **Missing workspace dependency declarations (cli + agent-runtime):** both
+  workspaces imported `@savant-code/knowledge-graph` in source without
+  declaring it (resolved only via root hoisting). Both now declare
+  `"@savant-code/knowledge-graph": "workspace:*"`; `bun.lock` regenerated.
+- **Repo-wide markdown-lint cleanup:** the pre-existing MD013/MD022/MD032/
+  MD040 failures in untracked Nova inbox/outbox correspondence and the new
+  `docs/design/` docs were reflowed (word-boundary wrap at 120 cols, blank
+  lines around lists/headings, `text` language on bare fences); `bun run
+  lint:md` now exits 0 repo-wide.
+
+### Verification
+
+- `packages/knowledge-graph` — 17/17 engine tests pass (incl. the new
+  clusters + clusterCount suites), typecheck exit 0
+- `cli` — full suite 2852 pass / 0 fail (7 new graph-command tests;
+  router/registry gating + agent-toolnames validation green)
+- `packages/agent-runtime` — 685 pass / 0 fail (the two previously-failing
+  tests — echo-compliance-wiring law1 receipt, main-prompt write_file — were
+  root-caused to the EHEL Law 1 gate and fixed; see Fixed)
+- `common`/`agents`/`sdk`/`evals`/`code-map`/`database`/`llm-providers` —
+  full suites pass via root `bun run test` (10/10 workspaces)
+- Root typecheck ×10: exit 0, 0 errors
+- ESLint `--max-warnings 0`, `bunx prettier --check .`, `bun run lint:md`
+  all clean (lint:md now exits 0 repo-wide incl. Nova channel + design docs)
+- `/graph refresh` + `/graph-export` end-to-end smoke over the real repo:
+  incremental + `--full` reindex deterministic (~6.7k nodes · ~7.7k edges ·
+  ~415 clusters), branded offline HTML written and verified in a browser
+  (zero console errors, canvas renders, search works)
+
+### ECHO Harness Enforcement Layer + context window fixes (FID-2026-0805-007/005/006)
+
+> structural enforcement of all 15 ECHO laws via tool middleware,
+> mode-driven enforcement (Hybrid = Laws 1-4 blocking, Strict = all 15
+> blocking), corrected MiMo V2.5 context window, and fixed divergent
+> context window data path between system prompt and sidebar.
+
+### Added
+
+- **ECHO Harness Enforcement Layer — EHEL (FID-2026-0805-007):** New
+  tool middleware in `packages/agent-runtime/src/echo/` that
+  structurally enforces all 15 ECHO laws at the tool-executor level.
+  Pre-write gates (Laws 1, 3, 7, 8 + FID Recorder gate with
+  universal 20-line threshold) block violations before they happen.
+  Post-write scanners (Laws 5, 6, 9, 10, 12, 14, 15) run batched
+  at turn end. Law 4 (call-graph reachability) evaluated at turn end.
+  FID completeness validator checks required sections and Unanswered
+  Questions. Mode-driven: Hybrid mode = Laws 1-4 blocking, Laws 5-15
+  advisory warnings; Strict mode = all 15 laws blocking. Only 2 agents
+  have write tools (Orchestrator + Recorder); the Recorder gate only
+  blocks Orchestrator writing FIDs > 20 lines. Emergency bypass: agent
+  requests via `ask_user`, user confirms. Laws 11/13 left to Verifier
+  (semantic checks requiring AST analysis). 10 new files + 1 modified
+  (`native.ts`) + 3 files modified for mode wiring (`create-run-config.ts`,
+  `send-message-run-config.ts`, `native.ts`). Nova design review resolved
+  6 open questions (Q1-Q6). Typecheck ×2 + ESLint zero-warnings clean.
+
+### Fixed
+
+- **MiMo V2.5 context window corrected (FID-2026-0805-005):** Changed
+  hardcoded context window for MiMo from 128,000 to 1,000,000 in
+  `cli/src/utils/openrouter-models/static-catalogs.ts:inferContextLength()`.
+  The system prompt now correctly shows 1M context for MiMo models.
+
+- **Divergent context window data path fixed (FID-2026-0805-006):**
+  The system prompt and sidebar now resolve context window from the
+  same source. Added `resolvedContextWindow` parameter to
+  `formatModelInfo()` in `lookup.ts`, and reordered computation in
+  `send-message-run-config.ts` so the live OpenRouter API value is
+  used instead of the hardcoded fallback.
+
+### Verification
+
+- EHEL: typecheck ×2 (cli + agent-runtime) exit 0, ESLint
+  `--max-warnings 0` clean on all changed files
+- FID-005/006: typecheck + markdownlint + prettier all pass
+- Nova audit: 6 design questions resolved and folded into FID-007
+
+### Hardening: format + test gates live (protocol.config.yaml audit)
+
+> **Hardening session:** full review + audit of `protocol.config.yaml`, closing every violation found — the declared `format` gate is now real (was a documented deferred boundary), the declared `test` gate is now runnable (was a broken root `bun test`), fictional `paths.src`/`paths.tests` are corrected, and all 11 workspace versions are unified at `0.0.21` (internal workspaces were stranded at `0.0.1`).
+
+### Changed
+
+- **Format gate is now enforced (was FID-001 deferred boundary):** `bunx prettier --write .` reformatted the previously non-compliant tracked files across every workspace to match the declared `commands.format` gate (`bunx prettier --check .` now exits 0), and the gate is now wired into `.githooks/pre-push` so unformatted files block pushes. The two `/export` HTML artifacts (2 MB each, regenerated fresh on every export) were excluded via `savant-export-*.html` in `.prettierignore` instead of being churned by an 18k-line reflow; the artifact diff was reverted byte-identical.
+- **Generators emit prettier-formatted output:** `cli/scripts/prebuild-agents.ts` (runs on every binary build) and `cli/scripts/generate-fontawesome.ts` now pipe their generated TS through prettier (`.prettierrc`-aware via `resolveConfig`), so regenerated bundles stay compliant with the format gate instead of re-breaking it on the next regen (`bundled-agents.generated.ts` verified idempotent post-regen).
+- **Root `test` script added — the declared `commands.test` gate is now runnable:** previously `bun test` at the root failed (no script; browser-use test requires an API key). New root `test` script chains all 9 workspace unit suites (sdk, cli, common, agents, evals `test:v2`, agent-runtime, code-map, database, llm-providers), mirroring the `typecheck` gate's workspace coverage; `protocol.config.yaml` `commands.test` now points at `bun run test`.
+- **`protocol.config.yaml` corrected to match reality:** `project.version` → `0.0.21`; `paths.src`/`paths.tests` no longer claim fictional root dirs (monorepo — each workspace owns its `src/`); the `format` command comment updated from "documented deferred boundary" to live-gate status.
+- **Version unification → 0.0.21:** `VERSION` + root/cli/sdk (were 0.0.20) and common/agents/evals/packages/*/savant-free (were 0.0.1 — stranded since creation) all bumped to `0.0.21`. No hardcoded version refs exist in source; `SAVANT_CODE_CLI_VERSION` is injected at build time.
+- **ESLint global ignores:** `dev/scratchpad/**` added (ephemeral, gitignored working area — same category as `resources/`/`research/`), closing the `no-console` gate failure from the A-Z live-runner tool.
+
+### Verification
+
+- `bunx prettier --check .` → **All matched files use Prettier code style!** (exit 0)
+- Typecheck ×9 → all exit 0
+- Root `bun run test` → 9/9 workspace suites pass (4,672 tests / 0 fail)
+- `bun x eslint . --max-warnings 0` → clean
+- `bun run lint:md` → clean
+- Diff footprint: 47 files, 251 insertions / 244 deletions (reformats + config, no behavior change)
+
 ## v0.0.20 — 2026-08-05
 
 > **Version note:** this release ships as **v0.0.20** — the `0.0.19` version string was already consumed on the npm registry by a stale launcher publish (whose v0.0.19 GitHub release never existed), so the current tree (MCP features, ECHO enforcement layer, STRICT mode, `/export` report, env-integrity gate) was bumped to `0.0.20` before publishing.
@@ -15,6 +975,15 @@
 - **Mode execution-scope relabel + STRICT mode + hover descriptions (FID-2026-0805-001):** Renamed the `EDIT` mode to **HYBRID** — the honest label for the frictionless default (the old label claimed the strict ECHO loop while the prompt ran Hybrid Mode) — and added **STRICT**, a first-class mode that guarantees the full Perfection Loop for every code change (per-change FID via Recorder, RED → GREEN with Forge writes → AUDIT with Verifier + Law-4 reachability greps; pure Q&A stays read-only). The axis is now **HYBRID / SCAFFOLD / STRICT / ANALYZE**, fully data-driven from `AGENT_MODES` (toggle, `/mode` commands, keyboard cycle, settings validation all cascade). `mode:edit` remains a working alias for `mode:hybrid`, and persisted `"mode": "EDIT"` settings migrate to `HYBRID` on load. Modes are no longer opaque: each mode's one-line contract lives in a single-source `MODE_DESCRIPTIONS` map and renders as a **floating hovertip** above the toggle on hover — a bordered, non-interactive, absolutely-positioned tip (OpenTUI 0.2.2 ships no native tooltip; built on verified `position: absolute`/`zIndex`/`MouseEvent.x/y` primitives) with a 150 ms hover-intent grace so it never flickers. (`cli/src/utils/constants.ts`, `agents/savant/savant.ts`, `agents/savant/savant-strict.ts` (new), `cli/src/utils/settings.ts`, `agents/recorder/recorder.ts`, `cli/src/components/mode-hovertip.tsx` (new), `cli/src/components/segmented-control.tsx`, `cli/src/components/agent-mode-toggle.tsx`; bundle regenerated.)
 
 ### Fixed
+
+- **SDK declaration-bundling integrity (FID-2026-0805-007):** Fixed the SDK build failure
+  `undefined is not an object (evaluating 'symbol.declarations')`. The declaration bundler
+  was seeing barrel exports whose implementations had been stripped by `stripInternal: true`
+  despite being intentionally public SDK helpers. Removed only the misleading internal tags
+  from the exported run-state helpers, preserving the strip policy and all runtime APIs.
+  Verification: SDK build exit 0, typecheck exit 0, 438 tests passed / 1 skipped / 0 failed,
+  and `bun run verify --skip-build` passed all 20 dist/smoke/compatibility checks. FID closed
+  and archived; closeout: `dev/session-summaries/2026-08-05-sdk-declaration-bundle-closeout.md`.
 
 - **Completion-aware exit flush (FID-2026-0804-008):** The `/history` screen no longer marks every session as interrupted — the exit-path flush now preserves each chat's existing `completed` state (`readChatMeta(chatDir)?.completed ?? false`), and a muted hint appears when every listed chat is genuinely interrupted (`cli/src/utils/run-state-storage.ts`, `cli/src/components/chat-history-screen.tsx`; 9 new tests).
 
@@ -598,7 +1567,7 @@
 ### Rename Remaining `.savant/` References (FID-2026-0727-002)
 
 **Closed:** 2026-07-27
-**Resolution:** Removed the duplicate FID, archived the kept FID, updated `.gitignore` to ignore `.savant-code/` instead of `.savant/`, renamed `docs/Savant Business And Backend Research.md` to `docs/Savant-Code Business And Backend Research.md`, and added historical notes to both research docs explaining the legacy brand references.
+**Resolution:** Removed the duplicate FID, archived the kept FID, updated `.gitignore` to ignore `.savant-code/` instead of `.savant/`, renamed `docs/Savant Business And Backend Research.md` to `docs/research/Savant-Code Business And Backend Research.md`, and added historical notes to both research docs explaining the legacy brand references.
 **Verified by:** Workspace typechecks and SDK tests pass.
 **Archived:** 2026-07-27
 

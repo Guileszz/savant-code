@@ -1,58 +1,64 @@
 # Agents and Tools
 
-> **Last verified:** 2026-07-23 — source reads of all agent definitions + `common/src/tools/constants.ts`.
+> **Last verified:** 2026-08-07 — source reads of all agent definitions + `common/src/tools/constants.ts`
+> (`toolNames` 48 / `publishedTools` 37) + `packages/agent-runtime/src/tools/tool-executor/`.
 
 ## Agents
 
-The Savant harness ships 9 canonical agents + 5 helper tool-library agents from the `agents/` workspace. Each agent is a
+The Savant harness ships 10 canonical agents + 5 helper tool-library agents
+from the `agents/` workspace. Each agent is a
 `SecretAgentDefinition` with a restricted tool set — no agent may perform another agent's role (ECHO Law: Separation of
 Duties).
 
-### Canonical 9-Agent Roster
+### Canonical 10-Agent Roster
 
 | # | Agent | ID | Phase | Responsibility | Tools |
 |---|-------|----|-------|----------------|-------|
 | 1 | **Orchestrator** | `savant` | ALL | Routes work, enforces ECHO Protocol, spawns all agents | `spawn_agents`, `read_files`, `read_subtree`, `run_readonly_command`, `write_todos`, `suggest_followups`, `ask_user`, `read_url`, `skill`, `set_output`, `list_directory`, `glob`, `render_ui`, `gravity_index`, `transition_phase`, `write_file`, `str_replace`, `apply_patch` |
-| 2 | **Detective** | `detective` | RED | Codebase analysis, grep call-graphs, catalog evidence | `code_search`, `set_output`, `list_directory`, `glob`, `read_files`, `read_subtree` |
+| 2 | **Detective** | `detective` | RED | Codebase analysis, grep call-graphs, catalog evidence | `code_search`, `set_output`, `list_directory`, `glob`, `read_files`, `read_subtree`, `query_blast_radius`, `query_node_edges`, `query_domain_clusters` |
 | 3 | **Forge** | `forge` | GREEN | Implementation only — writes code from converged FID | `write_file`, `str_replace`, `set_output` |
 | 4 | **Verifier** | `verifier` | AUDIT | Double-audit, run tests, check call-graph reachability | *(reads via message history — no write tools)* |
 | 5 | **Recorder** | `recorder` | FID | Create, track, archive FIDs. Update CHANGELOG | `write_file`, `read_files`, `glob`, `code_search`, `set_output` |
-| 6 | **Thinker** | `thinker` | Planning | Deep reasoning via sequential thinking engine | `sequentialthinking` |
-| 7 | **Scout** | `scout` | Explore | File/code search, glob, read subtrees, context gathering | `glob`, `list_directory`, `read_files`, `read_subtree`, `set_output` |
-| 8 | **Researcher** | `researcher-web` / `researcher-docs` | Research | Web search, documentation lookup | `web_search`, `read_url` (web) · `read_docs` (docs) |
+| 6 | **Thinker** | `thinker` | Planning | Deep reasoning via sequential thinking engine | `sequentialthinking`, `end_turn` |
+| 7 | **Scout** | `scout` | Explore | File/code search, glob, read subtrees, context gathering | `glob`, `list_directory`, `read_files`, `read_subtree`, `set_output`, `query_blast_radius`, `query_node_edges`, `query_domain_clusters` |
+| 8 | **Researcher** | `researcher-web` / `researcher-docs` | Research | Web search, documentation lookup | `web_search`, `read_url`, `deep_research` (web) · `read_docs` (docs) |
 | 9 | **Scribe** | `scribe` | Docs | Session summaries, LESSONS.md, knowledge files | `read_files`, `write_file`, `glob`, `code_search`, `set_output` |
+| 10 | **Adversary** | `adversary` | ADVERSARIAL | Meta-verification: refutes Verifier FAILs, re-audits unevidenced PASSes, resolves citations; verdicts override (FID-2026-0805-004) | `read_files`, `code_search`, `glob`, `list_directory`, `set_output` |
 
 ### Helper Tool-Library Agents & Specialist Variants
 
-These are consumed by the canonical 9 roles but do NOT constitute independent
+These are consumed by the canonical 10 roles but do NOT constitute independent
 conversational agents. (The final row is a canonical thinker variant listed
 here because it is not spawnable by the Orchestrator's `spawnableAgents`; it is
-spawned by Free/SavantFree prompts.)
-
+spawned by free-tier prompts.)
 | Agent | ID | Tools | Consumed By |
 |-------|----|-------|-------------|
 | **Basher** | `basher` | `run_terminal_command` | Orchestrator (terminal commands) |
 | **tmux-cli** | `tmux-cli` | `run_terminal_command`, `read_files`, `set_output`, `add_message` | Orchestrator (interactive CLI testing) |
 | **browser-use** | `browser-use` | `set_output`, `run_terminal_command`, `add_message` | Orchestrator (browser automation) |
 | **Context Pruner** | `context-pruner` | *(no explicit toolNames — uses `set_messages` via runtime)* | Orchestrator (auto-spawned for long sessions) |
-| **Thinker (Gemini w/ files)** | `thinker-with-files-gemini` | *(no model-visible tools; `read_files` via `programmaticToolNames`)* | Free/SavantFree (reasoning with file context, FID-2026-0803-001 ECHO-2) |
+| **Thinker (Gemini w/ files)** | `thinker-with-files-gemini` | *(no model-visible tools; `read_files` via `programmaticToolNames`)* | Free tier (reasoning with file context, FID-2026-0803-001 ECHO-2) |
 
 ### Directory Layout
 
 ```text
+
 agents/
 ├── savant/              # Orchestrator (savant.ts + mode variants)
 ├── detective/           # RED phase
 ├── forge/               # GREEN phase
 ├── verifier/            # AUDIT phase
+├── adversary/           # ADVERSARIAL phase (FID-2026-0805-004)
 ├── recorder/            # FID lifecycle
 ├── thinker/             # Sequential thinking
 ├── scout/               # File/code search
 ├── researcher/          # Web + docs research (researcher-web.ts, researcher-docs.ts)
 ├── scribe/              # Session documentation
 ├── browser-use/         # Browser automation helper
+├── database/            # SQLite schema inspection helper
 ├── editor/              # Editor scaffolding (used by `init` command)
 ├── file-explorer/       # File listing helper
+├── github/              # GitHub PR/issue/CI helper (read-only)
 ├── librarian/           # Knowledge/context helper (used by context-pruner)
 ├── types/               # Shared TypeScript types across agents
 ├── base-chat.ts         # Base chat agent shared logic
@@ -73,7 +79,6 @@ agents/
 | Detective cannot implement fixes | No `write_file`/`str_replace` |
 | Recorder controls FID lifecycle exclusively | Only Recorder archives FIDs |
 | Thinker must use sequential thinking | `sequentialthinking` is its only tool |
-
 ---
 
 ## Tools
@@ -87,12 +92,11 @@ input schema, output schema, and an `endsAgentStep` flag.
 
 | Tool | Description | FSM Gate |
 |------|-------------|----------|
-| `write_file` | Create or overwrite a file | GREEN only |
-| `str_replace` | Exact string replacement in a file | GREEN only |
-| `apply_patch` | Apply a unified diff patch | GREEN only |
+| `write_file` | Create or overwrite a file | GREEN + SELF_CORRECT |
+| `str_replace` | Exact string replacement in a file | GREEN + SELF_CORRECT |
+| `apply_patch` | Apply a unified diff patch | GREEN + SELF_CORRECT |
 | `read_files` | Read one or more files | None |
 | `read_subtree` | Read a directory tree recursively | None |
-
 > **Checkpointing:** the write-gate in `executeToolCall` (agent-runtime) captures the pre-edit content of every
 > file before `write_file`/`str_replace`/`apply_patch` dispatch, per user turn (FID-2026-0803-004). Subagent
 > writes inherit the parent turn via spawn context; terminal side effects are never captured. The CLI surfaces
@@ -124,7 +128,7 @@ input schema, output schema, and an `endsAgentStep` flag.
 
 | Tool | Description | FSM Gate |
 |------|-------------|----------|
-| `run_terminal_command` | Run a shell command | AUDIT only |
+| `run_terminal_command` | Run a shell command | AUDIT + GREEN + SELF_CORRECT |
 | `run_readonly_command` | Run a read-only shell command | None |
 | `run_file_change_hooks` | Run file change hooks | None |
 
@@ -170,28 +174,32 @@ input schema, output schema, and an `endsAgentStep` flag.
 | `composio_multi_execute_tool` | Execute multiple Composio tools |
 | `composio_search_tools` | Search Composio tools |
 | `composio_get_tool_schemas` | Get Composio tool schemas |
-
-> **Note:** Composio tools are disabled (`ENABLE_COMPOSIO_TOOLS = false` in `agents/savant/savant.ts:16`).
+> **Note:** Composio tools are registered but not published (absent from `publishedTools`). The
+> `ENABLE_COMPOSIO_TOOLS` gate flag was removed as dead code (FID-2026-0802-005 L18); only a comment remains
+> at `agents/savant/savant.ts:27`.
 
 ### Tool Count
 
-- **Total registered tools:** 40 (including Composio meta-tools)
-- **Published tools (available to agents):** 30
-- **FSM-gated tools:** 3 (`write_file`, `str_replace` → GREEN; `run_terminal_command` → AUDIT)
+- **Total registered tools:** 48 (including Composio meta-tools)
+- **Published tools (available to agents):** 37
+- **FSM-gated tools:** 3 (`write_file`, `str_replace`, `apply_patch` →
+  GREEN + SELF_CORRECT; `run_terminal_command` → AUDIT + GREEN + SELF_CORRECT)
 - **Agent-exclusive tools:** 1 (`sequentialthinking` → Thinker only)
 
 ### FSM Phase Gating
 
-Tools are gated by FSM phase in `packages/agent-runtime/src/tools/tool-executor.ts`:
-
+Tools are gated by FSM phase in `packages/agent-runtime/src/tools/tool-executor/`:
 ```text
-write_file / str_replace / apply_patch  →  GREEN only
-run_terminal_command                    →  AUDIT only
-sequentialthinking                      →  Thinker only (agent ID starts with "thinker")
+
+write_file / str_replace / apply_patch  →  GREEN + SELF_CORRECT
+run_terminal_command                    →  AUDIT + GREEN + SELF_CORRECT
+sequentialthinking                      →  Thinker only (declared only by the Thinker's toolNames)
 ```
 
-Gate logic: `(agentState.fsmPhase ?? 'idle') !== 'green'` — subagents inherit `fsmPhase` from parent via
-`createAgentState()` in `spawn-agent-utils.ts`.
+Gate logic: `write-gate.ts` allows writes during `['green', 'self_correct']` phases (FID-2026-0806-016 added
+`self_correct` to avoid the audit-fix deadlock); `native.ts` allows `run_terminal_command` during
+`['audit', 'green', 'self_correct']`. Subagents inherit `fsmPhase` from parent via `createAgentState()` in
+`spawn-agent-utils.ts`.
 
 ### Tool Integration Points
 
@@ -205,13 +213,3 @@ Gate logic: `(agentState.fsmPhase ?? 'idle') !== 'green'` — subagents inherit 
 | MCP tools | `packages/agent-runtime/src/mcp.ts` | MCP server tool loader |
 | Skills | `packages/agent-runtime/src/tools/handlers/tool/skill.ts` | Skill loader (4 directories) |
 | SDK bridge | `sdk/src/run.ts` | Streams tool calls to CLI |
-
-### Shell Shims
-
-Direct commands without `savant-code` prefix:
-
-```bash
-savant-code shims install savant-code/savant@1.0.0
-eval "$(savant-code shims env)"
-savant "fix this bug"
-```
