@@ -1,5 +1,7 @@
 import { beforeEach } from 'bun:test'
 
+import { disableAnalytics } from './utils/analytics'
+
 /**
  * Global test setup for the CLI workspace.
  *
@@ -13,8 +15,17 @@ import { beforeEach } from 'bun:test'
  * Tests that specifically want to verify direct-provider behavior can still
  * set these variables in their own `beforeEach`, which runs after this global
  * setup.
+ *
+ * Telemetry is disabled for the same reason: `trackEvent` intentionally throws
+ * in production when it fires before `initAnalytics` establishes a client, and
+ * several startup paths (agent-definition loading, direnv, health/init flows)
+ * call it before initialization depending on worker scheduling. Disabling
+ * analytics here makes the suite deterministic — no test file can crash on an
+ * uninitialized telemetry client — while analytics-focused tests still control
+ * their own state via `resetAnalyticsState`/`initAnalytics`.
  */
 beforeEach(() => {
   process.env.DIRECT_PROVIDER = ''
   process.env.INFERENCE_BASE_URL = ''
+  disableAnalytics()
 })
