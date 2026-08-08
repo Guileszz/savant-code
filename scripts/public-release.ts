@@ -525,6 +525,12 @@ export function classifyCommandResult(result: {
   return 'malformed'
 }
 
+export function finalizeSuccessfulReleaseReceipt(
+  receipt: ReleaseReceipt,
+): void {
+  receipt.failedStage = undefined
+}
+
 export function redactReceipt(receipt: ReleaseReceipt): string {
   let failedStage = receipt.failedStage
   try {
@@ -2488,6 +2494,11 @@ async function runReleaseTransaction(): Promise<void> {
         for (const target of configuredReleasePackages()) {
           verifyPublishedPackage(root, target, version)
         }
+        // A resumed release may carry a historical failedStage from an earlier
+        // attempt (for example, transient npm registry propagation). Clear it
+        // before markStage writes the terminal receipt so a crash between those
+        // operations cannot leave contradictory success/failure evidence.
+        finalizeSuccessfulReleaseReceipt(receipt)
         markStage(receipt, 'POST_RELEASE_VERIFY')
       },
       () => {

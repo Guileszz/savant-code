@@ -1,7 +1,8 @@
 # Public Release Workflow
 
 The canonical public release command is `scripts/public-release.ts`. It is the only
-supported path for publishing the public Savant-Code release and SDK together.
+supported path for publishing the public Savant-Code npm package, with the SDK included
+only when it is explicitly in the release scope.
 
 ## Commands
 
@@ -30,7 +31,7 @@ slash command in the Savant-Code TUI, or standalone in any shell via
 ```bash
 savant-code release status      # version, git position, tag, last receipt + diagnostic evidence
 savant-code release preview     # read-only sanity check — never mutates
-savant-code release diagnose    # read-only 8-gate manifest with evidence (investigate failures)
+savant-code release diagnose    # read-only gate manifest with evidence (investigate failures)
 savant-code release go          # full release: gates → tag → push → GitHub release → npm publish
 savant-code release resume      # continue a recorded partial release after a failure
 ```
@@ -59,13 +60,18 @@ The workflow is intentionally limited to:
 1. `@savant-code/sdk` from `sdk/`
 2. `savant-code` from `cli/release/`
 
-The SDK is published first. `savant-free` is not public and is never included.
+When both packages are in scope, the SDK is published first because the CLI release
+artifact depends on it. `savant-free` is not public and is never included.
 
-By default both packages are published. To scope a release to a subset of the public
+By default both packages are published. Release `v0.0.21` intentionally used the
+CLI-only scope; `savant-code@0.0.21` is public while `@savant-code/sdk@0.0.21` remains
+unpublished.
+
+To scope a release to a subset of the public
 packages, set `SAVANT_CODE_RELEASE_PACKAGES` to a comma-separated list of package names;
 the npm-pack dry-run gates, npm access verification, not-already-published checks,
-publishing, and post-publish verification all follow the scope. Names that match no
-public package abort the run fail-closed (a typo can never silently publish nothing).
+publishing, and post-publish verification all follow the scope. Any unknown package
+name aborts the run fail-closed (a typo can never silently publish less than intended).
 For example, release only the CLI package without publishing the SDK:
 
 ```bash
@@ -91,7 +97,8 @@ Manual mode and automation mode share the same release stages:
    process-only Git extraheader; the token is never placed in argv, URLs, files, or logs.
 10. Create or verify the GitHub release. Automation uses the GitHub REST API with the
     extracted changelog section; manual mode uses `gh`.
-11. Publish the SDK, then the CLI package, and record each completed stage.
+11. Publish each scoped npm package in public-package order (SDK before CLI when both
+    are selected), and record each completed stage.
 12. Restore the original local settings and environment in a `finally` path.
 13. Verify the public tag, GitHub release, npm artifacts, and package contents.
 
@@ -136,7 +143,8 @@ Manual mode requires:
 - The worktree is clean and `origin` is exactly
   `https://github.com/savant0x/savant-code.git`.
 - `gh` is installed and authenticated for the public repository.
-- npm is installed and authenticated with publish access to both public packages.
+- npm is installed and authenticated with publish access to the public packages selected
+  for this release.
 
 Automation mode requires:
 
@@ -162,6 +170,35 @@ matching install's bin directory to the process PATH so every `bun`/`bunx` gate 
 resolves to the required version. When neither PATH nor a pinned install provides
 `1.3.14`, the run fails closed with install guidance. No manual PATH editing is needed
 for daily pushes.
+
+## Next release checklist
+
+Prepare the next version before invoking the mutation flow:
+
+1. Update `VERSION`, the root `package.json`, `cli/package.json`,
+   `cli/release/package.json`, and `sdk/package.json` to the same version.
+2. Add exactly one reverse-chronological `v<version>` heading and release notes to
+   `CHANGELOG.md`.
+3. Run the read-only checks:
+   ```bash
+   bun run release:public:preview
+   bun run release:public:diagnose
+   ```
+4. For the current CLI-only publication policy, run:
+   ```bash
+   SAVANT_CODE_RELEASE_PACKAGES=savant-code \
+   SAVANT_CODE_RELEASE_AUTOMATION=1 bun run release:public
+   ```
+5. If a mutation stage fails, inspect the receipt and transcript, fix the cause, then
+   use the same package scope with `bun run release:public:resume`.
+
+To publish the SDK in a future release, omit the scope variable (publishes both public
+packages) or explicitly set:
+
+```bash
+SAVANT_CODE_RELEASE_PACKAGES=@savant-code/sdk,savant-code \
+SAVANT_CODE_RELEASE_AUTOMATION=1 bun run release:public
+```
 
 ## Safety boundaries
 

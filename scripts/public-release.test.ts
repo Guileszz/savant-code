@@ -48,6 +48,7 @@ import {
   isNotFoundResult,
   isStageComplete,
   redactReceipt,
+  finalizeSuccessfulReleaseReceipt,
   snapshotLocalState,
   validateReleaseVersions,
   validateResumeReceipt,
@@ -422,6 +423,26 @@ describe('public release contract', () => {
         delete process.env.SAVANT_CODE_RELEASE_PACKAGES
       else process.env.SAVANT_CODE_RELEASE_PACKAGES = previousScope
     }
+  })
+
+  test('clears historical failure text during successful receipt finalization', () => {
+    const receipt = {
+      version: '0.0.21',
+      mode: 'automation' as const,
+      completedStages: ['GITHUB_RELEASE'],
+      failedStage: 'transient npm registry propagation',
+      restored: true,
+      receiptPath: '/tmp/receipt.json',
+    }
+    finalizeSuccessfulReleaseReceipt(receipt)
+    expect(receipt.failedStage).toBeUndefined()
+
+    const serialized = redactReceipt({
+      ...receipt,
+      completedStages: [...receipt.completedStages, 'POST_RELEASE_VERIFY'],
+    })
+    expect(serialized).not.toContain('failedStage')
+    expect(serialized).toContain('POST_RELEASE_VERIFY')
   })
 
   test('redacts credentials from receipt failure details', () => {
