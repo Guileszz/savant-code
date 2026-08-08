@@ -64,6 +64,7 @@ export const SAVANT_FREE_REMOVED_COMMAND_IDS = new Set([
   'subscribe',
   'image',
   'publish',
+  'release',
 ])
 
 export const SAVANT_FREE_ONLY_COMMAND_IDS = new Set([
@@ -218,6 +219,12 @@ const ALL_SLASH_COMMANDS: SlashCommand[] = [
     id: 'publish',
     label: 'publish',
     description: 'Publish an agent to the registry',
+  },
+  {
+    id: 'release',
+    label: 'release',
+    description:
+      'Run the public release flow: /release preview | diagnose | go | resume | status',
   },
   ...MODE_COMMANDS,
 

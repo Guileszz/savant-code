@@ -31,6 +31,7 @@ const SAVANT_FREE_REMOVED_COMMANDS = new Set([
   'subscribe',
   'image',
   'publish',
+  'release',
 ])
 
 const SAVANT_FREE_ONLY_COMMANDS = new Set(['connect', 'plan', 'end-session'])

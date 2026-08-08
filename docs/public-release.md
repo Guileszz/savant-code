@@ -15,7 +15,31 @@ bun run release:public
 
 # Continue a recorded partial release after a failure.
 bun run release:public:resume
+
+# Run the exact local build/typecheck/test/lint/format/package gates read-only.
+# This never tags, pushes, creates a GitHub release, or publishes npm packages.
+bun run release:public:diagnose
 ```
+
+## CLI command flow
+
+The same operations are available as CLI commands — interactively via the `/release`
+slash command in the Savant-Code TUI, or standalone in any shell via
+`savant-code release <op>` (both share one handler):
+
+```bash
+savant-code release status      # version, git position, tag, last receipt + diagnostic evidence
+savant-code release preview     # read-only sanity check — never mutates
+savant-code release diagnose    # read-only 8-gate manifest with evidence (investigate failures)
+savant-code release go          # full release: gates → tag → push → GitHub release → npm publish
+savant-code release resume      # continue a recorded partial release after a failure
+```
+
+In the TUI, `/release <op>` streams the engine's output into the chat as it runs and
+finishes with a summary bubble. The full release runs under the pinned-Bun
+self-bootstrap and writes the same `release-receipt/v2` evidence as the npm script
+forms. Exit codes for the standalone subcommand: `0` ok, `1` release failure,
+`2` usage error.
 
 For the zero-command public-development workflow, set
 `SAVANT_CODE_RELEASE_AUTOMATION=1` in the already-configured release environment.
@@ -60,11 +84,37 @@ Manual mode and automation mode share the same release stages:
 12. Restore the original local settings and environment in a `finally` path.
 13. Verify the public tag, GitHub release, npm artifacts, and package contents.
 
-A non-secret receipt is written under the operating system temporary directory. It records
-completed stages, failures, restoration status, the automation commit, and the committed
-file list; credentials are redacted before serialization. If publication fails after GitHub
-creation, the workflow does not delete public history or unpublish packages. Use the
-explicit resume command after reviewing the receipt.
+A non-secret `release-receipt/v2` receipt is written under the operating system temporary
+directory. Gate commands use file-backed capture and write complete, secret-redacted transcripts
+outside the repository; the receipt stores each command's exit/signal/spawn classification,
+attempt, bounded summary, transcript path/hash, and manifest hash. Receipt and transcript writes
+are atomic, and resume rejects incomplete or legacy evidence. If publication fails after GitHub
+creation, the workflow does not delete public history or unpublish packages. Use the explicit
+resume command only after reviewing the receipt and diagnostic transcript.
+
+The diagnostic command is the safe way to investigate a failed gate. It runs the canonical
+read-only manifest and writes evidence without changing settings or invoking any public mutation.
+The diagnostic is bound to the current HEAD and tracked worktree state: it fingerprints every
+tracked file (and untracked, non-ignored path) before and after the gates and rejects the
+evidence if any tracked path changed. Ignored artifacts that gates legitimately regenerate (for
+example the CLI `debug/` logs or SDK build output) do not reject the evidence; instead, when the
+full gate manifest completes, the receipt records the exact ignored paths the gates added or
+removed as `ignoredChanges` so an auditor can distinguish expected generated output from
+contamination. A worktree that is already
+dirty before the diagnostic runs is captured in both fingerprints and does not by itself fail the
+run. The release path applies the same tracked-state fingerprint around its gate manifest, so a
+concurrent writer that changes tracked files mid-release fails the release before any push; note
+that the guard covers the gate window only, so a writer that mutates tracked files after the last
+gate but before `git push` is outside the fingerprint boundary (the residual window is seconds,
+and resume re-binds to HEAD with the same guard). Timed-out gate children are cleaned up on
+Windows only: the full owned descendant tree is
+enumerated through the Win32 process table (up to ~20 seconds), terminated with `taskkill /T /F`,
+and every enumerated owned PID is verified gone before cleanup is reported successful. Stragglers
+are only killed after a fresh process-table read confirms they are still parented inside the
+owned tree, so a PID reused by an unrelated process is never terminated. On non-Windows
+platforms timeout cleanup remains evidence-only (recorded in the receipt) and the release never
+proceeds after a timeout. The release path does not automatically retry a failed gate.
+Bun `1.3.14` and npm `10.x` are required before the gate manifest is accepted.
 
 ## Release prerequisites
 
@@ -89,6 +139,15 @@ Both modes require the current version to be present exactly once as a
 reverse-chronological `CHANGELOG.md` heading and all checked package manifests to match
 `VERSION`. The script never copies API, GitHub, or npm credentials into the release
 profile.
+
+Bun `1.3.14` (pinned by `.bun-version`) and npm `10.x` are required for every gate
+manifest. The script self-bootstraps the pinned Bun: at startup it verifies the `bun`
+on PATH; if it is not `1.3.14`, it probes the version-pinned install
+(`~/.bun-1.3.14/bin/bun` first, then the standard `~/.bun/bin/bun`) and prepends the
+matching install's bin directory to the process PATH so every `bun`/`bunx` gate command
+resolves to the required version. When neither PATH nor a pinned install provides
+`1.3.14`, the run fails closed with install guidance. No manual PATH editing is needed
+for daily pushes.
 
 ## Safety boundaries
 

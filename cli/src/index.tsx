@@ -32,6 +32,8 @@ import React from 'react'
 import { App } from './app'
 import { loadPackageVersion, parseArgs } from './cli-args'
 import { handlePublish } from './commands/publish'
+import { runStandaloneRelease } from './commands/release/release-command'
+import { normalizeReleaseCommand } from './commands/release/release-runner'
 import { runHeadlessPrint } from './headless-run'
 import { initializeApp } from './init/init-app'
 import { runPlainLogin } from './login/plain-login'
@@ -247,6 +249,7 @@ async function main(): Promise<void> {
 
   const isLoginCommand = command === 'login'
   const isPublishCommand = command === 'publish'
+  const isReleaseCommand = command === 'release'
   const hasAgentOverride = Boolean(agent?.trim())
 
   await initializeApp({ cwd })
@@ -279,6 +282,24 @@ async function main(): Promise<void> {
   if (isLoginCommand && !print) {
     await runPlainLogin()
     return
+  }
+
+  // Release command flow: `savant-code release <op>` runs the public release
+  // engine standalone and exits with its result code.
+  // Handled before the headless branch so scripted (non-TTY) invocations run
+  // the release rather than being treated as a headless prompt.
+  if (isReleaseCommand) {
+    // parseArgs joins every positional arg into initialPrompt (including the
+    // `release` word itself, e.g. `release status` → 'release status'), so the
+    // operation is the first token after the command word. A bare `release`
+    // shows usage; a known operation runs the release engine. Any other
+    // first-word `release …` (e.g. a real prompt like "release the docs")
+    // falls through to the normal prompt path instead of being hijacked.
+    const releaseOp = initialPrompt?.trim().split(/\s+/).slice(1)[0]
+    if (releaseOp === undefined || normalizeReleaseCommand(releaseOp)) {
+      const exitCode = await runStandaloneRelease(releaseOp)
+      process.exit(exitCode)
+    }
   }
 
   // Headless / non-interactive mode (FID-2026-0806-011): explicit `--print`,

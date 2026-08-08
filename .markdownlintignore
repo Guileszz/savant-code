@@ -55,3 +55,8 @@ docs/design/awesome-agent-skills-catalog.md
 # rows and a dense citation block; reference-only record, same per-file
 # exemption precedent.
 docs/Code Universe Architecture Evaluation.md
+
+# Concurrent deep-research artifact (2026-08-08) — 900-char citation lines are
+# not maintainable under strict MD013; reference-only record, same per-file
+# exemption precedent as the dated design reports above.
+docs/design/Savant Ecosystem Project Research.md

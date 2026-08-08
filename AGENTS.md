@@ -93,7 +93,10 @@ bun run lint:md
 bun x prettier --write .
 ```
 
-> **Pre-push gate:** a native git pre-push hook (`.githooks/pre-push`) runs
-> `bun x eslint . --max-warnings 0` + `bun run lint:md` before every push. It is
+> **Pre-push gate:** a native git pre-push hook (`.githooks/pre-push`) runs the
+> fail-closed pushed-range credential scan
+> (`bun run scripts/pre-push-scan.ts`, which materializes the exact commit range
+> being pushed and reuses `scanStagedCredentials` from the public-release script)
+> plus `bun x eslint . --max-warnings 0` + `bun run lint:md`. It is
 > auto-wired on `bun install` via the root `prepare` script
 > (`git config core.hooksPath .githooks`). Bypass only with `git push --no-verify`.

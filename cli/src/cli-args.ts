@@ -112,7 +112,7 @@ export function parseArgs({
       )
       .addHelpText(
         'after',
-        '\nCommands:\n  login                          Log in to your account\n  publish                        Publish agents to the registry',
+        '\nCommands:\n  login                          Log in to your account\n  publish                        Publish agents to the registry\n  release <op>                    Run the public release flow (preview | diagnose | go | resume | status)',
       )
       .helpOption('-h, --help', 'Show this help message')
       .argument('[prompt...]', 'Initial prompt to send to the agent')

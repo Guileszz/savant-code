@@ -1,19 +1,45 @@
 #!/usr/bin/env bash
-# Pre-push hook — enforce the hard lint gates before anything reaches the remote.
+# Pre-push hook — enforce the credential scan + hard lint gates before anything
+# reaches the remote.
 #
-# Runs the same gates as `protocol.config.yaml` (lint + lint_md + format):
+# Runs the same gates as `protocol.config.yaml` (lint + lint_md + format) plus
+# the fail-closed credential scan over the exact pushed commit range:
+#   - bun run scripts/pre-push-scan.ts   (pushed-range credential scan, F-A)
 #   - bun x eslint . --max-warnings 0   (zero-tolerance ESLint, FID-069)
 #   - bun run lint:md                   (markdownlint on governed docs)
 #   - bunx prettier --check .           (format gate)
 #
 # Wired automatically by the root `prepare` script (`git config core.hooksPath
 # .githooks`), which runs on every `bun install`. Skip with `--no-verify`.
+#
+# The credential scan is the critical path and fails CLOSED: if bun is missing
+# the push is refused rather than silently pushing unscanned content.
 
 set -uo pipefail
 
+HOOK_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SCAN_SCRIPT="$HOOK_DIR/../scripts/pre-push-scan.ts"
+
+# Git invokes hooks with cwd = the top level of the repo being pushed. Stay
+# there: the scan must target the pushed repository (not the hook's own repo,
+# which differs when hooksPath points elsewhere), and the cwd-relative lint
+# gates must cover the pushed tree. Only the script path is resolved via
+# HOOK_DIR so the hooks remain portable across repos.
+PUSH_ROOT="$(pwd)"
+cd "$PUSH_ROOT" || exit 1
+
 if ! command -v bun >/dev/null 2>&1; then
-  echo "⚠️  pre-push: bun not found — skipping lint gates (run: bun install)"
-  exit 0
+  echo "❌ pre-push: bun is required for the credential scan — run \`bun install\` (or install Bun ≥ 1.3.14) before pushing." >&2
+  exit 1
+fi
+
+echo "🔍 pre-push: scanning pushed commit range for credential-shaped content..."
+
+bun run "$SCAN_SCRIPT"
+scan_status=$?
+if [ "$scan_status" -ne 0 ]; then
+  echo "❌ pre-push: credential scan refused the push — fix before pushing (or use --no-verify)" >&2
+  exit "$scan_status"
 fi
 
 echo "🔍 pre-push: running hard lint gates (eslint --max-warnings 0 + markdownlint + prettier --check)..."

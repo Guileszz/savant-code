@@ -16,6 +16,7 @@ import {
   buildPlanPrompt,
   buildReviewPromptFromArgs,
 } from '../prompt-builders'
+import { handleReleaseCommand } from '../release/release-command'
 
 // Remaining commands: publish, connect, history, interview, plan, review,
 // theme:toggle, end-session. Split out of command-registry.ts
@@ -174,5 +175,12 @@ export const MISC_COMMANDS = [
         // here beyond letting the chat history reflect the attempt.
       })
     },
+  }),
+  // Release command flow — drives scripts/public-release.ts. Streaming output
+  // is handled inside the handler (chat bubbles + summary).
+  defineCommandWithArgs({
+    name: 'release',
+    aliases: ['rel'],
+    handler: handleReleaseCommand,
   }),
 ]
