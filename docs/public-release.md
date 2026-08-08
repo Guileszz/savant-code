@@ -61,6 +61,17 @@ The workflow is intentionally limited to:
 
 The SDK is published first. `savant-free` is not public and is never included.
 
+By default both packages are published. To scope a release to a subset of the public
+packages, set `SAVANT_CODE_RELEASE_PACKAGES` to a comma-separated list of package names;
+the npm-pack dry-run gates, npm access verification, not-already-published checks,
+publishing, and post-publish verification all follow the scope. Names that match no
+public package abort the run fail-closed (a typo can never silently publish nothing).
+For example, release only the CLI package without publishing the SDK:
+
+```bash
+SAVANT_CODE_RELEASE_PACKAGES=savant-code SAVANT_CODE_RELEASE_AUTOMATION=1 bun run release:public
+```
+
 ## Transaction order
 
 Manual mode and automation mode share the same release stages:
@@ -131,7 +142,10 @@ Automation mode requires:
 
 - `SAVANT_CODE_RELEASE_AUTOMATION=1`.
 - `GITHUB_TOKEN` or `GH_TOKEN` with repository release/write permission.
-- npm installed and authenticated with publish access to both public packages.
+- npm installed and authenticated with publish access to the public packages being
+  released.
+- (Optional) `SAVANT_CODE_RELEASE_PACKAGES` to scope npm targets to a subset of
+  `@savant-code/sdk` / `savant-code`.
 - The process is allowed to create the release commit; all current tracked and untracked
   worktree changes are intentionally included by policy.
 

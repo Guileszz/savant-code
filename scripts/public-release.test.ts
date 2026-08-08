@@ -25,6 +25,7 @@ import {
   buildGateManifest,
   changedWorktreePaths,
   classifyCommandResult,
+  configuredReleasePackages,
   fingerprintWorktree,
   ignoredPathDelta,
   readCapturedOutput,
@@ -346,6 +347,81 @@ describe('public release contract', () => {
       'npm-pack:@savant-code/sdk',
       'npm-pack:savant-code',
     ])
+  })
+
+  test('scopes release packages to the configured subset', () => {
+    const previousScope = process.env.SAVANT_CODE_RELEASE_PACKAGES
+    try {
+      delete process.env.SAVANT_CODE_RELEASE_PACKAGES
+      expect(configuredReleasePackages().map((target) => target.name)).toEqual([
+        '@savant-code/sdk',
+        'savant-code',
+      ])
+
+      process.env.SAVANT_CODE_RELEASE_PACKAGES = 'savant-code'
+      expect(configuredReleasePackages().map((target) => target.name)).toEqual([
+        'savant-code',
+      ])
+
+      process.env.SAVANT_CODE_RELEASE_PACKAGES =
+        '  savant-code, @savant-code/sdk '
+      expect(configuredReleasePackages().map((target) => target.name)).toEqual([
+        '@savant-code/sdk',
+        'savant-code',
+      ])
+
+      process.env.SAVANT_CODE_RELEASE_PACKAGES = 'not-a-package'
+      expect(() => configuredReleasePackages()).toThrow(
+        'matched no public packages',
+      )
+      // A typo in one name must fail the whole scope, never silently drop it.
+      process.env.SAVANT_CODE_RELEASE_PACKAGES = 'savant-code,sdk'
+      expect(() => configuredReleasePackages()).toThrow('sdk')
+    } finally {
+      if (previousScope === undefined)
+        delete process.env.SAVANT_CODE_RELEASE_PACKAGES
+      else process.env.SAVANT_CODE_RELEASE_PACKAGES = previousScope
+    }
+  })
+
+  test('scoped gate manifests drop the excluded npm-pack dry run', () => {
+    const previousScope = process.env.SAVANT_CODE_RELEASE_PACKAGES
+    try {
+      process.env.SAVANT_CODE_RELEASE_PACKAGES = 'savant-code'
+      const scoped = buildGateManifest(
+        '/repo',
+        '0.0.21',
+        '1.3.14',
+        '10.9.2',
+        'a'.repeat(40),
+      )
+      expect(scoped.specs.map((spec) => spec.label)).toEqual([
+        'build:sdk',
+        'typecheck',
+        'test',
+        'eslint',
+        'markdownlint',
+        'prettier',
+        'npm-pack:savant-code',
+      ])
+
+      delete process.env.SAVANT_CODE_RELEASE_PACKAGES
+      const full = buildGateManifest(
+        '/repo',
+        '0.0.21',
+        '1.3.14',
+        '10.9.2',
+        'a'.repeat(40),
+      )
+      expect(full.specs.map((spec) => spec.label)).toContain(
+        'npm-pack:@savant-code/sdk',
+      )
+      expect(scoped.hash).not.toBe(full.hash)
+    } finally {
+      if (previousScope === undefined)
+        delete process.env.SAVANT_CODE_RELEASE_PACKAGES
+      else process.env.SAVANT_CODE_RELEASE_PACKAGES = previousScope
+    }
   })
 
   test('redacts credentials from receipt failure details', () => {

@@ -109,6 +109,34 @@ export const PUBLIC_PACKAGES: readonly PackageTarget[] = [
   { name: 'savant-code', directory: 'cli/release', stage: 'NPM_PUBLISH_CLI' },
 ]
 
+/**
+ * Returns the package targets for this release run. Defaults to every public
+ * package. Set SAVANT_CODE_RELEASE_PACKAGES to a comma-separated subset of
+ * public package names (e.g. `savant-code`) to scope npm publish/verification
+ * and the npm-pack dry-run gates to those packages. Any name that matches no
+ * public package aborts the run fail-closed so a typo can never silently
+ * publish less than intended.
+ */
+export function configuredReleasePackages(): readonly PackageTarget[] {
+  const raw = process.env.SAVANT_CODE_RELEASE_PACKAGES
+  if (!raw || !raw.trim()) return PUBLIC_PACKAGES
+  const names = raw
+    .split(',')
+    .map((name) => name.trim())
+    .filter(Boolean)
+  if (names.length === 0) return PUBLIC_PACKAGES
+  const unknown = names.filter(
+    (name) => !PUBLIC_PACKAGES.some((target) => target.name === name),
+  )
+  if (unknown.length > 0) {
+    fail(
+      `SAVANT_CODE_RELEASE_PACKAGES matched no public packages: ${unknown.join(', ')}. ` +
+        `Valid names: ${PUBLIC_PACKAGES.map((target) => target.name).join(', ')}.`,
+    )
+  }
+  return PUBLIC_PACKAGES.filter((target) => names.includes(target.name))
+}
+
 const PROFILE_ENV = {
   ...CANONICAL_RELEASE_RUNTIME_DEFAULTS,
   ...CANONICAL_NEXT_PUBLIC_DEFAULTS,
@@ -245,7 +273,10 @@ export function buildTokenSafeGitPushEnv(
   }
 }
 
-export function buildPublicReleasePlan(version: string): readonly string[] {
+export function buildPublicReleasePlan(
+  version: string,
+  packages: readonly PackageTarget[] = configuredReleasePackages(),
+): readonly string[] {
   return [
     `Validate ${PUBLIC_REPOSITORY}@v${version}`,
     'Snapshot local routing/settings state',
@@ -254,8 +285,7 @@ export function buildPublicReleasePlan(version: string): readonly string[] {
     `Create annotated tag v${version}`,
     `git push origin main and v${version}`,
     `Create the GitHub REST release for v${version} with the current CHANGELOG section`,
-    'npm publish @savant-code/sdk',
-    'npm publish savant-code',
+    ...packages.map((target) => `npm publish ${target.name}`),
     'Verify public versions and restore local state',
   ]
 }
@@ -417,7 +447,7 @@ export function buildGateManifest(
       args: ['prettier', '--check', '.'],
       cwd: root,
     },
-    ...PUBLIC_PACKAGES.map((target) => ({
+    ...configuredReleasePackages().map((target) => ({
       label: `npm-pack:${target.name}`,
       command: 'npm',
       args: ['pack', '--dry-run'],
@@ -1747,7 +1777,7 @@ function assertNoExistingRelease(root: string, version: string): void {
 
 function assertNpmAccess(root: string, identity: string): void {
   if (!identity) fail('npm whoami returned no authenticated identity.')
-  for (const target of PUBLIC_PACKAGES) {
+  for (const target of configuredReleasePackages()) {
     const cwd = path.join(root, target.directory)
     const packageInfo = run('npm', ['view', target.name, 'name'], cwd, true)
     if (packageInfo.status !== 0 && isNotFoundResult(packageInfo)) {
@@ -1776,7 +1806,7 @@ function assertNpmAccess(root: string, identity: string): void {
 }
 
 function assertPackagesNotPublished(root: string, version: string): void {
-  for (const target of PUBLIC_PACKAGES) {
+  for (const target of configuredReleasePackages()) {
     const result = run(
       'npm',
       ['view', `${target.name}@${version}`, 'version'],
@@ -1827,7 +1857,11 @@ async function confirm(
   console.log(
     `  GitHub release: ${PUBLIC_REPOSITORY_SLUG}/releases/tag/v${version}`,
   )
-  console.log('  npm packages: @savant-code/sdk, savant-code')
+  console.log(
+    `  npm packages: ${configuredReleasePackages()
+      .map((target) => target.name)
+      .join(', ')}`,
+  )
   console.log(
     `  mode: ${resume ? 'resume completed stages where safe' : 'new release'}`,
   )
@@ -2394,7 +2428,7 @@ async function runReleaseTransaction(): Promise<void> {
           }
         }
 
-        for (const target of PUBLIC_PACKAGES) {
+        for (const target of configuredReleasePackages()) {
           if (isStageComplete(receipt, target.stage)) continue
           if (options.resume && packageIsPublished(root, target, version)) {
             markStage(receipt, target.stage)
@@ -2451,7 +2485,7 @@ async function runReleaseTransaction(): Promise<void> {
         ) {
           fail(`Post-release tag v${version} does not point at release HEAD.`)
         }
-        for (const target of PUBLIC_PACKAGES) {
+        for (const target of configuredReleasePackages()) {
           verifyPublishedPackage(root, target, version)
         }
         markStage(receipt, 'POST_RELEASE_VERIFY')
