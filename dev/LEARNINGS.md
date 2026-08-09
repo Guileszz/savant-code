@@ -1,5 +1,61 @@
 # LEARNINGS
 
+## Session 2026-08-09: v0.0.22 Public Release (FID closures → release)
+
+**Key Learnings:**
+
+- **A lockfile regeneration can silently resolve a toolchain into a broken
+  major.** The overnight `bun.lock` regen (FID-0809-002 work) pulled
+  `eslint@10.8.1`, which crashes `typescript-eslint@7.18` at load (`Class
+  extends value undefined` — `LegacyESLint` was removed in ESLint 10); the
+  v0.0.20/21 lockfiles pinned `eslint@9.39.5`. `eslint` was only a
+  transitive/peer dependency, so nothing constrained it. Fix: explicit root
+  devDependency `"eslint": "^9.39.5"`. Lesson: peer-constrained toolchains
+  need explicit pins, and every lockfile regen must re-run the real gates
+  before release.
+- **A gate that "passed" on a pipe is not a verified gate.** The A-Z audit
+  reported ESLint clean because the command was `cmd | tail; echo $?` — `$?`
+  was `tail`'s exit code, not eslint's. The eslint crash went undetected
+  until the release engine ran it with a direct exit status. Verify gates
+  with the real exit code (no pipe), and treat a timed-out check (the A-Z
+  prettier run) as unverified — the 5-file prettier drift in the
+  provider-registry work would have failed any release.
+- **The release engine's resume is bound to the original gate manifest.**
+  `validateResumeReceipt` rebuilds the manifest from
+  `configuredReleasePackages()` and refuses a hash mismatch, so you cannot
+  change `SAVANT_CODE_RELEASE_PACKAGES` mid-flight (e.g. resume CLI-only after
+  an SDK failure). Scope changes require a fresh run — and a fresh run refuses
+  when the GitHub release already exists. The SDK-first publish order also
+  means a blocked SDK blocks the CLI publish in the engine; plan package
+  ordering around known publish blockers.
+- **A missing npm scope is a hard publish blocker with no CLI/API fix.** The
+  `@savant-code` npm org does not exist (registry org endpoint 404 → `404
+  Scope not found` on `npm publish`). Creating an npm org is website-only
+  (`npmjs.com/org/create`, as the publishing user). Until the operator
+  creates it, `@savant-code/sdk` cannot be published at all; releases are
+  CLI-only.
+- **npm username ≠ GitHub username — and a GitHub rename does not touch npm.**
+  The operator renamed their GitHub account and briefly thought the npm
+  identity changed too; `npm whoami` + `npm view savant-code maintainers`
+  both still resolve to `fame0x` (see also the 2026-08-05 entry).
+- **The definitive install-path test is a fresh-user run.** The launcher
+  caches the binary user-level (`~/.config/savant/`), NOT version-keyed, and
+  compares package vs registry versions — a stale 0.0.20 cache on the dev
+  machine masked the real path. Simulating a clean user
+  (`USERPROFILE=/tmp/clean-home`) forced the real download: 52 MB tarball
+  from the v0.0.22 release → `--version` printed `0.0.22`. Existing users on
+  stale binaries get the consent-gated auto-update on their next interactive
+  launch by design.
+- **Outcome:** `savant-code@0.0.22` published (npm `latest`), GitHub release
+  v0.0.22 with all 5 binary tarballs (workflow + `verify-release-assets` job
+  green), annotated tag pushed, fresh installs validated end to end. SDK
+  intentionally not published this release (scope prerequisite above).
+
+**Files touched:** package.json (eslint pin), bun.lock (regenerated, 0.0.22),
+VERSION + 15 manifests, CHANGELOG.md, README.md, cli/src/utils/settings.ts,
+common/src/providers/types.ts, savant-free/package.json, scripts/public-release.ts
+and scripts/public-release.test.ts, dev/session-summaries/2026-08-09-1206-single-agent-init.md.
+
 ## Session 2026-08-07: Code Universe Offline Audio Closeout (FID-2026-0807-007)
 
 **Key Learnings:**

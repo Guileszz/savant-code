@@ -241,6 +241,69 @@ job asserts them) → `npm publish` CLI + SDK.
 
 ---
 
+## v0.0.22 PUBLIC RELEASE — COMPLETE (2026-08-09 ~14:20)
+
+Operator directed a full public release of 0.0.22 ("handle everything — GitHub, gh
+releases, npm"). Executed end to end. **Final: `savant-code@0.0.22` published; SDK NOT
+published (operator decision — `@savant-code` npm scope does not exist; SDK stays off
+npm).**
+
+### Prep (operator-authorized)
+
+- Bumped `VERSION` + all 15 manifests 0.0.21 → 0.0.22; added `## v0.0.22 — 2026-08-09`
+  CHANGELOG section (release body) + README badge/blurb; regenerated `bun.lock`
+  (workspace versions now 0.0.22; frozen-lockfile passes).
+- **Fixed a pre-existing gate breakage:** the overnight lockfile regen had resolved
+  `eslint@10.8.1`, which crashes `typescript-eslint@7.18` (LegacyESLint removed) — the
+  v0.0.20/21 lockfiles pinned `eslint@9.39.5`. Pinned `"eslint": "^9.39.5"` as a root
+  devDependency (was only transitive). eslint gate now exit 0.
+- **Prettier drift fixed on 5 files** (never caught earlier — A-Z prettier check had
+  timed out): `cli/src/utils/settings.ts`, `common/src/providers/types.ts`,
+  `savant-free/package.json`, `scripts/public-release.ts`, `scripts/public-release.test.ts`.
+  Full `prettier --check .` now exit 0. Contract suite unchanged 52/53.
+
+### Engine run (`SAVANT_CODE_RELEASE_AUTOMATION=1 bun run release:public`)
+
+- Automation commits (all pushed to `origin/main`): `d1f2c35` (full worktree incl.
+  provider registry + docs), `e1f24fa` (eslint pin + lockfile), `8014025` (prettier
+  fixes) — all `chore(release): prepare v0.0.22`.
+- All gates passed (lockfile/build:sdk/typecheck/test/eslint/markdownlint/prettier/npm-pack).
+- Annotated tag **v0.0.22** created + pushed; pre-push hook passed (credential scan 204
+  files, eslint + markdownlint + prettier).
+- **GitHub release v0.0.22 created** → `release: published` auto-triggered the binary
+  workflow from the updated `main` (incl. the FID-0809-002 `verify-release-assets`
+  job) → run `8014025` **success**; all 5 tarballs uploaded
+  (`linux-x64/arm64`, `darwin-x64/arm64`, `win32-x64`).
+- Engine aborted at `NPM_PUBLISH_SDK`: `404 Scope not found` — the `@savant-code` npm
+  org does not exist (registry org endpoint 404). Engine publishes SDK before CLI.
+
+### npm publish (operator decision: CLI only)
+
+- npm account confirmed `fame0x` (env `NPM_PUBLISH` key resolves to fame0x; operator
+  confirmed after a GitHub-rename mix-up).
+- `npm publish --access public` from `cli/release` → **`+ savant-code@0.0.22`**;
+  `npm view savant-code` → `latest = 0.0.22`. dist-tag latest correct.
+
+### End-to-end install validation ✅
+
+- Fresh-user simulation (clean HOME/USERPROFILE): launcher downloaded the 52.1 MB
+  win32-x64 tarball from the v0.0.22 release → `--version` prints **0.0.22**; metadata
+  `{"version": "0.0.22", "target": "win32-x64"}` written to `~/.config/savant/`.
+- Existing stale-0.0.20 users: the consent-gated auto-update stages v0.0.22 and swaps
+  on the next interactive launch (FID-2026-0806-014 behavior) — by design.
+
+### Notes for next release
+
+- **SDK publish requires creating the `@savant-code` npm org** (website action,
+  `npmjs.com/org/create`, as fame0x) — no CLI/API exists. Until then, releases are
+  CLI-only; consider defaulting `PUBLIC_PACKAGES` or documenting
+  `SAVANT_CODE_RELEASE_PACKAGES=savant-code` (note: resume is bound to the original
+  gate-manifest package set, so a mid-flight scope change needs a fresh run).
+- Stale `savant-public-release-0.0.22.json` receipt (failedStage = npm publish) left
+  in tmpdir; `restored: true`, harmless.
+
+---
+
 ## Open Questions
 
 - Which work item should this session execute first (close 0809-001, fix ECHO.md
