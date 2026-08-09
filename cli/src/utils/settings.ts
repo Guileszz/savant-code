@@ -409,8 +409,7 @@ export const saveSavantCodeModelPreference = (model: string): void => {
  * none is saved yet — callers should default to the first model in the catalog.
  */
 export const loadSavantCodeModelProviderPreference = ():
-  | ModelProvider
-  | undefined => {
+  ModelProvider | undefined => {
   return loadSettings().savantCodeModelProviderPreference
 }
 

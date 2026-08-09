@@ -29,8 +29,7 @@ export type ProviderIdTransform = 'strip' | 'keep' | 'cf-rewrite'
 
 /** Shared dual-protocol maps (see common/src/constants/model-config.ts). */
 export type ProviderProtocolMap =
-  | 'OPENCODE_GO_PROTOCOLS'
-  | 'COMMANDCODE_PROTOCOLS'
+  'OPENCODE_GO_PROTOCOLS' | 'COMMANDCODE_PROTOCOLS'
 
 /** Key resolution strategy. `openrouter` = master-key exchange chain. */
 export type ProviderResolver = 'default' | 'openrouter'

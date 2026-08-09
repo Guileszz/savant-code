@@ -2070,7 +2070,10 @@ function positiveEnvMs(key: string, fallback: number): number {
  * run died in 18s at the install step).
  */
 export function assetRetryTimeoutMs(): number {
-  return positiveEnvMs('SAVANT_RELEASE_ASSET_TIMEOUT_MS', DEFAULT_ASSET_RETRY_MS)
+  return positiveEnvMs(
+    'SAVANT_RELEASE_ASSET_TIMEOUT_MS',
+    DEFAULT_ASSET_RETRY_MS,
+  )
 }
 
 /**

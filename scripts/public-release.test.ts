@@ -1262,10 +1262,10 @@ describe('public release contract', () => {
       process.env.SAVANT_RELEASE_ASSET_TIMEOUT_MS = '80'
       process.env.SAVANT_RELEASE_ASSET_POLL_MS = '5'
       const fetchImpl = async () =>
-        new Response(
-          JSON.stringify({ tag_name: 'v0.0.21', assets: [] }),
-          { status: 200, headers: { 'content-type': 'application/json' } },
-        )
+        new Response(JSON.stringify({ tag_name: 'v0.0.21', assets: [] }), {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        })
       await expect(
         verifyReleaseAssets('0.0.21', 'github-secret', '/repo', fetchImpl),
       ).rejects.toThrow('missing binary assets')

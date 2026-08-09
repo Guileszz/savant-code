@@ -2,8 +2,7 @@
   "name": "@savant-code/savant-free",
   "version": "0.0.22",
   "private": true,
-  "scripts":{
-
+  "scripts": {
     "build:binary": "bun cli/build.ts 0.0.0-dev",
     "e2e": "bun run build:binary && bun test e2e/tests/",
     "e2e:version": "bun test e2e/tests/version.e2e.test.ts",
