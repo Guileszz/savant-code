@@ -24,6 +24,8 @@ describe('getModelForRequest ChatGPT OAuth fallback behavior', () => {
   let originalOpenRouterApiKey: string | undefined
   let originalOrMasterKey: string | undefined
   let originalInferenceApiKey: string | undefined
+  let originalDirectProvider: string | undefined
+  let originalInferenceBaseUrl: string | undefined
 
   beforeEach(async () => {
     originalCommandCodeApiKey = process.env.COMMAND_CODE_API_KEY
@@ -33,9 +35,13 @@ describe('getModelForRequest ChatGPT OAuth fallback behavior', () => {
     originalOpenRouterApiKey = process.env.OPENROUTER_API_KEY
     originalOrMasterKey = process.env.OR_MASTER_KEY
     originalInferenceApiKey = process.env.INFERENCE_API_KEY
+    originalDirectProvider = process.env.DIRECT_PROVIDER
+    originalInferenceBaseUrl = process.env.INFERENCE_BASE_URL
     delete process.env.OPENROUTER_API_KEY
     delete process.env.OR_MASTER_KEY
     delete process.env.INFERENCE_API_KEY
+    delete process.env.DIRECT_PROVIDER
+    delete process.env.INFERENCE_BASE_URL
     const { resetOpenRouterApiKeyCache } =
       await import('../openrouter-key-resolver')
     resetOpenRouterApiKeyCache()
@@ -82,6 +88,16 @@ describe('getModelForRequest ChatGPT OAuth fallback behavior', () => {
       delete process.env.INFERENCE_API_KEY
     } else {
       process.env.INFERENCE_API_KEY = originalInferenceApiKey
+    }
+    if (originalDirectProvider === undefined) {
+      delete process.env.DIRECT_PROVIDER
+    } else {
+      process.env.DIRECT_PROVIDER = originalDirectProvider
+    }
+    if (originalInferenceBaseUrl === undefined) {
+      delete process.env.INFERENCE_BASE_URL
+    } else {
+      process.env.INFERENCE_BASE_URL = originalInferenceBaseUrl
     }
     clearMockedModules()
   })
@@ -290,5 +306,74 @@ describe('getModelForRequest ChatGPT OAuth fallback behavior', () => {
     )
     // The `openrouter/` prefix is part of the real slug — must NOT be stripped.
     expect(JSON.parse(String(init?.body)).model).toBe('openrouter/free')
+  })
+
+  test('bare-slug models use the ACTIVE provider key (FID-2026-0809-001 decision 10)', async () => {
+    // Mirrors the CLI runtime: DIRECT_PROVIDER + INFERENCE_BASE_URL are set
+    // from the active provider's registry entry at startup.
+    process.env.DIRECT_PROVIDER = 'tokenharbor'
+    process.env.INFERENCE_BASE_URL = 'https://tokenharbor.ai/v1'
+    process.env.TOKENHARBOR_API_KEY = 'tokenharbor-test-key'
+    const fetchMock = mock(() =>
+      Promise.resolve(
+        new Response('data: [DONE]\n\n', {
+          status: 200,
+          headers: { 'content-type': 'text/event-stream' },
+        }),
+      ),
+    )
+    // @ts-expect-error - test fetch has the same runtime contract
+    globalThis.fetch = fetchMock
+
+    const { getModelForRequest } = await importFresh()
+    const result = await getModelForRequest({
+      apiKey: 'caller-stub-key',
+      model: 'anthropic/claude-sonnet-4.5',
+    })
+    await (result.model as LanguageModelV2).doStream({
+      prompt: COMMAND_CODE_PROMPT,
+    })
+
+    const [input, init] = fetchMock.mock.calls[0] as unknown as [
+      RequestInfo | URL,
+      RequestInit | undefined,
+    ]
+    expect(String(input)).toBe('https://tokenharbor.ai/v1/chat/completions')
+    // The active provider's own key wins over the caller-supplied stub.
+    expect(new Headers(init?.headers).get('authorization')).toBe(
+      'Bearer tokenharbor-test-key',
+    )
+  })
+
+  test('bare-slug models fall back to the caller key without an active provider', async () => {
+    process.env.INFERENCE_BASE_URL = 'https://example.test/v1'
+    const fetchMock = mock(() =>
+      Promise.resolve(
+        new Response('data: [DONE]\n\n', {
+          status: 200,
+          headers: { 'content-type': 'text/event-stream' },
+        }),
+      ),
+    )
+    // @ts-expect-error - test fetch has the same runtime contract
+    globalThis.fetch = fetchMock
+
+    const { getModelForRequest } = await importFresh()
+    const result = await getModelForRequest({
+      apiKey: 'caller-stub-key',
+      model: 'anthropic/claude-sonnet-4.5',
+    })
+    await (result.model as LanguageModelV2).doStream({
+      prompt: COMMAND_CODE_PROMPT,
+    })
+
+    const [input, init] = fetchMock.mock.calls[0] as unknown as [
+      RequestInfo | URL,
+      RequestInit | undefined,
+    ]
+    expect(String(input)).toBe('https://example.test/v1/chat/completions')
+    expect(new Headers(init?.headers).get('authorization')).toBe(
+      'Bearer caller-stub-key',
+    )
   })
 })

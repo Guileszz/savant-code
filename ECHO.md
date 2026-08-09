@@ -34,13 +34,13 @@ adaptive complexity routing to avoid unnecessary overhead on simple tasks.**
 | **Perfection Loop**        | The iterative fix/verify cycle that runs on the FID document — not the code                                       |
 | **FID-Bound Execution**    | For complex tasks, code is written only after the FID converges. For simple tasks, the Orchestrator writes directly (Hybrid Mode) and verifies immediately. |
 | **Activity** (FID-2026-0718-009) | Runtime indicator surfaced in the sidebar that shows what the agent is doing *right now* (tool call, model reasoning, sub-agent delegation, research). Distinct from FSM Phase, which tracks Perfection Loop state. |
-| **Levenshtein Metric**     | 10% character-change cap per pass to prevent oscillation                                                          |
+| **Levenshtein Metric**     | 10% character-change cap per pass to prevent oscillation. **Enforced mechanically by the Savant EHEL harness** — do not attempt to calculate this yourself. |
 | **Baseline**               | Reference code state showing intended patterns                                                                    |
 | **Honest Assessment**      | Verifiable output-based evaluation vs. self-reporting (see Honest Assessment section below)                       |
 | **Five Questions**         | Evaluation framework for any approach                                                                             |
 | **Anti-Pattern**           | Forbidden behavior that violates the protocol                                                                     |
 | **Double Audit**           | Every change verified by two independent methods (static analysis + runtime tests). Self-reporting is prohibited. |
-| **Separation of Duties**   | The agent that writes code cannot verify it. In Hybrid Mode, the Orchestrator writes code but verification is done by bashers (typecheck/lint) or Verifier, never self-verified. |
+| **Separation of Duties**   | The agent that writes code cannot verify it. In Hybrid Mode, the Orchestrator writes code but verification is done by basher agent (typecheck/lint) or Verifier, never self-verified. |
 | **`protocol.config.yaml`** | Project-specific configuration (language, commands, paths)                                                        |
 | **`coding-standards/`**    | Language-specific naming and style conventions                                                                    |
 
@@ -66,7 +66,7 @@ another agent's role.
 | 1 | **Orchestrator** | ALL | Primary coder (Hybrid Mode) + routes complex work through Perfection Loop. Writes code directly for most tasks, spawns Forge for complex changes. | spawn_agents, read_files, read_subtree, run_readonly_command, write_todos, suggest_followups, ask_user, read_url, skill, set_output, list_directory, glob, render_ui, gravity_index, transition_phase, write_file, str_replace, apply_patch (phase-gated), set_scaffold_complete (scaffold mode) | bash, sequentialthinking |
 | 2 | **Detective** | RED | Codebase analysis, grep call-graphs, find issues, catalog evidence | code_search, set_output, list_directory, glob, read_files, read_subtree | write_file, str_replace, bash |
 | 3 | **Forge** | GREEN | Implementation only. Writes code following converged FID spec. | write_file, str_replace, set_output | spawn_agents, ask_user |
-| 4 | **Verifier** | AUDIT | Double-audit, run tests, check call-graph reachability, cite `file:line` evidence per PASS/FAIL, `NEEDS-REVIEW` for out-of-reach evidence (FID-2026-0805-004) | *(no tools — reads only via message history)* | ALL write tools |
+| 4 | **Verifier** | AUDIT | Double-audit, evaluate test/grep results mechanically injected by EHEL into your context. Do not hallucinate or assume test output if injection is missing — request it or mark `NEEDS-REVIEW`. Cite `file:line` evidence per PASS/FAIL, `NEEDS-REVIEW` for out-of-reach evidence (FID-2026-0805-004) | *(no tools — receives evidence via EHEL harness injection into message history)* | ALL write/bash tools |
 | 5 | **Recorder** | FID | Create, track, archive FIDs. Update CHANGELOG. | write_file, read_files, glob, code_search, set_output | str_replace, bash |
 | 6 | **Thinker** | Planning | Deep reasoning via sequential thinking engine | sequentialthinking, end_turn | write_file, str_replace, bash |
 | 7 | **Scout** | Explore | File/code search, glob, read subtrees, context gathering | glob, list_directory, read_files, read_subtree, set_output | write_file, str_replace, bash, spawn |
@@ -78,13 +78,31 @@ another agent's role.
 
 | Rule | Enforced By |
 |------|-------------|
-| The Orchestrator writes code directly in Hybrid Mode (most tasks). For complex tasks (> 75 lines + new APIs, novel architecture, verification fails twice), delegate to Forge via FID-Bound Execution. | Hybrid Mode + FID criteria |
+| The Orchestrator writes code directly in Hybrid Mode (most tasks). For complex tasks (> 20 lines + new APIs, novel architecture, verification fails twice), delegate to Forge via FID-Bound Execution. | Hybrid Mode + FID criteria |
 | Forge (GREEN) cannot verify its own work | No bash (test) access |
 | Verifier (AUDIT) cannot write anything | toolNames: [] (zero tools) |
 | Detective (RED) cannot implement fixes | No write_file/str_replace |
-| Recorder controls FID lifecycle exclusively | Only Recorder can archive FIDs |
+| Recorder controls FID lifecycle exclusively | Recorder authors/archives FID content; Orchestrator executes the filesystem move (Recorder has no move tool). |
 | Thinker must use sequential thinking for all non-trivial reasoning | Tool mandate |
 | Scout/Researcher are read-only | No write tools at all |
+
+### EHEL Integration (ECHO Harness Enforcement Layer)
+
+The Savant harness enforces ECHO laws mechanically at the tool-executor level.
+You do not need to self-police — the harness will block violations.
+
+**How EHEL works:**
+
+- **Law 1 (Read 0-EOF):** If you attempt `write_file` or `str_replace` without first reading the file, EHEL blocks the write.
+- **Law 3 (Verify Before Proceed):** EHEL tracks verification state and flags unverified changes.
+- **Law 15 (Build Stays Clean):** EHEL runs typecheck/lint after edits and blocks if errors are detected.
+- **Levenshtein Metric:** EHEL computes diff size and rejects passes exceeding 10% character change.
+
+**What this means for you:**
+
+- If EHEL blocks an action, it is enforcing a law — do not attempt to bypass.
+- The Verifier receives test/grep output injected by EHEL — it does not need tools.
+- You can focus on reasoning and implementation; EHEL handles enforcement.
 
 ---
 
@@ -239,22 +257,17 @@ not on the code. Code implementation begins only after the FID converges.
 │  ┌─────────┐    ┌──────────┐    ┌─────────┐    ┌──────────────┐   │
 │  │   RED   │───>│  GREEN   │───>│  AUDIT  │───>│ ADVERSARIAL  │   │
 │  │  PHASE  │    │  PHASE   │    │  PHASE  │    │    PHASE     │   │
-│  └─────────┘    └─────┬────┘    └─────────┘    └───┬──────┬────┘   │
-│       ^                │                           │      │        │
-│       │                │        ┌──────────┐       │      │        │
-│       │                │        │ COMPLETE │<──────┘      │        │
-│       │                │        └────┬─────┘              │        │
-│       │                │             │       ┌────────────┘        │
-│       │                │             ▼       ▼                     │
-│       │                │      ┌──────────────┐   ┌──────────────┐  │
-│       │                │      │  FORGE/AUDIT  │   │ SELF-CORRECT │  │
-│       │                │      │  (code impl)  │   │  (findings)  │  │
-│       │                │      └──────────────┘   └──────┬───────┘  │
-│       │                │                                 │          │
-│       │                └─────────────────────────────────┘          │
-│       │                   (corrections applied → re-enter GREEN)
-│       │
-│       └─────────────────── (if new issues found)
+│  └────┬────┘    └────▲────┘    └─────────┘    └───┬──────┬────┘   │
+│       │              │                            │      │        │
+│       │              │             ┌──────────┐   │      │        │
+│       │              │             │ COMPLETE │<───┘      │        │
+│       │              │             └──────────┘          │        │
+│       │              │                                   │        │
+│       │              │             ┌──────────────┐      │        │
+│       │              └─────────────│ SELF-CORRECT │<─────┘        │
+│       │                            └──────────────┘               │
+│       │                                                            │
+│       └─────────────────── (if new issues found)                  │
 └──────────────────────────────────────────────────────────────────┘
 ```
 
@@ -271,9 +284,11 @@ not on the code. Code implementation begins only after the FID converges.
 
 ### Circuit Breaker Rules
 
-1. **Max Changes Per Pass** — 10% of total character count of the FID
+1. **Max Changes Per Pass** — ~10% of total character count of the FID (heuristic for
+   markdown; EHEL enforces strictly for code)
 2. **Verification** — After each FID update, verify with exact character match
-3. **Convergence Detection** — Stop if change delta < 2% for 2 consecutive passes
+3. **Convergence Detection** — Stop if the FID changes are trivial/minor for 2 consecutive
+   passes (do not calculate exact percentages for markdown; use judgment)
 4. **Oscillation Detection** — If same issue reappears 3 times, escalate
 5. **Hard Stop** — 10 maximum iterations per loop
 
@@ -311,7 +326,7 @@ This rule is the inter-agent version of the AUDIT phase's call-graph reachabilit
 
 The full FID-Bound Execution flow is reserved for genuinely complex tasks:
 
-- Touches > 75 lines AND requires new imports/APIs, OR
+- Touches > 20 lines AND requires new imports/APIs, OR
 - Novel architecture or patterns not in the codebase, OR
 - Verification fails twice with direct fixes, OR
 - User explicitly requests Forge
@@ -339,7 +354,7 @@ For tasks that don't meet the complex criteria above, the Orchestrator writes co
 ```text
 Step 1:  Read relevant files to understand codebase
 Step 2:  Write ALL code changes using write_file and str_replace
-Step 3:  Run verification (typecheck, lint) in parallel using bashers
+Step 3:  Run verification (typecheck, lint) by spawning the basher agent
 Step 4:  Spawn Verifier for code review (see criteria below)
 Step 5:  If verification passes → done
 Step 6:  If verification fails → spawn Forge to fix, then re-verify
@@ -362,14 +377,14 @@ The Verifier MAY be skipped ONLY when: change is < 10 lines AND single file AND 
 
 Hybrid Mode satisfies the Double Audit requirement via:
 
-- **Method 1:** bashers (typecheck/lint) — static analysis
+- **Method 1:** basher agent (typecheck/lint) — static analysis
 - **Method 2:** Verifier — independent code review (when triggered by criteria above)
 
 Self-reporting is prohibited. The Orchestrator that writes code must not be the one to verify it.
 
 ### Enforcement
 
-- For Hybrid Mode: The Orchestrator writes code directly. Verification is done by bashers (typecheck/lint) or
+- For Hybrid Mode: The Orchestrator writes code directly. Verification is done by basher agent (typecheck/lint) or
   Verifier — never self-verified.
 - For FID-Bound Execution: The Orchestrator cannot skip steps 1-4. An open FID must reach COMPLETE before Forge
   implements.
@@ -401,7 +416,9 @@ Self-reporting is prohibited. The Orchestrator that writes code must not be the 
 4. Load `coding-standards/{language}.md` for naming conventions and quality overrides
 5. Review `ARCHITECTURE.md` to understand the agent roster and tool restrictions
 6. Review `dev/LEARNINGS.md` for known issues
-7. Review all FIDs in `dev/fids/` — flag any non-`Closed` as open items for the session
+7. Glob `dev/fids/*.md` to list active FIDs. Read only the metadata headers (Status,
+   Severity) of non-Closed FIDs to identify open work items. Do NOT read closed or
+   archived FIDs.
 8. Create `dev/session-summaries/YYYY-MM-DD-HHMM.md` with:
    - Initial state assessment
    - Planned work
@@ -420,7 +437,7 @@ implement any FID's proposed solution until the loop is fully documented.
 ### During Session
 
 1. The Orchestrator receives user input and determines the task complexity
-2. For most tasks: Orchestrator writes code directly (Hybrid Mode), verifies with bashers
+2. For most tasks: Orchestrator writes code directly (Hybrid Mode), verifies with basher agent
 3. For complex tasks: Orchestrator delegates to Forge via FID-Bound Execution
 4. All issues are documented as FIDs in `dev/fids/`
 5. Session summary is updated with progress
@@ -614,13 +631,20 @@ presenting design choices.
 
 ---
 
-## Operating Modes & Autonomy Levels
+## Execution & Autonomy Modes
 
-| Level | Description | Push Behavior |
-|-------|-------------|---------------|
-| **Level 1: Guided** (User Present) | Agent asks before each major change. User approves each commit. | Push with approval. |
-| **Level 2: Supervised** (User Available) | Agent works independently but pauses at decision points. | Push with approval. |
-| **Level 3: Autonomous** (Default) | Agent works completely independently. Makes all decisions, implements, tests, documents. | Push at will after verification. |
+The Savant harness uses Execution Modes to determine the rigor of the workflow. The
+active mode is set by the user via UI or `/mode`.
+
+| Mode | Behavior | When to use |
+|------|----------|-------------|
+| **HYBRID** (Default) | Orchestrator writes directly. Full Perfection Loop auto-escalates past 20 lines. EHEL laws block mechanically. | Day-to-day building, quick iterations. |
+| **STRICT** | Full ECHO ceremony for EVERY change. FID per change, Forge writes, Verifier+Adversary audits. | Security-sensitive, auth, paid-APIs, team review. |
+| **SCAFFOLD** | Project initialization. Scaffolds once, then hands back to HYBRID. | New repo setup. |
+| **ANALYZE** | Read-only. Search, inspect, and reason without writing files. | Codebase exploration, Q&A. |
+
+*Note: Autonomy Levels (Guided, Supervised, Autonomous) govern push/commit behavior, but
+Execution Modes govern workflow rigor.*
 
 ---
 
@@ -650,9 +674,11 @@ documenting why you are stuck and creating a FID for follow-up.
 If you've read the same file 2+ times or made the same edit 2+ times:
 
 1. **STOP** immediately
-2. Mark current feature as `PENDING`
-3. Move to next feature
-4. Come back later with fresh context
+2. Inform the user that the session is in a loop and suggest using the `/rewind` command
+   to restore the codebase to the pre-edit state
+3. Mark current feature as `PENDING`
+4. Move to next feature
+5. Come back later with fresh context
 
 > **See also:** Circuit Breaker Rule #4 (Oscillation Detection) for automated
 > detection of this pattern across iterations.

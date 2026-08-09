@@ -166,6 +166,85 @@ describe('settings telemetry defaults', () => {
     expect(hasAnalyticsNoticeBeenShown()).toBe(true)
   })
 
+  test('activeProvider defaults to openrouter without persisting it (FID-2026-0809-001 decision 12)', async () => {
+    const { getActiveProvider, loadSettings } = await import('../settings')
+
+    // The accessor defaults, but the fresh settings file must not carry an
+    // explicit selection — Ollama auto-detection still runs on first run.
+    expect(getActiveProvider()).toBe(DEFAULT_SAVANT_CODE_MODEL_PROVIDER)
+    expect(loadSettings().activeProvider).toBeUndefined()
+  })
+
+  test('legacy directProvider migrates to activeProvider (FID-2026-0809-001 Phase 4)', async () => {
+    fs.mkdirSync(getConfigDir(), { recursive: true })
+    fs.writeFileSync(
+      path.join(getConfigDir(), 'settings.json'),
+      JSON.stringify({ directProvider: 'tokenharbor' }, null, 2),
+    )
+
+    const { loadSettings } = await import('../settings')
+    expect(loadSettings().activeProvider).toBe('tokenharbor')
+  })
+
+  test('unknown activeProvider values are dropped on load', async () => {
+    fs.mkdirSync(getConfigDir(), { recursive: true })
+    fs.writeFileSync(
+      path.join(getConfigDir(), 'settings.json'),
+      JSON.stringify({ activeProvider: 'mystery-provider' }, null, 2),
+    )
+
+    const { loadSettings } = await import('../settings')
+    expect(loadSettings().activeProvider).toBeUndefined()
+  })
+
+  test('explicit activeProvider wins over a stale legacy directProvider', async () => {
+    fs.mkdirSync(getConfigDir(), { recursive: true })
+    fs.writeFileSync(
+      path.join(getConfigDir(), 'settings.json'),
+      JSON.stringify(
+        { activeProvider: 'tokenharbor', directProvider: 'ollama' },
+        null,
+        2,
+      ),
+    )
+
+    const { loadSettings } = await import('../settings')
+    expect(loadSettings().activeProvider).toBe('tokenharbor')
+  })
+
+  test('getActiveProvider prefers the selection over the picker preference', async () => {
+    fs.mkdirSync(getConfigDir(), { recursive: true })
+    fs.writeFileSync(
+      path.join(getConfigDir(), 'settings.json'),
+      JSON.stringify(
+        {
+          activeProvider: 'nvidia',
+          savantCodeModelProviderPreference: 'openrouter',
+        },
+        null,
+        2,
+      ),
+    )
+
+    const { getActiveProvider } = await import('../settings')
+    expect(getActiveProvider()).toBe('nvidia')
+  })
+
+  test('getActiveProvider falls back to the picker preference when no selection exists', async () => {
+    fs.mkdirSync(getConfigDir(), { recursive: true })
+    fs.writeFileSync(
+      path.join(getConfigDir(), 'settings.json'),
+      JSON.stringify(
+        { savantCodeModelProviderPreference: 'tokenharbor' },
+        null,
+        2,
+      ),
+    )
+
+    const { getActiveProvider } = await import('../settings')
+    expect(getActiveProvider()).toBe('tokenharbor')
+  })
+
   test('opencode-go provider preference round-trips through validation', async () => {
     fs.mkdirSync(getConfigDir(), { recursive: true })
     fs.writeFileSync(

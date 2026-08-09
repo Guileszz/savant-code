@@ -1,9 +1,11 @@
 /**
  * Live + hardcoded model catalogs for the /model picker.
  *
- * Split into focused modules: types, live OpenRouter fetch, NVIDIA NIM fetch,
- * hardcoded static catalogs (TokenRouter / TokenHarbor / OpenCode Go / CommandCode),
- * model-id lookup + context resolution, and the combined gateway fetch.
+ * Split into focused modules: types, the generic live-catalog fetcher
+ * (OpenRouter + NVIDIA NIM instances — FID-2026-0809-001 Phase 3),
+ * static catalogs derived from common (TokenRouter / TokenHarbor / OpenCode Go
+ * / CommandCode), model-id lookup + context resolution, and the combined
+ * gateway fetch.
  */
 export {
   fetchGatewayModels,

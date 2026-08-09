@@ -1,4 +1,6 @@
 import { useKeyboard } from '@opentui/react'
+import { deriveProviderOrder } from '@savant-code/common/providers/derive'
+import { PROVIDER_REGISTRY } from '@savant-code/common/providers/registry'
 import { useCallback, useEffect, useMemo, useRef } from 'react'
 
 import { Button } from './button'
@@ -41,18 +43,11 @@ function getProvider(model: OpenRouterModel): ModelProvider {
 }
 
 function getProviderOrder(provider: ModelProvider): number {
-  switch (provider) {
-    case 'openrouter':
-      return 0
-    case 'tokenrouter':
-      return 1
-    case 'nvidia':
-      return 2
-    case 'opencode-go':
-      return 3
-    default:
-      return 4
-  }
+  // Derived from the registry (FID-2026-0809-001 Phase 1, delta (d)):
+  // openrouter 0, tokenrouter 1, nvidia 2, opencode-go 3, and the 4-way tie
+  // of tokenharbor/commandcode/ollama/cloudflare at 4 — replicating the
+  // historical switch exactly so picker ordering is unchanged.
+  return deriveProviderOrder(PROVIDER_REGISTRY, provider)
 }
 
 function buildGroupedItems(models: OpenRouterModel[]): ListItem[] {

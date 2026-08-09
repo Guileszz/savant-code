@@ -1,22 +1,33 @@
 /**
  * Live OpenRouter model catalog.
  *
- * OpenRouter's model list changes frequently, so rather than hardcoding a
- * stale table we fetch the current catalog from their public API. The result
- * is cached per-process with a short TTL so the /model picker stays current
- * without hammering the endpoint. On any failure we degrade gracefully: the
- * caller falls back to free-text entry of an exact model id.
+ * FID-2026-0809-001 Phase 3: thin wrapper over the generic live-catalog
+ * fetcher. OpenRouter's model list changes frequently, so rather than
+ * hardcoding a stale table we fetch the current catalog from their public API.
+ * The result is cached per-process with a short TTL so the /model picker stays
+ * current without hammering the endpoint. The catalog request authenticates
+ * with the resolved OpenRouter key (master-key exchange chain) when one is
+ * available (adversarial finding 10). On any failure the picker falls back to
+ * free-text entry of an exact model id.
  */
-import { logger } from '../logger'
-import { CATALOG_TTL_MS } from './types'
+import { deriveLiveCatalogUrl } from '@savant-code/common/providers/derive'
+import { PROVIDER_REGISTRY } from '@savant-code/common/providers/registry'
+import { resolveOpenRouterApiKey } from '@savant-code/sdk'
+
+import { createLiveCatalogFetcher } from './live-catalog'
 
 import type { OpenRouterModel, OpenRouterModelsResponse } from './types'
 
-const OPENROUTER_MODELS_URL = 'https://openrouter.ai/api/v1/models'
-
-let cachedCatalog: OpenRouterModel[] | null = null
-let cachedAt = 0
-let inflight: Promise<OpenRouterModel[]> | null = null
+// Catalog endpoint comes from the registry — single source of truth (Phase 3).
+const OPENROUTER_MODELS_URL = deriveLiveCatalogUrl(
+  PROVIDER_REGISTRY,
+  'openrouter',
+)
+if (!OPENROUTER_MODELS_URL) {
+  throw new Error(
+    'openrouter catalog must be configured as live in the provider registry',
+  )
+}
 
 function parseCatalog(json: OpenRouterModelsResponse): OpenRouterModel[] {
   const models = json.data ?? []
@@ -63,6 +74,13 @@ function parseCatalog(json: OpenRouterModelsResponse): OpenRouterModel[] {
   return parsed
 }
 
+const fetcher = createLiveCatalogFetcher({
+  url: OPENROUTER_MODELS_URL,
+  logLabel: 'OpenRouter',
+  parse: parseCatalog,
+  resolveKey: () => resolveOpenRouterApiKey(),
+})
+
 /**
  * Fetch the live OpenRouter model catalog.
  *
@@ -71,68 +89,17 @@ function parseCatalog(json: OpenRouterModelsResponse): OpenRouterModel[] {
  * cache if available, else an empty list — callers must handle empty as
  * "show free-text entry". Never throws.
  */
-export async function fetchOpenRouterModels(
-  forceRefresh = false,
-): Promise<OpenRouterModel[]> {
-  const now = Date.now()
-  const fresh =
-    cachedCatalog !== null && !forceRefresh && now - cachedAt < CATALOG_TTL_MS
-
-  if (fresh && cachedCatalog) {
-    return cachedCatalog
-  }
-
-  if (inflight) {
-    return inflight
-  }
-
-  inflight = (async () => {
-    try {
-      const resp = await fetch(OPENROUTER_MODELS_URL, {
-        headers: { Accept: 'application/json' },
-        // Don't let a slow/hung catalog request block the picker forever.
-        signal: AbortSignal.timeout(10_000),
-      })
-      if (!resp.ok) {
-        throw new Error(`OpenRouter models HTTP ${resp.status}`)
-      }
-      const json = (await resp.json()) as OpenRouterModelsResponse
-      const parsed = parseCatalog(json)
-      cachedCatalog = parsed
-      cachedAt = Date.now()
-      return parsed
-    } catch (error) {
-      logger.warn(
-        { error: error instanceof Error ? error.message : String(error) },
-        'Failed to fetch OpenRouter model catalog; using cache or empty list',
-      )
-      // Degrade: prefer stale cache, else empty (free-text fallback).
-      return cachedCatalog ?? []
-    } finally {
-      inflight = null
-    }
-  })()
-
-  return inflight
-}
+export const fetchOpenRouterModels = fetcher.fetchModels
 
 /**
  * Synchronous read of the current catalog (cached or empty).
  * Use this for rendering the picker immediately; call
  * {@link fetchOpenRouterModels} to populate/refresh it.
  */
-export function getCachedOpenRouterModels(): OpenRouterModel[] {
-  return cachedCatalog ?? []
-}
+export const getCachedOpenRouterModels = fetcher.getCachedModels
 
 /** Whether a live catalog has been loaded at least once. */
-export function hasOpenRouterCatalog(): boolean {
-  return cachedCatalog !== null
-}
+export const hasOpenRouterCatalog = fetcher.hasCatalog
 
 /** Test-only: clear the OpenRouter catalog cache + in-flight request. */
-export function __resetOpenRouterCacheForTest(): void {
-  cachedCatalog = null
-  cachedAt = 0
-  inflight = null
-}
+export const __resetOpenRouterCacheForTest = fetcher.resetForTest

@@ -3,7 +3,10 @@
  *
  * This module handles:
  * - ChatGPT OAuth: Direct requests to OpenAI API using user's OAuth token
- * - Default: Requests through SavantCode backend (which routes to OpenRouter)
+ * - Registry gateway providers: one ordered loop over PROVIDER_REGISTRY
+ *   (FID-2026-0809-001 Phase 2) — base URL, protocol, id transform, and
+ *   credential env vars all come from the registry, not hand-written branches.
+ * - Default: generic OpenAI-compatible fallback via createDefaultInferenceModel.
  */
 
 import {
@@ -11,35 +14,22 @@ import {
   isChatGptOAuthModelAllowed,
   isOpenAIProviderModel,
 } from '@savant-code/common/constants/chatgpt-oauth'
+import { PROVIDER_REGISTRY } from '@savant-code/common/providers/registry'
 
 import { getValidChatGptOAuthCredentials } from '../credentials'
+import { createDefaultInferenceModel } from './model-provider/default-inference'
 import {
-  getTokenRouterApiKeyFromEnv,
-  getTokenHarborApiKeyFromEnv,
-  getNvidiaApiKeyFromEnv,
-  getOpenCodeGoApiKeyFromEnv,
-  getCloudflareApiTokenFromEnv,
-  getCloudflareAccountIdFromEnv,
-  getCommandCodeApiKeyFromEnv,
-} from '../env'
-import {
-  createTokenRouterModel,
-  createTokenHarborModel,
-  createNvidiaModel,
-  createOpenCodeGoModel,
-  createOpenRouterModel,
-  createCommandCodeModel,
-  createCloudflareModel,
   createOpenAIOAuthModel,
+  createProviderModel,
 } from './model-provider/model-factories'
 import {
   isChatGptOAuthRateLimited,
   resetChatGptOAuthRateLimit,
 } from './model-provider/oauth-rate-limit'
-import { createSavantCodeBackendModel } from './model-provider/savant-backend'
 import { resolveOpenRouterApiKey } from './openrouter-key-resolver'
 
 import type { ModelRequestParams, ModelResult } from './model-provider/types'
+import type { ProviderConfig } from '@savant-code/common/providers/types'
 
 export type { ModelRequestParams, ModelResult } from './model-provider/types'
 export {
@@ -52,9 +42,12 @@ export {
  * Get the appropriate model for a request.
  *
  * If ChatGPT OAuth credentials are available and the model is an OpenAI model,
- * returns an OpenAI direct model. Otherwise, returns the SavantCode backend model.
+ * returns an OpenAI direct model. Otherwise, routes through the provider
+ * registry (one ordered loop — FID-2026-0809-001 Phase 2), falling back to the
+ * generic default inference model for unprefixed ids.
  *
- * This function is async because it may need to refresh the OAuth token.
+ * This function is async because it may need to refresh the OAuth token or
+ * resolve the OpenRouter master key.
  */
 export async function getModelForRequest(
   params: ModelRequestParams,
@@ -63,7 +56,7 @@ export async function getModelForRequest(
   const { apiKey, model, skipChatGptOAuth } = params
 
   // Check if we should use ChatGPT OAuth direct
-  // Only attempt for allowlisted models; non-allowlisted models silently fall through to backend.
+  // Only attempt for allowlisted models; non-allowlisted models silently fall through.
   if (
     CHATGPT_OAUTH_ENABLED &&
     !skipChatGptOAuth &&
@@ -85,116 +78,116 @@ export async function getModelForRequest(
     }
   }
 
-  // Gateway providers: TokenRouter and NVIDIA NIM each have their own API key
-  // and base URL. Check these before the SavantCode backend path — the
-  // INFERENCE_BASE_URL dev-mode bypass must not affect gateway routing.
-  if (isTokenRouterModel(model)) {
-    const tokenRouterKey = getTokenRouterApiKeyFromEnv()
-    if (!tokenRouterKey) {
-      throw new Error(
-        'TokenRouter API key not set. Set TOKENROUTER_API_KEY environment variable.',
-      )
+  // Gateway providers — one ordered loop over the registry
+  // (FID-2026-0809-001 Phase 2). Registry ids are disjoint routing prefixes,
+  // so iteration order is a no-op; iterate in registry order for determinism.
+  // Ollama (kind: 'local') is intentionally not routed here — it uses the
+  // default path with the CLI-set INFERENCE_BASE_URL (ollama-onboarding.ts).
+  for (const config of Object.values(PROVIDER_REGISTRY)) {
+    if (config.kind === 'local') continue
+    if (!model.startsWith(`${config.id}/`)) continue
+
+    const key = await resolveProviderKey(config)
+    if (!key) {
+      throw new Error(buildMissingKeyError(config))
     }
+    const extraCreds = resolveExtraCredentials(config)
     return {
-      model: createTokenRouterModel(tokenRouterKey, model),
+      model: createProviderModel(config, key, model, extraCreds),
       isChatGptOAuth: false,
     }
   }
 
-  if (isTokenHarborModel(model)) {
-    const tokenHarborKey = getTokenHarborApiKeyFromEnv()
-    if (!tokenHarborKey) {
-      throw new Error(
-        'TokenHarbor API key not set. Set TOKENHARBOR_API_KEY environment variable or run /provider tokenharbor.',
-      )
-    }
-    return {
-      model: createTokenHarborModel(tokenHarborKey, model),
-      isChatGptOAuth: false,
-    }
-  }
-
-  if (isNvidiaModel(model)) {
-    const nvidiaKey = getNvidiaApiKeyFromEnv()
-    if (!nvidiaKey) {
-      throw new Error(
-        'NVIDIA API key not set. Set NVIDIA_API_KEY environment variable.',
-      )
-    }
-    return {
-      model: createNvidiaModel(nvidiaKey, model),
-      isChatGptOAuth: false,
-    }
-  }
-
-  if (isOpenCodeGoModel(model)) {
-    const openCodeGoKey = getOpenCodeGoApiKeyFromEnv()
-    if (!openCodeGoKey) {
-      throw new Error(
-        'OpenCode Go API key not set. Set OPENCODE_GO_API_KEY environment variable.',
-      )
-    }
-    return {
-      model: createOpenCodeGoModel(openCodeGoKey, model),
-      isChatGptOAuth: false,
-    }
-  }
-
-  // Direct OpenRouter (FID-2026-0806-010): `openrouter/`-prefixed models route
-  // straight to https://openrouter.ai/api/v1 with the user's own key — no
-  // SavantCode backend, no INFERENCE_BASE_URL required. Boot default is
-  // `openrouter/free` (free tier), so a fresh install with just
-  // OPENROUTER_API_KEY (or OR_MASTER_KEY) makes its first call here.
-  if (isOpenRouterModel(model)) {
-    const openRouterKey = await resolveOpenRouterApiKey()
-    if (!openRouterKey) {
-      throw new Error(
-        'OpenRouter API key not set. Set OPENROUTER_API_KEY or OR_MASTER_KEY environment variable.',
-      )
-    }
-    return {
-      model: createOpenRouterModel(openRouterKey, model),
-      isChatGptOAuth: false,
-    }
-  }
-
-  if (isCommandCodeModel(model)) {
-    const commandCodeKey = getCommandCodeApiKeyFromEnv()
-    if (!commandCodeKey) {
-      throw new Error(
-        'CommandCode API key not set. Set COMMAND_CODE_API_KEY environment variable.',
-      )
-    }
-    return {
-      model: createCommandCodeModel(commandCodeKey, model),
-      isChatGptOAuth: false,
-    }
-  }
-
-  if (isCloudflareModel(model)) {
-    const cloudflareKey = getCloudflareApiTokenFromEnv()
-    const cloudflareAccountId = getCloudflareAccountIdFromEnv()
-    if (!cloudflareKey) {
-      throw new Error(
-        'Cloudflare API token not set. Set CLOUDFLARE_API_TOKEN environment variable.',
-      )
-    }
-    if (!cloudflareAccountId) {
-      throw new Error(
-        'Cloudflare account ID not set. Set CLOUDFLARE_ACCOUNT_ID environment variable.',
-      )
-    }
-    return {
-      model: createCloudflareModel(cloudflareKey, cloudflareAccountId, model),
-      isChatGptOAuth: false,
-    }
-  }
-
-  // Default: use SavantCode backend
+  // Default: generic OpenAI-compatible fallback for bare-slug ids (e.g.
+  // `anthropic/claude-sonnet-4.5`). Phase 4 (FID-2026-0809-001 decision 10):
+  // when DIRECT_PROVIDER names the active provider, the bare-slug path is
+  // authorized with the active provider's own credential (registry-resolved —
+  // including the OpenRouter master-key chain when active), falling back to
+  // the caller-supplied key when none is configured. The base URL still
+  // follows INFERENCE_BASE_URL (set from the active provider's registry entry
+  // at startup by the CLI / ollama-onboarding).
+  const activeProviderKey = await resolveActiveProviderKey()
   return {
-    model: await createSavantCodeBackendModel(apiKey, model),
+    model: await createDefaultInferenceModel(
+      activeProviderKey ?? apiKey,
+      model,
+      {
+        // Only a key resolved from the active provider is authoritative; the
+        // caller-supplied fallback keeps the legacy env precedence inside the
+        // factory (custom-endpoint INFERENCE_API_KEY flow preserved).
+        preferApiKey: activeProviderKey !== undefined,
+      },
+    ),
     isChatGptOAuth: false,
   }
+}
+
+/**
+ * Resolve the ACTIVE provider's credential for the default (bare-slug) path
+ * (FID-2026-0809-001 decision 10). The CLI sets DIRECT_PROVIDER to the
+ * selected provider at startup; when it names a registry gateway, bare-slug
+ * model ids are authorized with that provider's own key — the same resolution
+ * as prefixed routing, including the OpenRouter master-key chain. Local
+ * providers (Ollama) and unknown/absent selections yield undefined so the
+ * caller-supplied key wins.
+ */
+async function resolveActiveProviderKey(): Promise<string | undefined> {
+  const activeProviderId = process.env.DIRECT_PROVIDER?.trim().toLowerCase()
+  if (!activeProviderId) return undefined
+  // The env var is arbitrary user input — index via a string record so an
+  // unknown provider id yields undefined instead of a type error.
+  const config = (PROVIDER_REGISTRY as Record<string, ProviderConfig>)[
+    activeProviderId
+  ]
+  if (!config || config.kind === 'local') return undefined
+  return resolveProviderKey(config)
+}
+
+/**
+ * Resolve the API key for a registry provider. Providers with
+ * `credentials.resolver: 'openrouter'` use the master-key exchange chain
+ * (OR_MASTER_KEY → OPENROUTER_API_KEY → INFERENCE_API_KEY); all others read
+ * their primary env var directly.
+ */
+async function resolveProviderKey(
+  config: ProviderConfig,
+): Promise<string | undefined> {
+  if (config.credentials.resolver === 'openrouter') {
+    return resolveOpenRouterApiKey()
+  }
+  const envVar = config.credentials.envVar
+  return envVar === undefined ? undefined : process.env[envVar]
+}
+
+/**
+ * Read a provider's extra credentials (e.g. CLOUDFLARE_ACCOUNT_ID) from the
+ * environment, fail-closed on any missing value, and return them keyed by env
+ * var for base-URL placeholder resolution.
+ */
+function resolveExtraCredentials(
+  config: ProviderConfig,
+): Record<string, string> {
+  const extra: Record<string, string> = {}
+  for (const cred of config.credentials.extra ?? []) {
+    const value = process.env[cred.envVar]
+    if (!value) {
+      throw new Error(
+        cred.missingMessage ??
+          `${config.label} ${cred.label} not set. Set ${cred.envVar} environment variable.`,
+      )
+    }
+    extra[cred.envVar] = value
+  }
+  return extra
+}
+
+/** Missing-key error, templated from the registry (or an explicit override). */
+function buildMissingKeyError(config: ProviderConfig): string {
+  const envVar = config.credentials.envVar
+  return (
+    config.credentials.missingKeyMessage ??
+    `${config.label} API key not set. Set ${envVar} environment variable.`
+  )
 }
 
 /**

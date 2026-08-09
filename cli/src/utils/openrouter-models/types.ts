@@ -1,14 +1,14 @@
+import type { ProviderId } from '@savant-code/common/providers/registry'
+
 /** How long a fetched catalog is considered fresh before a refresh. */
 export const CATALOG_TTL_MS = 5 * 60 * 1000
 
-export type ModelProvider =
-  | 'openrouter'
-  | 'tokenrouter'
-  | 'tokenharbor'
-  | 'nvidia'
-  | 'opencode-go'
-  | 'ollama'
-  | 'commandcode'
+/**
+ * Derived from the unified provider registry (FID-2026-0809-001 Phase 1).
+ * Phase-1 delta (b): the union gains `cloudflare` (routed in the SDK since
+ * FID-2026-0806-009 but missing here — now derived, so it cannot drift).
+ */
+export type ModelProvider = ProviderId
 
 export type OpenRouterModel = {
   /** Canonical model id, e.g. "anthropic/claude-sonnet-4". */

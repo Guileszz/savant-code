@@ -18,16 +18,25 @@ import type { JSONValue } from '@savant-code/common/types/json'
 import type { LanguageModel } from 'ai'
 
 /**
- * Create a model that routes through the SavantCode backend.
- * This is the existing behavior - requests go to SavantCode backend which forwards to OpenRouter.
+ * Create the default inference model — the generic OpenAI-compatible fallback
+ * (renamed from createSavantCodeBackendModel per FID-2026-0809-001 decision 7;
+ * the name previously implied a nonexistent backend).
  *
- * When `INFERENCE_BASE_URL` is set, routes directly to that base URL instead of
- * the SavantCode backend. When `INFERENCE_API_KEY` or `OR_MASTER_KEY` is set, uses
- * the resolved OpenRouter key for authorization.
+ * This is the fallback for model ids that match no registry provider prefix
+ * (e.g. bare slugs like `anthropic/claude-sonnet-4.5`). When `INFERENCE_BASE_URL`
+ * is set, routes directly to that base URL; otherwise targets the SavantCode
+ * website URL. The passed apiKey authorizes the request (Phase 4, decision 10:
+ * getModelForRequest supplies the ACTIVE provider's own key for bare slugs);
+ * `INFERENCE_API_KEY` and the resolved OpenRouter key remain fallbacks for
+ * callers that pass no key — unless `preferApiKey` is set, which makes the
+ * passed key authoritative (used only when it was resolved from the active
+ * provider, so the custom-endpoint INFERENCE_API_KEY escape hatch is
+ * preserved).
  */
-export async function createSavantCodeBackendModel(
+export async function createDefaultInferenceModel(
   apiKey: string,
   model: string,
+  options?: { preferApiKey?: boolean },
 ): Promise<LanguageModel> {
   const openrouterUsage: OpenRouterUsageAccounting = {
     cost: null,
@@ -39,8 +48,15 @@ export async function createSavantCodeBackendModel(
   const openrouterApiKey = getByokOpenrouterApiKeyFromEnv()
   const inferenceBaseUrl = getInferenceBaseUrlFromEnv()
   const resolvedOpenRouterKey = await resolveOpenRouterApiKey()
-  const authorizationKey =
-    resolvedOpenRouterKey ?? getInferenceApiKeyFromEnv() ?? apiKey
+  // FID-2026-0809-001 decision 10: when getModelForRequest resolved the ACTIVE
+  // provider's own key, it is authoritative (the OpenRouter master-key chain
+  // must not beat e.g. a TokenHarbor key). Otherwise the legacy env fallbacks
+  // win over a caller-supplied key — preserving the custom-endpoint
+  // INFERENCE_API_KEY flow and backend-mode master-key override (review
+  // finding, Loop 7).
+  const authorizationKey = options?.preferApiKey
+    ? apiKey
+    : (resolvedOpenRouterKey ?? getInferenceApiKeyFromEnv() ?? apiKey)
 
   return new OpenAICompatibleChatLanguageModel(model, {
     provider: 'savant-code',

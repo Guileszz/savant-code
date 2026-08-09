@@ -7,6 +7,7 @@ import { getAuthToken, getAuthTokenDetails } from './auth'
 import { logger } from './logger'
 import {
   DEFAULT_SAVANT_CODE_MODEL_ID,
+  DEFAULT_SAVANT_CODE_MODEL_PROVIDER,
   loadSettings,
   saveSettings,
 } from './settings'
@@ -169,6 +170,7 @@ export async function detectOllamaAndConfigureDirectProvider(
         directProviderBaseUrl: undefined,
         savantCodeModelPreference: DEFAULT_SAVANT_CODE_MODEL_ID,
         savantCodeModelProviderPreference: 'openrouter',
+        activeProvider: DEFAULT_SAVANT_CODE_MODEL_PROVIDER,
         savantCodeModelAutoConfigured: false,
       })
     }
@@ -203,6 +205,7 @@ export async function detectOllamaAndConfigureDirectProvider(
       ? localModel
       : settings.savantCodeModelPreference,
     savantCodeModelProviderPreference: 'ollama',
+    activeProvider: 'ollama',
     savantCodeModelAutoConfigured: shouldSelectLocalModel,
     directProvider: 'ollama',
     directProviderBaseUrl: baseUrl,

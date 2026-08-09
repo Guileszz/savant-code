@@ -68,8 +68,11 @@ Works with multiple inference providers:
   routes to `https://openrouter.ai/api/v1` with the resolved key)
 - **OpenCode Go** — Hosted gateway
 - **TokenHarbor** — OpenAI-compatible hosted gateway at `https://tokenharbor.ai/v1`
+- **TokenRouter** — Multi-provider gateway
 - **NVIDIA NIM** — NVIDIA-hosted inference
 - **CommandCode** — OpenAI-compatible hosted inference
+- **Cloudflare** — Env-only gateway (Workers AI); requires `CLOUDFLARE_API_TOKEN`
+  + `CLOUDFLARE_ACCOUNT_ID`, not in the `/provider` picker
 - **Custom endpoint** — Any OpenAI-compatible API
 
 Gateway model context lengths can be resolved from the live catalog. In

@@ -60,3 +60,8 @@ docs/Code Universe Architecture Evaluation.md
 # not maintainable under strict MD013; reference-only record, same per-file
 # exemption precedent as the dated design reports above.
 docs/design/Savant Ecosystem Project Research.md
+
+# Concurrent deep-research artifact (2026-08-09) — 285-char reference-citation
+# lines are not maintainable under strict MD013; reference-only record, same
+# per-file exemption precedent as the dated design reports above.
+docs/design/Enterprise AI Gateway Research.md

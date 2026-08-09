@@ -110,6 +110,22 @@ export const PUBLIC_PACKAGES: readonly PackageTarget[] = [
 ]
 
 /**
+ * The binary tarballs the release workflow matrix builds and uploads to the
+ * GitHub release (build-release-binaries.yml `matrix.target` entries). This is
+ * deliberately the 5 non-baseline targets — NOT every key of
+ * `PLATFORM_TARGETS` in cli/release-core/launcher.js (7 keys, including
+ * linux-x64-baseline and win32-x64-baseline, which the workflow does not
+ * build). Asserting the full map would fail forever (FID-2026-0809-002 Fix B).
+ */
+export const RELEASE_BINARY_TARBALLS = [
+  'savant-code-linux-x64.tar.gz',
+  'savant-code-linux-arm64.tar.gz',
+  'savant-code-darwin-x64.tar.gz',
+  'savant-code-darwin-arm64.tar.gz',
+  'savant-code-win32-x64.tar.gz',
+] as const
+
+/**
  * Returns the package targets for this release run. Defaults to every public
  * package. Set SAVANT_CODE_RELEASE_PACKAGES to a comma-separated subset of
  * public package names (e.g. `savant-code`) to scope npm publish/verification
@@ -416,6 +432,16 @@ export function buildGateManifest(
   headSha = '',
 ): { specs: GateSpec[]; hash: string } {
   const specs: GateSpec[] = [
+    // A stale lockfile kills every --frozen-lockfile consumer (CI, the release
+    // binary workflow, local dev). Gate it pre-publish so drift aborts the
+    // release with receipt evidence before any tag/push/npm mutation
+    // (FID-2026-0809-002 Fix A).
+    {
+      label: 'lockfile',
+      command: 'bun',
+      args: ['install', '--frozen-lockfile'],
+      cwd: root,
+    },
     {
       label: 'build:sdk',
       command: 'bun',
@@ -2023,6 +2049,118 @@ export function acquireReleaseLock(version: string, mode: string): () => void {
   }
 }
 
+const DEFAULT_ASSET_RETRY_MS = 45 * 60 * 1_000
+const DEFAULT_ASSET_POLL_INTERVAL_MS = 30 * 1_000
+
+function positiveEnvMs(key: string, fallback: number): number {
+  const raw = process.env[key]
+  if (!raw) return fallback
+  const parsed = Number.parseInt(raw, 10)
+  if (!Number.isFinite(parsed) || parsed < 0) return fallback
+  return parsed
+}
+
+/**
+ * Bounded retry window for binary assets to appear on the release after it is
+ * published. Binary builds run after publishing (workflow trigger
+ * `on: release: types: [published]`), so a post-publish asset check may
+ * legitimately race the build. Configurable via
+ * `SAVANT_RELEASE_ASSET_TIMEOUT_MS` (milliseconds); defaults to 45 minutes.
+ * No real matrix build timing exists to anchor a tighter default (the v0.0.21
+ * run died in 18s at the install step).
+ */
+export function assetRetryTimeoutMs(): number {
+  return positiveEnvMs('SAVANT_RELEASE_ASSET_TIMEOUT_MS', DEFAULT_ASSET_RETRY_MS)
+}
+
+/**
+ * Poll interval between asset checks. Configurable via
+ * `SAVANT_RELEASE_ASSET_POLL_MS` so tests can shrink the wait.
+ */
+export function assetPollIntervalMs(): number {
+  return positiveEnvMs(
+    'SAVANT_RELEASE_ASSET_POLL_MS',
+    DEFAULT_ASSET_POLL_INTERVAL_MS,
+  )
+}
+
+/**
+ * Reads the GitHub release asset names for v{version}. Automation mode uses
+ * the REST API (token); manual mode uses `gh release view --json assets`.
+ * `fetchImpl` is injectable for tests (same pattern as githubApiRequest).
+ */
+async function fetchReleaseAssetNames(
+  version: string,
+  token: string | undefined,
+  root: string,
+  fetchImpl?: typeof fetch,
+): Promise<string[]> {
+  if (token) {
+    const result = await githubApiRequest<{
+      assets?: Array<{ name?: string }>
+    }>(`/repos/${PUBLIC_REPOSITORY_SLUG}/releases/tags/v${version}`, {
+      token,
+      fetchImpl,
+      expectedStatuses: [200],
+    })
+    return (result.body?.assets ?? [])
+      .map((asset) => asset.name ?? '')
+      .filter(Boolean)
+  }
+  const result = run(
+    'gh',
+    [
+      'release',
+      'view',
+      `v${version}`,
+      '--repo',
+      PUBLIC_REPOSITORY_SLUG,
+      '--json',
+      'assets',
+      '--jq',
+      '.assets[].name',
+    ],
+    root,
+    true,
+  )
+  if (result.status !== 0) {
+    fail(`Unable to verify GitHub release assets for v${version}.`)
+  }
+  return result.stdout
+    .split('\n')
+    .map((name) => name.trim())
+    .filter(Boolean)
+}
+
+/**
+ * Asserts the GitHub release for v{version} carries all 5 workflow-matrix
+ * binary tarballs. Polls with a bounded retry window (assetRetryTimeoutMs)
+ * because the binary build runs after publish; fails closed with the exact
+ * remediation commands when the window expires. Prevents a repeat of v0.0.21,
+ * where the pipeline reported PASS while the release had zero assets
+ * (FID-2026-0809-002 Fix B).
+ */
+export async function verifyReleaseAssets(
+  version: string,
+  token: string | undefined,
+  root: string,
+  fetchImpl?: typeof fetch,
+): Promise<void> {
+  const deadline = Date.now() + assetRetryTimeoutMs()
+  let missing: string[] = [...RELEASE_BINARY_TARBALLS]
+  while (Date.now() < deadline) {
+    const names = await fetchReleaseAssetNames(version, token, root, fetchImpl)
+    missing = RELEASE_BINARY_TARBALLS.filter(
+      (tarball) => !names.includes(tarball),
+    )
+    if (missing.length === 0) return
+    await new Promise((resolve) => setTimeout(resolve, assetPollIntervalMs()))
+  }
+  fail(
+    `GitHub release v${version} is missing binary assets: ${missing.join(', ')} — check the Actions run for v${version}; dispatch build-release-binaries.yml with release_tag: v${version} and source_ref: <fixed commit>, then run 'bun run release:public:resume'.`,
+  )
+}
+
 function verifyPublishedPackage(
   root: string,
   target: PackageTarget,
@@ -2220,6 +2358,9 @@ async function runReleaseTransaction(): Promise<void> {
     console.log('\nPreview plan:')
     for (const step of plan) console.log(`  - ${step}`)
     console.log(`\nChangelog section ready: ${preflight.notes.split('\n')[0]}`)
+    console.log(
+      `\nBinary assets to verify post-publish: ${RELEASE_BINARY_TARBALLS.join(', ')}`,
+    )
     return
   }
 
@@ -2491,6 +2632,15 @@ async function runReleaseTransaction(): Promise<void> {
         ) {
           fail(`Post-release tag v${version} does not point at release HEAD.`)
         }
+        // A release is only real when its downloadable binaries exist. Verify
+        // the workflow-matrix tarballs are on the GitHub release (fail-closed
+        // with retry; v0.0.21 shipped zero assets and the old pipeline still
+        // reported PASS — FID-2026-0809-002 Fix B).
+        await verifyReleaseAssets(
+          version,
+          options.automation ? githubToken : undefined,
+          root,
+        )
         for (const target of configuredReleasePackages()) {
           verifyPublishedPackage(root, target, version)
         }

@@ -1,26 +1,19 @@
+import {
+  deriveAllowedModelPrefixes,
+  deriveLogoDomain,
+  deriveProviderDomains,
+} from '../providers/derive'
+import { ORG_DOMAINS, ORG_PREFIXES } from '../providers/org'
+import { PROVIDER_REGISTRY } from '../providers/registry'
 import { isExplicitlyDefinedModel } from '../util/model-utils'
 
-// Allowed model prefixes for validation
-export const ALLOWED_MODEL_PREFIXES = [
-  'anthropic',
-  'openai',
-  'google',
-  'x-ai',
-  'deepseek',
-  'minimax',
-  'mimo',
-  'tencent',
-  'tokenrouter',
-  'tokenharbor',
-  'nvidia',
-  'opencode-go',
-  'commandcode',
-  'cloudflare',
-  'moonshotai',
-  'bytedance-seed',
-  'xiaomi',
-  'miromind',
-] as const
+// Allowed model prefixes for validation — derived from the provider registry
+// (org slugs ∪ registry ids). FID-2026-0809-001 Phase-1 delta (a): the derived
+// list gains `openrouter` and `ollama` (latent gaps fixed by derivation).
+export const ALLOWED_MODEL_PREFIXES = deriveAllowedModelPrefixes(
+  PROVIDER_REGISTRY,
+  ORG_PREFIXES,
+)
 
 export const openaiModels = {
   gpt4_1: 'gpt-4.1-2025-04-14',
@@ -454,27 +447,18 @@ export function getModelFromShortName(
   return shortModelNames[modelName as keyof typeof shortModelNames]
 }
 
-export const providerDomains = {
-  google: 'google.com',
-  anthropic: 'anthropic.com',
-  openai: 'chatgpt.com',
-  deepseek: 'deepseek.com',
-  minimax: 'minimax.io',
-  mimo: 'xiaomi.com',
-  atlascloud: 'atlascloud.ai',
-  tencent: 'tencent.com',
-  xai: 'x.ai',
-  tokenrouter: 'tokenrouter.com',
-  tokenharbor: 'tokenharbor.ai',
-  nvidia: 'nvidia.com',
-  opencodeGo: 'opencode.ai',
-  cloudflare: 'cloudflare.com',
-  commandcode: 'commandcode.ai',
-} as const
+// Favicon/logo domains — derived from the provider registry (org-slug domains
+// ∪ registry domains). FID-2026-0809-001 Phase-1 delta (c): the derived map
+// gains `openrouter` (absent today). Ollama has no domain (local runtime).
+export const providerDomains = deriveProviderDomains(
+  PROVIDER_REGISTRY,
+  ORG_DOMAINS,
+)
 
 export function getLogoForModel(modelName: string): string | undefined {
   let domain: string | undefined
 
+  // Org value-membership + tencent prefix branches (kept in common).
   if (Object.values(openaiModels).includes(modelName as OpenAIModel))
     domain = providerDomains.openai
   else if (Object.values(deepseekModels).includes(modelName as DeepseekModel))
@@ -488,18 +472,12 @@ export function getLogoForModel(modelName: string): string | undefined {
   )
     domain = providerDomains.atlascloud
   else if (modelName.startsWith('tencent/')) domain = providerDomains.tencent
-  else if (modelName.startsWith('tokenrouter/'))
-    domain = providerDomains.tokenrouter
-  else if (modelName.startsWith('tokenharbor/'))
-    domain = providerDomains.tokenharbor
-  else if (modelName.startsWith('nvidia/')) domain = providerDomains.nvidia
-  else if (modelName.startsWith('cloudflare/'))
-    domain = providerDomains.cloudflare
-  else if (modelName.startsWith('opencode-go/'))
-    domain = providerDomains.opencodeGo
-  else if (modelName.startsWith('commandcode/'))
-    domain = providerDomains.commandcode
-  else if (modelName.includes('claude')) domain = providerDomains.anthropic
+  else if (
+    (domain = deriveLogoDomain(PROVIDER_REGISTRY, modelName)) !== undefined
+  ) {
+    // Registry-prefix match (tokenrouter, tokenharbor, nvidia, cloudflare,
+    // opencode-go, commandcode, openrouter).
+  } else if (modelName.includes('claude')) domain = providerDomains.anthropic
   else if (modelName.includes('grok')) domain = providerDomains.xai
 
   return domain

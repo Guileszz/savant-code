@@ -1,5 +1,4 @@
 import { createAnthropic } from '@ai-sdk/anthropic'
-import { OPENROUTER_API_BASE_URL } from '@savant-code/common/constants/byok'
 import {
   CHATGPT_BACKEND_BASE_URL,
   toOpenAIModelId,
@@ -19,6 +18,7 @@ import {
 } from '../chatgpt-backend-fetch'
 import { fetchWithRetryableNetworkErrors } from './fetch-with-retry'
 
+import type { ProviderConfig } from '@savant-code/common/providers/types'
 import type { LanguageModel } from 'ai'
 
 /**
@@ -51,236 +51,36 @@ export function createOpenAIOAuthModel(
 }
 
 /**
- * Create a TokenRouter model.
- * Strips the `tokenrouter/` prefix — the API expects bare model IDs (e.g.
- * `kimi-k2p6`, not `tokenrouter/kimi-k2p6`).
- */
-export function createTokenRouterModel(
-  apiKey: string,
-  model: string,
-): LanguageModel {
-  const apiModelId = model.slice('tokenrouter/'.length)
-  return new OpenAICompatibleChatLanguageModel(apiModelId, {
-    provider: 'tokenrouter',
-    url: ({ path: endpoint }) => {
-      const cleanPath = endpoint.startsWith('/') ? endpoint.slice(1) : endpoint
-      return new URL(cleanPath, 'https://api.tokenrouter.com/v1/').toString()
-    },
-    headers: () => ({
-      Authorization: `Bearer ${apiKey}`,
-      'Content-Type': 'application/json',
-      'user-agent': `ai-sdk/openai-compatible/${VERSION}/savant-code-tokenrouter`,
-    }),
-    fetch: fetchWithRetryableNetworkErrors as typeof globalThis.fetch,
-    includeUsage: undefined,
-    supportsStructuredOutputs: false,
-  })
-}
-
-/**
- * Create a TokenHarbor OpenAI-compatible model.
- * Strips only the internal `tokenharbor/` prefix and preserves nested API IDs.
- */
-export function createTokenHarborModel(
-  apiKey: string,
-  model: string,
-): LanguageModel {
-  const apiModelId = model.slice('tokenharbor/'.length)
-  return new OpenAICompatibleChatLanguageModel(apiModelId, {
-    provider: 'tokenharbor',
-    url: ({ path: endpoint }) => {
-      const cleanPath = endpoint.startsWith('/') ? endpoint.slice(1) : endpoint
-      return new URL(cleanPath, 'https://tokenharbor.ai/v1/').toString()
-    },
-    headers: () => ({
-      Authorization: `Bearer ${apiKey}`,
-      'Content-Type': 'application/json',
-      'user-agent': `ai-sdk/openai-compatible/${VERSION}/savant-code-tokenharbor`,
-    }),
-    fetch: fetchWithRetryableNetworkErrors as typeof globalThis.fetch,
-    includeUsage: undefined,
-    supportsStructuredOutputs: false,
-  })
-}
-
-/**
- * Create an NVIDIA NIM model.
- * Strips the `nvidia/` prefix — the API expects namespaced IDs (e.g.
- * `zai-org/glm-5.2`, not `nvidia/zai-org/glm-5.2`).
- */
-export function createNvidiaModel(
-  apiKey: string,
-  model: string,
-): LanguageModel {
-  const apiModelId = model.slice('nvidia/'.length)
-  return new OpenAICompatibleChatLanguageModel(apiModelId, {
-    provider: 'nvidia',
-    url: ({ path: endpoint }) => {
-      const cleanPath = endpoint.startsWith('/') ? endpoint.slice(1) : endpoint
-      return new URL(
-        cleanPath,
-        'https://integrate.api.nvidia.com/v1/',
-      ).toString()
-    },
-    headers: () => ({
-      Authorization: `Bearer ${apiKey}`,
-      'Content-Type': 'application/json',
-      'user-agent': `ai-sdk/openai-compatible/${VERSION}/savant-code-nvidia`,
-    }),
-    fetch: fetchWithRetryableNetworkErrors as typeof globalThis.fetch,
-    includeUsage: undefined,
-    supportsStructuredOutputs: false,
-  })
-}
-
-/**
- * Create a Cloudflare Workers AI model.
- * Strips the `cloudflare/` prefix and prepends `@cf/` to match Cloudflare's API model naming.
- * Base URL includes account ID in the path: /client/v4/accounts/{ACCOUNT_ID}/ai/v1/
- */
-export function createCloudflareModel(
-  apiKey: string,
-  accountId: string,
-  model: string,
-): LanguageModel {
-  const apiModelId = `@cf/${model.slice('cloudflare/'.length)}`
-  return new OpenAICompatibleChatLanguageModel(apiModelId, {
-    provider: 'cloudflare',
-    url: ({ path: endpoint }) => {
-      const cleanPath = endpoint.startsWith('/') ? endpoint.slice(1) : endpoint
-      return new URL(
-        cleanPath,
-        `https://api.cloudflare.com/client/v4/accounts/${accountId}/ai/v1/`,
-      ).toString()
-    },
-    headers: () => ({
-      Authorization: `Bearer ${apiKey}`,
-      'Content-Type': 'application/json',
-      'user-agent': `ai-sdk/openai-compatible/${VERSION}/savant-code-cloudflare`,
-    }),
-    fetch: fetchWithRetryableNetworkErrors as typeof globalThis.fetch,
-    includeUsage: undefined,
-    supportsStructuredOutputs: false,
-  })
-}
-
-/**
- * Create a direct OpenRouter model (FID-2026-0806-010).
+ * Create a model for a registry provider (FID-2026-0809-001 Phase 2).
  *
- * `openrouter/`-prefixed models (e.g. `openrouter/free`) are the FULL OpenRouter
- * model slugs — unlike tokenrouter/opencode-go the prefix is NOT stripped, and
- * the model ID is sent unchanged. Routes to `https://openrouter.ai/api/v1` with
- * the user's resolved key; attribution headers per the OpenRouter quickstart.
+ * One generic factory reads everything it needs from the registry entry —
+ * base URL, wire protocol, id transform, protocol map — replacing the seven
+ * hand-written per-provider factories. Behavior is byte-for-byte the previous
+ * per-provider behavior:
+ *
+ * - `idTransform: 'strip'` removes the `{provider}/` routing prefix.
+ * - `idTransform: 'keep'` sends the id unchanged (`openrouter/` is part of the
+ *   real slug).
+ * - `idTransform: 'cf-rewrite'` strips `cloudflare/` and prepends `@cf/`.
+ * - `baseUrl` may contain `{ENV_VAR}` placeholders (Cloudflare account id),
+ *   resolved from the extra credentials supplied by the caller.
+ * - Dual-protocol providers (`protocol: 'openai-anthropic'`) look up their
+ *   protocol map by the FULL prefixed model id, then dispatch to the OpenAI or
+ *   Anthropic adapter.
+ * - OpenRouter keeps its attribution headers and structured-output support.
  */
-export function createOpenRouterModel(
+export function createProviderModel(
+  config: ProviderConfig,
   apiKey: string,
   model: string,
+  extraCreds: Record<string, string>,
 ): LanguageModel {
-  return new OpenAICompatibleChatLanguageModel(model, {
-    provider: 'openrouter',
-    url: ({ path: endpoint }) => {
-      const cleanPath = endpoint.startsWith('/') ? endpoint.slice(1) : endpoint
-      return new URL(cleanPath, `${OPENROUTER_API_BASE_URL}/`).toString()
-    },
-    headers: () => ({
-      Authorization: `Bearer ${apiKey}`,
-      'Content-Type': 'application/json',
-      'user-agent': `ai-sdk/openai-compatible/${VERSION}/savant-code-openrouter`,
-      'HTTP-Referer': 'https://savant-code.com',
-      'X-OpenRouter-Title': 'SavantCode',
-      'X-OpenRouter-Categories': 'cli-agent,cloud-agent,programming-app',
-    }),
-    fetch: fetchWithRetryableNetworkErrors as typeof globalThis.fetch,
-    includeUsage: undefined,
-    supportsStructuredOutputs: true,
-  })
-}
-
-/**
- * Create an OpenCode Go model.
- *
- * OpenCode Go exposes dual-protocol endpoints:
- * - OpenAI-compatible (`/v1/chat/completions`): 10 models
- * - Anthropic-compatible (`/v1/messages`): 5 models
- *
- * The protocol is determined by the model catalog lookup in OPENCODE_GO_PROTOCOLS.
- * For OpenAI-compatible models, we reuse the existing OpenAICompatibleChatLanguageModel.
- * For Anthropic-compatible models, we use @ai-sdk/anthropic with a custom base URL.
- */
-export function createOpenCodeGoModel(
-  apiKey: string,
-  model: string,
-): LanguageModel {
-  const protocol = OPENCODE_GO_PROTOCOLS[model]
-  if (!protocol) {
-    throw new Error(
-      `Unknown protocol for OpenCode Go model: ${model}. ` +
-        `Model not found in OPENCODE_GO_PROTOCOLS catalog.`,
-    )
-  }
-
-  const baseUrl = 'https://opencode.ai/zen/go/v1/'
+  const apiModelId = applyIdTransform(config, model)
+  const baseUrl = resolveBaseUrl(config.baseUrl, extraCreds)
+  const protocol = resolveProtocol(config, model)
 
   if (protocol === 'anthropic') {
-    // Anthropic-compatible: use @ai-sdk/anthropic with custom base URL.
-    // This avoids building a 700+ line custom adapter; @ai-sdk/anthropic is
-    // already a workspace dependency and handles the /v1/messages protocol.
-    // DEVIATION from FID-034 scope constraint: reference implementations
-    // (opencode-dev, kilocode) were not available in the repo, so we use
-    // the official SDK adapter instead of a custom Effect/Schema adapter.
-    const anthropic = createAnthropic({
-      baseURL: baseUrl,
-      apiKey,
-    })
-    const apiModelId = model.slice('opencode-go/'.length)
-    return anthropic(apiModelId)
-  }
-
-  // OpenAI-compatible: reuse existing adapter
-  const apiModelId = model.slice('opencode-go/'.length)
-  return new OpenAICompatibleChatLanguageModel(apiModelId, {
-    provider: 'opencode-go',
-    url: ({ path: endpoint }) => {
-      const cleanPath = endpoint.startsWith('/') ? endpoint.slice(1) : endpoint
-      return new URL(cleanPath, baseUrl).toString()
-    },
-    headers: () => ({
-      Authorization: `Bearer ${apiKey}`,
-      'Content-Type': 'application/json',
-      'user-agent': `ai-sdk/openai-compatible/${VERSION}/savant-code-opencode-go`,
-    }),
-    fetch: fetchWithRetryableNetworkErrors as typeof globalThis.fetch,
-    includeUsage: undefined,
-    supportsStructuredOutputs: false,
-  })
-}
-
-/**
- * Create a CommandCode model.
- *
- * CommandCode exposes two strict protocol endpoints:
- * - OpenAI-compatible models use `/v1/chat/completions`.
- * - Anthropic-compatible Claude models use `/v1/messages`.
- *
- * The protocol is selected from the shared catalog map. Unknown CommandCode
- * models fail closed instead of silently using the wrong request schema.
- */
-export function createCommandCodeModel(
-  apiKey: string,
-  model: string,
-): LanguageModel {
-  const protocol = COMMANDCODE_PROTOCOLS[model]
-  if (!protocol) {
-    throw new Error(
-      `Unknown protocol for CommandCode model: ${model}. ` +
-        `Model not found in COMMANDCODE_PROTOCOLS catalog.`,
-    )
-  }
-
-  const baseUrl = 'https://api.commandcode.ai/provider/v1/'
-  const apiModelId = model.slice('commandcode/'.length)
-
-  if (protocol === 'anthropic') {
+    // Anthropic-compatible: use @ai-sdk/anthropic with the registry base URL.
     const anthropic = createAnthropic({
       baseURL: baseUrl,
       apiKey,
@@ -288,19 +88,95 @@ export function createCommandCodeModel(
     return anthropic(apiModelId)
   }
 
+  const isOpenRouter = config.id === 'openrouter'
   return new OpenAICompatibleChatLanguageModel(apiModelId, {
-    provider: 'commandcode',
+    provider: config.id,
     url: ({ path: endpoint }) => {
       const cleanPath = endpoint.startsWith('/') ? endpoint.slice(1) : endpoint
-      return new URL(cleanPath, baseUrl).toString()
+      // Ensure the base URL path is preserved: /v1 + /chat/completions
+      // becomes /v1/chat/completions (not /chat/completions).
+      const baseHref = baseUrl.endsWith('/') ? baseUrl : baseUrl + '/'
+      return new URL(cleanPath, baseHref).toString()
     },
     headers: () => ({
       Authorization: `Bearer ${apiKey}`,
       'Content-Type': 'application/json',
-      'user-agent': `ai-sdk/openai-compatible/${VERSION}/savant-code-commandcode`,
+      'user-agent': `ai-sdk/openai-compatible/${VERSION}/savant-code-${config.id}`,
+      // OpenRouter attribution headers (quickstart contract).
+      ...(isOpenRouter
+        ? {
+            'HTTP-Referer': 'https://savant-code.com',
+            'X-OpenRouter-Title': 'SavantCode',
+            'X-OpenRouter-Categories': 'cli-agent,cloud-agent,programming-app',
+          }
+        : {}),
     }),
     fetch: fetchWithRetryableNetworkErrors as typeof globalThis.fetch,
     includeUsage: undefined,
-    supportsStructuredOutputs: false,
+    supportsStructuredOutputs: isOpenRouter,
   })
+}
+
+/** Apply the registry entry's id transform to a model id. */
+function applyIdTransform(config: ProviderConfig, model: string): string {
+  switch (config.idTransform) {
+    case 'strip':
+      return model.slice(`${config.id}/`.length)
+    case 'cf-rewrite':
+      return `@cf/${model.slice('cloudflare/'.length)}`
+    case 'keep':
+    default:
+      return model
+  }
+}
+
+/**
+ * Resolve a registry base URL, substituting `{ENV_VAR}` placeholders from the
+ * extra credentials (required for Cloudflare's mid-path account id).
+ */
+function resolveBaseUrl(
+  template: string,
+  extraCreds: Record<string, string>,
+): string {
+  return template.replace(/\{([A-Z0-9_]+)\}/g, (_, envVar: string) => {
+    const value = extraCreds[envVar]
+    if (value === undefined) {
+      throw new Error(`${envVar} not set. Set ${envVar} environment variable.`)
+    }
+    return value
+  })
+}
+
+/**
+ * Resolve the wire protocol for a model. Single-protocol providers are
+ * 'openai'. Dual-protocol providers look up their protocol map by the FULL
+ * prefixed model id (matching the map keys in model-config.ts), and fail
+ * closed for unknown models instead of silently using the wrong schema.
+ */
+function resolveProtocol(
+  config: ProviderConfig,
+  model: string,
+): 'openai' | 'anthropic' {
+  if (config.protocol !== 'openai-anthropic') {
+    return 'openai'
+  }
+  if (config.protocolMap === undefined) {
+    // Fail closed: a dual-protocol provider without a protocol map would
+    // silently dispatch with the wrong request schema (review finding, Loop 5).
+    throw new Error(
+      `No protocol map configured for ${config.label} (protocol: openai-anthropic).`,
+    )
+  }
+  const map =
+    config.protocolMap === 'OPENCODE_GO_PROTOCOLS'
+      ? OPENCODE_GO_PROTOCOLS
+      : COMMANDCODE_PROTOCOLS
+  const protocol = map[model]
+  if (!protocol) {
+    throw new Error(
+      `Unknown protocol for ${config.label} model: ${model}. ` +
+        `Model not found in ${config.protocolMap} catalog.`,
+    )
+  }
+  return protocol
 }

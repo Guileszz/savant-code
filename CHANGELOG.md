@@ -1,5 +1,92 @@
 # Changelog
 
+## v0.0.22 — 2026-08-09
+
+Public release of the **unified provider registry** (single source of truth for
+routing, credentials, `/provider` setup, picker sections, model catalogs, and
+generated docs), the **hardened release system** (deterministic gates,
+frozen-lockfile enforcement, binary-asset verification, zero-command
+token-native automation), and the FID closure batch. Detailed breakdowns in the
+FID sections below.
+
+## Release-system closure — public release pipeline, token-native automation, deterministic gates (FID-2026-0808-001/002/003)
+
+> Closed and archived 2026-08-09 after Nova's second-approval sign-off
+> (`dev/nova/inbox/2026-08-08-release-system-second-approval-SIGN-OFF.md`) granted pre-push
+> approval and extended the FID-001/002/003 approvals to the cumulative state. The three-FID
+> release-system batch converged through the Perfection Loop and is fully implemented and
+> verified; no release, tag, push, GitHub release, or npm publication has been executed
+> (operator-approved release execution remains a separate action).
+>
+> - **FID-2026-0808-001 — Reversible Public Release Pipeline (severity: high):** added
+>   `scripts/public-release.ts` as the canonical, reversible public release orchestrator —
+>   preview mode is mutation-free; mutation mode requires explicit interactive confirmation
+>   and validates the public remote, `main` branch, aligned versions, changelog order,
+>   authenticated GitHub/npm access, package ownership, and worktree state before applying the
+>   non-secret OpenRouter/free profile. Creates the annotated tag, pushes `main` + tag,
+>   creates the GitHub release from the current changelog section, publishes
+>   `@savant-code/sdk` before `savant-code`, records resumable stages, verifies artifacts, and
+>   restores local settings/environment in `finally`. `savant-free` excluded.
+> - **FID-2026-0808-002 — Zero-Command Token-Native Release (severity: high):** opt-in
+>   `SAVANT_CODE_RELEASE_AUTOMATION=1` mode consuming `GITHUB_TOKEN`/`GH_TOKEN` with native
+>   GitHub REST fetch (pinned headers, timeout, fail-closed status handling, sanitized errors),
+>   token-safe Git push via process-only extraheader, deterministic all-files release commit,
+>   and idempotent receipt-bound resume. Nova audit **PASS** with pre-push sign-off granted.
+> - **FID-2026-0808-003 — Deterministic Release Gates and Failure Recovery (severity:
+>   critical):** universal structured gate layer — deterministic exit/signal/spawn/timeout
+>   classification, file-backed secret-redacted transcripts (SHA-256 + atomic
+>   `release-receipt/v2`), tracked-state worktree fingerprint, ownership-fenced release locks
+>   with working stale recovery, and Windows owned-tree process termination. Pinned Bun 1.3.14
+>   installed out-of-band; the complete canonical gate manifest passes at the release HEAD
+>   (`Diagnostic gates passed`, evidence finalized).
+>
+> **Verification:** release contract suite 52/53 (sole failure pre-existing +
+> environment-dependent `ensurePinnedBunOnPath`); `bun install --frozen-lockfile` exit 0;
+> ESLint + Prettier + markdownlint clean; `--preview` reports the exact current changelog
+> section. FIDs archived to `dev/fids/archive/`.
+
+## Unified provider registry — single source of truth (FID-2026-0809-001)
+
+> Closed and archived 2026-08-09 after the Nova implementation sign-off **PASS**
+> (`dev/nova/inbox/2026-08-09-fid-2026-0809-001-unified-provider-registry-implementation-sign-off-response.md`)
+> verified all three audit targets with file:line evidence. Replaced the fragmented provider
+> metadata (base URLs duplicated across SDK factories + CLI setup, provider list enumerated in
+> nine-plus places, model catalogs duplicated between `common` and `cli`) with **one typed,
+> data-only `PROVIDER_REGISTRY` in `common`** from which every provider surface derives
+> (routing, credentials, `/provider` setup, picker sections, logos, ordering, guidance,
+> health). The single user setting is `activeProvider` (persisted UI selection); legacy
+> `directProvider` migrates onto it; env overrides remain authoritative. Adding a provider is
+> now **one registry entry + a catalog reference** (runbook:
+> `docs/design/Adding New Providers.md`). One FID-sanctioned semantic change: bare-slug model
+> ids authorize with the active provider's own key (decision 10).
+>
+> **Implementation:** Phases 1-5 (Loops 4-8): registry + derivation → data-driven SDK routing
+> → catalog unification → single-setting state → validation suite + docs generator
+> (`validate.ts` 12 tests; `generate-provider-reference.ts` renders `.env.example` + release
+> README provider table with `--check` drift guard).
+>
+> **Verification (all green):** typecheck × 4; common provider suites 21/0; SDK full 456/0
+> (free-mode 11/0); CLI targeted 47/0 + openrouter-models 18/0; `generate:provider-docs:check`
+> exit 0; ESLint + Prettier + markdownlint clean; drift-greps NO-MATCH. FID archived to
+> `dev/fids/archive/`.
+
+## Release binary asset verification + frozen-lockfile gate (FID-2026-0809-002)
+
+> Closed and archived 2026-08-09 per operator direction (implementation `fixed` + verified;
+> the live v0.0.21 asset remediation is tracked in the build/release A-Z session). v0.0.21
+> published to npm with **zero binary assets** (the launcher-only npm package downloads
+> binaries from GitHub release assets; a stale `bun.lock` failed
+> `bun install --frozen-lockfile` in the binary-build workflow, so no assets were uploaded).
+> Fixed with a three-part gate: (A) frozen-lockfile gate in `buildGateManifest`; (B)
+> `verifyReleaseAssets` in `POST_RELEASE_VERIFY` (fail-closed with retry, 0-vs-5-asset
+> distinction); (C) post-matrix workflow verify job + legacy dispatch scripts retired + foreign
+> repo reference removed.
+>
+> **Verification:** `bun install --frozen-lockfile` exit 0 (pinned Bun 1.3.14); release
+> contract suite 52/53 (sole failure pre-existing + environment-dependent, confirmed on
+> pristine HEAD); ESLint clean; scripts bundle check clean. Nova audit: DESIGN READY (all
+> targets PASS). FID archived to `dev/fids/archive/`.
+
 ## TokenHarbor provider and complete model catalog (FID-2026-0807-025)
 
 > Completed 2026-08-07. Added TokenHarbor as a first-class OpenAI-compatible

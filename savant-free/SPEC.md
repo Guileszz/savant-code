@@ -247,9 +247,17 @@ Mirrors `cli/release/package.json` but with:
 
 ### GitHub Workflow
 
-New file: `.github/workflows/savant-free-release.yml`
+> **Status update (FID-2026-0809-002 Fix C):** the legacy per-package dispatch scripts
+> (`cli/scripts/release.ts`, `sdk/scripts/release.js`, `savant-free/cli/release.ts`) that curled
+> `workflow_dispatch` at the non-public `SavantCode/savant-free-private` repo have been retired.
+> The canonical `scripts/public-release.ts` engine is the only supported release path; a
+> SavantFree release, when it ships, must be driven through that engine (it already supports
+> package scoping via `SAVANT_CODE_RELEASE_PACKAGES`). The workflow described below is retained
+> as a *future* plan for a dedicated SavantFree binary build, to be created only when SavantFree
+> is actually released:
 
-Mirrors `cli-release-prod.yml` with these changes:
+A future `.github/workflows/savant-free-release.yml` would mirror the public
+`build-release-binaries.yml` binary workflow with these changes:
 
 - **Trigger**: `workflow_dispatch` (manual) or scheduled
 - **Binary name**: `savant-free`
@@ -376,7 +384,9 @@ recognize SavantFree release tags (`savant-free-v*`).
 
 11. Create `savant-free/cli/release/` package files
 12. Create `savant-free/cli/build.ts` script
-13. Create `.github/workflows/savant-free-release.yml`
+13. Drive releases through the canonical `scripts/public-release.ts` engine (with
+    `SAVANT_CODE_RELEASE_PACKAGES=savant-free`); create a dedicated
+    `.github/workflows/savant-free-release.yml` only if a separate binary-build flow is needed
 
 ### Phase 5: Testing
 

@@ -1,7 +1,7 @@
 {
   "name": "@savant-code/sdk",
   "private": false,
-  "version": "0.0.21",
+  "version": "0.0.22",
   "description": "Official SDK for Savant-Code — AI coding agent & ECHO Protocol framework",
   "license": "Apache-2.0",
   "type": "module",
@@ -32,7 +32,6 @@
     "verify:skip-build": "bun run scripts/verify.ts --skip-build",
     "smoke-test:dist": "bun run smoke-test-dist.ts",
     "prepare-dist": "bun run scripts/publish.ts --dry-run",
-    "release": "bun run scripts/release.js",
     "fetch-ripgrep": "bun scripts/fetch-ripgrep.ts",
     "prepack": "bun run build",
     "dev": "bun run build"

@@ -157,6 +157,57 @@ jobs:
         run: |
           gh release upload "${{ steps.release-tag.outputs.TAG }}" "cli/bin/savant-code-${{ matrix.target }}.tar.gz" --clobber
 
+  # Fail the workflow run truthfully when the release is missing any of the 5
+  # matrix tarballs. The matrix runs with fail-fast: false, so a partial upload
+  # (e.g. 4 of 5 platforms) would otherwise leave a broken release without the
+  # workflow itself ever saying so. This job must resolve the tag itself
+  # because per-job step outputs are not consumable from a separate job.
+  verify-release-assets:
+    name: Verify release assets
+    runs-on: ubuntu-latest
+    needs: build-binary
+    if: always()
+    steps:
+      - name: Resolve release tag
+        id: release-tag
+        shell: bash
+        env:
+          INPUT_RELEASE_TAG: ${{ inputs.release_tag }}
+          EVENT_RELEASE_TAG: ${{ github.event.release.tag_name }}
+        run: |
+          TAG="${INPUT_RELEASE_TAG:-$EVENT_RELEASE_TAG}"
+          if [ -z "$TAG" ]; then
+            echo "A release tag is required." >&2
+            exit 1
+          fi
+          echo "TAG=$TAG" >> "$GITHUB_OUTPUT"
+
+      - name: Assert all 5 binary tarballs are present
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ steps.release-tag.outputs.TAG }}
+        run: |
+          set -euo pipefail
+          assets="$(gh release view "$TAG" --repo savant0x/savant-code --json assets --jq '.assets[].name')"
+          missing=0
+          for tarball in \
+            savant-code-linux-x64.tar.gz \
+            savant-code-linux-arm64.tar.gz \
+            savant-code-darwin-x64.tar.gz \
+            savant-code-darwin-arm64.tar.gz \
+            savant-code-win32-x64.tar.gz; do
+            if ! printf '%s\n' "$assets" | grep -qx "$tarball"; then
+              echo "::error::Missing binary asset: $tarball"
+              missing=1
+            fi
+          done
+          if [ "$missing" -ne 0 ]; then
+            echo "::error::Release $TAG is missing binary assets; the release pipeline will fail its post-release verification."
+            exit 1
+          fi
+          echo "All 5 binary tarballs present on $TAG"
+
 # Note: baseline AVX2 fallbacks (linux-x64-baseline, win32-x64-baseline) are
 # not yet built because the current build script does not produce them. Add a
 # baseline build step once Bun supports a baseline target flag or the build

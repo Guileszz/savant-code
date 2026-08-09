@@ -1,3 +1,4 @@
+import { PROVIDER_REGISTRY } from '@savant-code/common/providers/registry'
 import { detectOllama } from '@savant-code/llm-providers/ollama'
 
 import { getSystemMessage } from '../utils/message-history'
@@ -6,6 +7,7 @@ import {
   getProviderSetupInfo,
 } from '../utils/provider-setup'
 import {
+  getActiveProvider,
   loadAnalyticsEnabled,
   loadPermissionModePreference,
   loadSavantCodeModelPreference,
@@ -30,9 +32,21 @@ export async function handleHealthCommand(params: RouterParams): Promise<void> {
 
   // Prefer the active runtime config, but fall back to persisted settings so
   // the report stays useful when the user has not yet sent a message.
-  const directProvider = process.env.DIRECT_PROVIDER ?? settings.directProvider
-  const inferenceBaseUrl =
-    process.env.INFERENCE_BASE_URL ?? settings.directProviderBaseUrl
+  // Phase 4: the persisted fallback is the canonical activeProvider; its base
+  // URL derives from the registry (directProviderBaseUrl remains only for the
+  // local Ollama path, which is detected at startup).
+  const persistedProvider = getActiveProvider()
+  const persistedBaseUrl =
+    settings.directProviderBaseUrl ??
+    (persistedProvider !== 'ollama'
+      ? PROVIDER_REGISTRY[persistedProvider]?.baseUrl
+      : undefined)
+  // A custom INFERENCE_BASE_URL without DIRECT_PROVIDER is a custom endpoint —
+  // do not overlay the persisted provider onto it.
+  const directProvider =
+    process.env.DIRECT_PROVIDER ??
+    (process.env.INFERENCE_BASE_URL?.trim() ? undefined : persistedProvider)
+  const inferenceBaseUrl = process.env.INFERENCE_BASE_URL ?? persistedBaseUrl
   const isDirectProvider =
     (directProvider ?? '').trim().length > 0 ||
     (inferenceBaseUrl ?? '').trim().length > 0

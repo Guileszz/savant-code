@@ -2,6 +2,8 @@ import fs from 'fs'
 import path from 'path'
 
 import { isSupportedSavantFreeModelId } from '@savant-code/common/constants/savant-free-models'
+import { deriveValidProviderIds } from '@savant-code/common/providers/derive'
+import { PROVIDER_REGISTRY } from '@savant-code/common/providers/registry'
 
 import { getConfigDir } from './auth'
 import { AGENT_MODES } from './constants'
@@ -69,9 +71,16 @@ export interface Settings {
   /** True when the model preference was selected automatically by Ollama
    *  onboarding rather than explicitly chosen by the user. */
   savantCodeModelAutoConfigured?: boolean
+  /** The active provider — the single provider selection (FID-2026-0809-001
+   *  Phase 4). Persisted by the /provider flow and Ollama onboarding; drives
+   *  routing base URL, key readiness guidance, and health. Distinct from
+   *  savantCodeModelProviderPreference (which drives the picker default
+   *  section only). */
+  activeProvider?: ModelProvider
   /** When set, the CLI routes inference to a direct provider (e.g. local
    *  Ollama) instead of the SavantCode backend. Persists the user's local-first
-   *  choice across launches. */
+   *  choice across launches. Legacy — Phase 4 migrates gateway choices onto
+   *  activeProvider; kept for the local (Ollama) path. */
   directProvider?: string
   /** Base URL for the direct provider. For Ollama this is
    *  http://localhost:11434/v1. */
@@ -227,18 +236,13 @@ const validateSettings = (parsed: JSONValue): Settings => {
     settings.savantCodeModelPreference = savantCodeModelPreference
   }
 
-  // Validate savantCodeModelProviderPreference — must be one of the known
-  // gateway providers. Drop unknown/legacy values so a removed provider doesn't
-  // strand the user on an empty section.
-  const validProviders = new Set<ModelProvider>([
-    'openrouter',
-    'tokenrouter',
-    'tokenharbor',
-    'nvidia',
-    'opencode-go',
-    'ollama',
-    'commandcode',
-  ])
+  // Validate provider settings against the registry — must be registry provider
+  // ids (FID-2026-0809-001 Phase 1, delta (b): cloudflare is now valid here).
+  // Drop unknown/legacy values so a removed provider doesn't strand the user
+  // on an empty section.
+  const validProviders = new Set<ModelProvider>(
+    deriveValidProviderIds(PROVIDER_REGISTRY),
+  )
   if (
     typeof obj.savantCodeModelProviderPreference === 'string' &&
     validProviders.has(obj.savantCodeModelProviderPreference as ModelProvider)
@@ -248,6 +252,26 @@ const validateSettings = (parsed: JSONValue): Settings => {
   }
   if (typeof obj.savantCodeModelAutoConfigured === 'boolean') {
     settings.savantCodeModelAutoConfigured = obj.savantCodeModelAutoConfigured
+  }
+
+  // activeProvider — the canonical single provider selection (Phase 4).
+  // Migrate the legacy directProvider choice onto it when it names a registry
+  // provider; unknown/legacy values are dropped, matching the existing
+  // validation pattern. An explicit activeProvider wins over a stale legacy
+  // directProvider — but only when it is itself valid, so a removed provider
+  // does not mask a still-valid legacy directProvider (review finding, Loop 7).
+  const explicitActive = obj.activeProvider
+  const legacyDirect = obj.directProvider
+  const migratedActive =
+    typeof explicitActive === 'string' &&
+    validProviders.has(explicitActive as ModelProvider)
+      ? explicitActive
+      : typeof legacyDirect === 'string' &&
+          validProviders.has(legacyDirect as ModelProvider)
+        ? legacyDirect
+        : undefined
+  if (typeof migratedActive === 'string') {
+    settings.activeProvider = migratedActive as ModelProvider
   }
 
   // Validate direct provider persistence fields. These are used to remember
@@ -385,7 +409,8 @@ export const saveSavantCodeModelPreference = (model: string): void => {
  * none is saved yet — callers should default to the first model in the catalog.
  */
 export const loadSavantCodeModelProviderPreference = ():
-  ModelProvider | undefined => {
+  | ModelProvider
+  | undefined => {
   return loadSettings().savantCodeModelProviderPreference
 }
 
@@ -398,6 +423,39 @@ export const saveSavantCodeModelProviderPreference = (
   provider: ModelProvider,
 ): void => {
   saveSettings({ savantCodeModelProviderPreference: provider })
+}
+
+/**
+ * Load the persisted active provider selection (Phase 4). Returns undefined
+ * when no explicit selection has been persisted yet — callers fall back to
+ * the picker preference or DEFAULT_SAVANT_CODE_MODEL_PROVIDER via
+ * {@link getActiveProvider}. Shell env (DIRECT_PROVIDER) remains authoritative
+ * at the routing layer and is consulted separately.
+ */
+export const loadActiveProvider = (): ModelProvider | undefined => {
+  return loadSettings().activeProvider
+}
+
+/**
+ * The canonical active provider: the persisted /provider selection, else the
+ * saved picker preference (the legacy routing source), else the openrouter
+ * default (FID-2026-0809-001 decision 12).
+ */
+export const getActiveProvider = (): ModelProvider => {
+  return (
+    loadActiveProvider() ??
+    loadSavantCodeModelProviderPreference() ??
+    DEFAULT_SAVANT_CODE_MODEL_PROVIDER
+  )
+}
+
+/**
+ * Persist the active provider selection. Written by the /provider flow
+ * (saveProviderApiKey) and Ollama onboarding; never writes DIRECT_PROVIDER /
+ * INFERENCE_BASE_URL env, which stay authoritative overrides.
+ */
+export const saveActiveProvider = (provider: ModelProvider): void => {
+  saveSettings({ activeProvider: provider })
 }
 
 /**

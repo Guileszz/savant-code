@@ -89,6 +89,41 @@ describe('provider setup', () => {
     expect(getConfiguredProviderNames()).toContain('openrouter')
   })
 
+  test('persists the selection as activeProvider without legacy direct fields (Phase 4)', () => {
+    saveProviderApiKey('tokenharbor', 'test-tokenharbor-key')
+
+    const persisted = JSON.parse(
+      fs.readFileSync(path.join(tempDir, 'settings.json'), 'utf8'),
+    )
+    expect(persisted.activeProvider).toBe('tokenharbor')
+    expect(persisted.savantCodeModelProviderPreference).toBe('tokenharbor')
+    // Legacy gateway routing fields are no longer persisted — the registry
+    // derives the base URL from activeProvider (FID-2026-0809-001 Phase 4).
+    expect(persisted.directProvider).toBeUndefined()
+    expect(persisted.directProviderBaseUrl).toBeUndefined()
+  })
+
+  test('configureDefaultDirectProvider routes from the persisted activeProvider', () => {
+    saveSettings({ activeProvider: 'tokenharbor' })
+
+    configureDefaultDirectProvider()
+
+    expect(process.env.DIRECT_PROVIDER).toBe('tokenharbor')
+    expect(process.env.INFERENCE_BASE_URL).toBe('https://tokenharbor.ai/v1')
+  })
+
+  test('getMissingProviderSetup follows the persisted activeProvider', () => {
+    saveSettings({ activeProvider: 'opencode-go' })
+
+    const missing = getMissingProviderSetup()
+
+    expect(missing?.provider).toBe('opencode-go')
+    const guidance = getProviderSetupGuidance(
+      missing as NonNullable<typeof missing>,
+    )
+    expect(guidance).toContain('/provider opencode-go')
+  })
+
   test('preserves an explicit shell key and routing when replacing a provider key', () => {
     process.env.OPENROUTER_API_KEY = 'shell-key'
     process.env.DIRECT_PROVIDER = 'ollama'

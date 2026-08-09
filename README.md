@@ -10,26 +10,23 @@ touches your repo.**
 Built with TypeScript/Bun, governed by the ECHO Protocol, and designed for
 local-first use with Ollama.
 
-[![TypeScript](https://img.shields.io/badge/TypeScript-5.5-%23000000?style=flat-square&logo=typescript&logoColor=%2300fbff)](https://www.typescriptlang.org/)[![Bun](https://img.shields.io/badge/Bun-1.3.14-%23000000?style=flat-square&logo=bun&logoColor=%2300fbff)](https://bun.sh/)[![React](https://img.shields.io/badge/React-19-%23000000?style=flat-square&logo=react&logoColor=%2300fbff)](https://react.dev/)[![OpenTUI](https://img.shields.io/badge/OpenTUI-0.2.2-%23000000?style=flat-square&logo=github&logoColor=%2300fbff)](https://github.com/anomalyco/opentui)[![ECHO](https://img.shields.io/badge/ECHO-v0.2.0-%23000000?style=flat-square&logo=github&logoColor=%2300fbff)](ECHO.md)[![License](https://img.shields.io/badge/License-Apache_2.0-%23000000?style=flat-square&logo=apache&logoColor=%2300fbff)](LICENSE)[![Release](https://img.shields.io/badge/Release-v0.0.21-%23000000?style=flat-square&logo=semver&logoColor=%2300fbff)](CHANGELOG.md)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.5-%23000000?style=flat-square&logo=typescript&logoColor=%2300fbff)](https://www.typescriptlang.org/)[![Bun](https://img.shields.io/badge/Bun-1.3.14-%23000000?style=flat-square&logo=bun&logoColor=%2300fbff)](https://bun.sh/)[![React](https://img.shields.io/badge/React-19-%23000000?style=flat-square&logo=react&logoColor=%2300fbff)](https://react.dev/)[![OpenTUI](https://img.shields.io/badge/OpenTUI-0.2.2-%23000000?style=flat-square&logo=github&logoColor=%2300fbff)](https://github.com/anomalyco/opentui)[![ECHO](https://img.shields.io/badge/ECHO-v0.2.0-%23000000?style=flat-square&logo=github&logoColor=%2300fbff)](ECHO.md)[![License](https://img.shields.io/badge/License-Apache_2.0-%23000000?style=flat-square&logo=apache&logoColor=%2300fbff)](LICENSE)[![Release](https://img.shields.io/badge/Release-v0.0.22-%23000000?style=flat-square&logo=semver&logoColor=%2300fbff)](CHANGELOG.md)
 
 </div>
 
-> **v0.0.21** — the first release since v0.0.20: gate hardening (format +
-> test now live), the ECHO Harness Enforcement Layer, context-window
-> corrections, the deterministic codebase knowledge graph, and adversarial
-> verification — the ECHO Perfection Loop gains an **ADVERSARIAL** phase with
-> a read-only **Adversary** agent that refutes the Verifier's findings and
-> re-audits unevidenced PASSes, binding evidence-citation rules for every
-> verdict (`file:line` + quoted code, `NEEDS-REVIEW` for out-of-reach
-> evidence), a 10th canonical roster role, and the Savant Agent Design
-> Constitution skill. Token optimization and YAGNI enforcement (four-layer
-> compaction, ponytail debt ledger, opt-in Caveman telegraphic mode, live
-> context meter) and a `/contribute` contributor flow round out the release.
-> A fresh-user teardown pass (FIDs 2026-0806-009…015) shipped on the same
-> version: BYOK gating for every backend call, OpenRouter-first boot default,
-> visible failures via `--print` headless mode, cyclic-safe chat serialization,
-> branding strip, consent-gated auto-update, and analytics disclosure. The
-> complete FID backlog was closed and archived.
+> **v0.0.22** — the **unified provider registry** makes `common`'s typed
+> `PROVIDER_REGISTRY` the single source of truth for every provider surface
+> (routing, credentials, `/provider` setup, picker sections, model catalogs,
+> generated docs — adding a provider is now one registry entry, see
+> `docs/design/Adding New Providers.md`), with a single `activeProvider`
+> setting and automatic migration from the legacy `directProvider`. The
+> **release system is fully hardened**: a zero-command, token-native,
+> reversible release engine (`release:public`, opt-in automation via
+> `SAVANT_CODE_RELEASE_AUTOMATION=1`) with deterministic gates
+> (frozen-lockfile, build, typecheck, test, eslint, markdownlint, prettier,
+> npm-pack dry-runs), receipt-bound resume, and **binary-asset verification**
+> — the 5-platform build workflow now fails loudly if a release ships without
+> all of its tarballs (FID-2026-0809-002).
 
 ---
 

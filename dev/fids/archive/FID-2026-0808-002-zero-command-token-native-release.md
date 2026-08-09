@@ -5,7 +5,7 @@
 **Filename:** `FID-2026-0808-002-zero-command-token-native-release.md`
 **ID:** FID-2026-0808-002
 **Severity:** high
-**Status:** implemented — audit pending
+**Status:** closed (2026-08-09 — Nova audit PASS with pre-push sign-off GRANTED; operator-directed close)
 **Created:** 2026-08-08
 **YAGNI-Compliance:** Pending
 
@@ -104,4 +104,10 @@ PREFLIGHT
 
 ### AUDIT / ADVERSARIAL
 
-Pending independent review of the final diff. FID-2026-0808-001 remains blocked from automation-mode public execution until this amendment receives AUDIT and ADVERSARIAL approval.
+Nova audit response (`dev/nova/inbox/2026-08-08-fid-2026-0808-002-zero-command-token-native-release-audit-response.md`)
+2026-08-08: **PASS** — all 7 claim areas verified with file:line evidence (automation opt-in,
+token-not-in-argv, extraheader security, empty-worktree rejection, finally restoration, REST
+adapter, test coverage 16 tests/52 assertions). **PRE-PUSH SIGN-OFF: GRANTED.**
+
+Closed + archived 2026-08-09 per operator direction; the second-approval sign-off also extended
+FID-001/002/003 approvals to the cumulative state.

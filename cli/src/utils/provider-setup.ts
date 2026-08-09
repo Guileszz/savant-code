@@ -1,5 +1,7 @@
 import fs from 'fs'
 
+import { deriveSetupConfig } from '@savant-code/common/providers/derive'
+import { PROVIDER_REGISTRY } from '@savant-code/common/providers/registry'
 import { resetOpenRouterApiKeyCache } from '@savant-code/sdk'
 
 import {
@@ -9,47 +11,22 @@ import {
   getCredentialsPath,
 } from './auth'
 import {
-  DEFAULT_SAVANT_CODE_MODEL_PROVIDER,
-  loadSavantCodeModelProviderPreference,
-  saveSettings,
+  getActiveProvider,
+  saveActiveProvider,
+  saveSavantCodeModelProviderPreference,
 } from './settings'
 
 import type { JSONValue } from '@savant-code/common/types/json'
 
 export const PROVIDER_SETUP_DEFAULT = 'openrouter' as const
 
-export const PROVIDER_SETUP_CONFIG = {
-  openrouter: {
-    label: 'OpenRouter direct',
-    envVar: 'OPENROUTER_API_KEY',
-    baseUrl: 'https://openrouter.ai/api/v1',
-  },
-  'opencode-go': {
-    label: 'OpenCode Go',
-    envVar: 'OPENCODE_GO_API_KEY',
-    baseUrl: 'https://opencode.ai/zen/go/v1',
-  },
-  tokenrouter: {
-    label: 'TokenRouter',
-    envVar: 'TOKENROUTER_API_KEY',
-    baseUrl: 'https://api.tokenrouter.com/v1',
-  },
-  tokenharbor: {
-    label: 'TokenHarbor',
-    envVar: 'TOKENHARBOR_API_KEY',
-    baseUrl: 'https://tokenharbor.ai/v1',
-  },
-  nvidia: {
-    label: 'NVIDIA NIM',
-    envVar: 'NVIDIA_API_KEY',
-    baseUrl: 'https://integrate.api.nvidia.com/v1',
-  },
-  commandcode: {
-    label: 'CommandCode',
-    envVar: 'COMMAND_CODE_API_KEY',
-    baseUrl: 'https://api.commandcode.ai/provider/v1',
-  },
-} as const
+/**
+ * Derived from the unified provider registry (FID-2026-0809-001 Phase 1):
+ * the entries where `setupAvailable` is true. Cloudflare and Ollama are
+ * intentionally absent — Cloudflare enters the setup flow in a later phase
+ * (it needs two credentials), and Ollama is local (no key to set up).
+ */
+export const PROVIDER_SETUP_CONFIG = deriveSetupConfig(PROVIDER_REGISTRY)
 
 export type ProviderSetupName = keyof typeof PROVIDER_SETUP_CONFIG
 
@@ -104,7 +81,10 @@ export function getMissingProviderSetup(): MissingProviderSetup | undefined {
     return undefined
   }
 
-  const provider = configuredProvider || PROVIDER_SETUP_DEFAULT
+  // Readiness follows the active provider (Phase 4): shell DIRECT_PROVIDER
+  // first, else the persisted selection (activeProvider -> picker preference ->
+  // default). Ollama needs no key, so it never produces guidance.
+  const provider = configuredProvider || getActiveProvider()
   if (provider.toLowerCase() === 'ollama') return undefined
 
   const info = getProviderSetupInfo(provider)
@@ -203,9 +183,9 @@ export function configureDefaultDirectProvider(): void {
     return
   }
 
-  const provider =
-    loadSavantCodeModelProviderPreference() ??
-    DEFAULT_SAVANT_CODE_MODEL_PROVIDER
+  // The canonical active provider (Phase 4): persisted /provider selection,
+  // else the picker preference (legacy routing source), else the default.
+  const provider = getActiveProvider()
   const info = getProviderSetupInfo(provider)
   if (!info) return
 
@@ -270,11 +250,12 @@ export function saveProviderApiKey(
   }
 
   if (activated) {
-    saveSettings({
-      savantCodeModelProviderPreference: provider,
-      directProvider: provider,
-      directProviderBaseUrl: config.baseUrl,
-    })
+    // Phase 4 single-setting state: the selection is persisted as
+    // activeProvider (the registry derives the base URL and env var). The
+    // legacy directProvider/directProviderBaseUrl fields are no longer written
+    // for gateway providers — only the local (Ollama) path keeps them.
+    saveSavantCodeModelProviderPreference(provider)
+    saveActiveProvider(provider)
   }
 
   if (provider === 'openrouter') {

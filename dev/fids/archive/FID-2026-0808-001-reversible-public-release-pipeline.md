@@ -5,7 +5,7 @@
 **Filename:** `FID-2026-0808-001-reversible-public-release-pipeline.md`
 **ID:** FID-2026-0808-001
 **Severity:** high
-**Status:** implemented
+**Status:** closed (2026-08-09 — Nova second-approval sign-off granted; FID-001/002/003 approvals extended to cumulative state; operator-directed close)
 **Created:** 2026-08-08
 **YAGNI-Compliance:** Pending
 
@@ -441,8 +441,12 @@ The following decisions converge the design for implementation:
   `dev/nova/outbox/2026-08-08-fid-2026-0808-001-public-release-pipeline-reaudit-request.md`;
   Nova's second audit and sign-off remain pending before any public mutation.
 - **Repository state:** Uncommitted working tree; no release execution performed
-- **Lifecycle state:** Not archived. Status is `implemented`; archive only after
-  the operator-approved release execution and final independent audit.
+- **Lifecycle state:** Closed + archived 2026-08-09 per operator direction after Nova's
+  second-approval sign-off (`dev/nova/inbox/2026-08-08-release-system-second-approval-SIGN-OFF.md`)
+  granted pre-push approval and extended the FID-001/002/003 approvals to the cumulative state.
+  The implementation remains verified; the actual release execution is a separate
+  operator-approved action covered by the A-Z build/release remediation session.
+- **CHANGELOG:** appended 2026-08-09 (v0.0.21 release-system closure entry).
 
 ## Lessons Learned
 

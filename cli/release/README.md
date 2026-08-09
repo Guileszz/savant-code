@@ -45,14 +45,17 @@ Or select one of the supported gateway providers directly:
 
 | Provider | Selection | Environment variable | Notes |
 | --- | --- | --- | --- |
-| Ollama | Automatic detection | `OLLAMA_HOST` (optional) | Local inference; no API key required |
+<!-- GENERATED:provider-table-start -->
 | OpenRouter | `/provider openrouter` or `DIRECT_PROVIDER=openrouter` | `OR_MASTER_KEY`, `OPENROUTER_API_KEY`, or `INFERENCE_API_KEY` | Default provider; free tier (`openrouter/free`) is the boot default; direct mode without the Savant backend |
-| OpenCode Go | `/provider opencode-go` | `OPENCODE_GO_API_KEY` | Hosted gateway |
-| TokenRouter | `/provider tokenrouter` | `TOKENROUTER_API_KEY` | Multi-provider gateway |
-| TokenHarbor | `/provider tokenharbor` | `TOKENHARBOR_API_KEY` | OpenAI-compatible hosted gateway at `https://tokenharbor.ai/v1` |
-| NVIDIA NIM | `/provider nvidia` | `NVIDIA_API_KEY` | NVIDIA-hosted inference |
-| CommandCode | `/provider commandcode` | `COMMAND_CODE_API_KEY` | OpenAI-compatible hosted inference |
+| TokenRouter | `/provider tokenrouter` or `DIRECT_PROVIDER=tokenrouter` | `TOKENROUTER_API_KEY` | Multi-provider gateway |
+| NVIDIA NIM | `/provider nvidia` or `DIRECT_PROVIDER=nvidia` | `NVIDIA_API_KEY` | NVIDIA-hosted inference |
+| OpenCode Go | `/provider opencode-go` or `DIRECT_PROVIDER=opencode-go` | `OPENCODE_GO_API_KEY` | Hosted gateway (dual-protocol) |
+| Cloudflare | Environment configuration | `CLOUDFLARE_API_TOKEN` + `CLOUDFLARE_ACCOUNT_ID` | Env-only — not in the `/provider` picker; requires the account id too |
+| CommandCode | `/provider commandcode` or `DIRECT_PROVIDER=commandcode` | `COMMAND_CODE_API_KEY` | OpenAI-compatible hosted inference (dual-protocol) |
+| Ollama | Automatic detection | `OLLAMA_HOST` (optional) | Local inference; no API key required |
+| TokenHarbor | `/provider tokenharbor` or `DIRECT_PROVIDER=tokenharbor` | `TOKENHARBOR_API_KEY` | OpenAI-compatible hosted gateway |
 | Custom endpoint | Environment configuration | `INFERENCE_BASE_URL`, `INFERENCE_API_KEY` | Advanced OpenAI-compatible endpoint |
+<!-- GENERATED:provider-table-end -->
 
 The interactive key prompt is masked. Saved provider credentials are stored in the user configuration directory and are not added to chat history:
 

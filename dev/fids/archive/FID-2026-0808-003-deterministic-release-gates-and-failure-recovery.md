@@ -5,7 +5,7 @@
 **Filename:** `FID-2026-0808-003-deterministic-release-gates-and-failure-recovery.md`
 **ID:** FID-2026-0808-003
 **Severity:** critical
-**Status:** verified
+**Status:** closed (2026-08-09 — Nova second-approval sign-off granted; operator-directed close)
 **Created:** 2026-08-08
 **YAGNI-Compliance:** Confirmed — the universal structured gate layer is exercised by the real
 diagnostic run; no speculative abstractions were added beyond the evidence requirements.
@@ -518,8 +518,11 @@ The implementation is not complete until all of the following are independently 
   evidence finalized).
 - **Commit/PR:** None for this FID (no-mutation boundary respected; working tree holds the
   implementation).
-- **Archived:** Not archived — pending Nova AUDIT/ADVERSARIAL sign-off, then close + archive per
-  the FID auto-archive rule.
+- **Archived:** Closed + archived 2026-08-09 per operator direction after Nova's
+  second-approval sign-off (`dev/nova/inbox/2026-08-08-release-system-second-approval-SIGN-OFF.md`)
+  granted pre-push approval and extended the FID-001/002/003 approvals to the cumulative state.
+  The classified-diagnostic evidence (pinned Bun 1.3.14, `Diagnostic gates passed`, evidence
+  finalized) remains the ground-truth record of the gate remediation.
 
 ## Lessons Learned
 

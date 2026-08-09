@@ -1,6 +1,6 @@
 {
   "name": "savant-code",
-  "version": "0.0.21",
+  "version": "0.0.22",
   "license": "Apache-2.0",
   "type": "module",
   "workspaces": [
@@ -25,13 +25,12 @@
     "release:public:preview": "bun run scripts/public-release.ts --preview",
     "release:public:resume": "bun run scripts/public-release.ts --resume",
     "release:public:diagnose": "bun run scripts/public-release.ts --diagnose",
-    "release:cli": "bun run --cwd=cli release",
-    "release:sdk": "bun run --cwd=sdk release",
-    "release:savant-free": "bun run --cwd=savant-free release",
     "build:sdk": "cd sdk && bun run build",
     "build:savant-free": "bun savant-free/cli/build.ts 0.0.0-dev",
     "buffbench": "bun --cwd evals run-buffbench",
     "ci": "bun run build:sdk && bun run build:savant-free",
+    "generate:provider-docs": "bun run scripts/generate-provider-reference.ts",
+    "generate:provider-docs:check": "bun run scripts/generate-provider-reference.ts --check",
     "lint:md": "markdownlint .",
     "prepare": "git config core.hooksPath .githooks",
     "typecheck": "bun run --cwd=common typecheck && bun run --cwd=agents typecheck && bun run --cwd=sdk typecheck && bun run --cwd=cli typecheck && bun run --cwd=evals typecheck && bun run --cwd=packages/agent-runtime typecheck && bun run --cwd=packages/code-map typecheck && bun run --cwd=packages/database typecheck && bun run --cwd=packages/knowledge-graph typecheck && bun run --cwd=packages/llm-providers typecheck",
