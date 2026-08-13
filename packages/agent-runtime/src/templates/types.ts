@@ -21,11 +21,13 @@ const placeholderNames = [
   'INITIAL_AGENT_PROMPT',
   'KNOWLEDGE_FILES_CONTENTS',
   'MODEL_INFO',
+  'PROTOCOL_FILE',
   'PROJECT_ROOT',
   'REMAINING_STEPS',
   'SYSTEM_INFO_PROMPT',
   'USER_CWD',
   'USER_INPUT_PROMPT',
+  'DESIGN_SYSTEM_CONTEXT',
 ] as const
 
 type PlaceholderType<T extends typeof placeholderNames> = {

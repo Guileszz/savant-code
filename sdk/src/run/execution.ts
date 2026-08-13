@@ -1,21 +1,19 @@
 import { callMainPrompt } from '@savant-code/agent-runtime/main-prompt'
-import { EchoComplianceTracker } from '@savant-code/agent-runtime/util/echo-compliance'
 import { MAX_AGENT_STEPS_DEFAULT } from '@savant-code/common/constants/agents'
-import { COMPOSIO_META_TOOL_NAMES } from '@savant-code/common/constants/composio'
 import { cloneDeep } from 'lodash'
 
 import { getUserInfoFromApiKey } from '../impl/database'
-import { applyOverridesToSessionState, initialSessionState } from '../run-state'
+import { deserializeRunState } from '../run-state'
 import { buildAgentRuntimeImpl } from './agent-runtime-impl'
 import {
   createCancelledStateHelpers,
   createErrorRunStateFrom,
 } from './cancelled-state'
+import { resolveSessionState } from './execution/session-state'
+import { startStateSnapshotting } from './execution/snapshot'
 import { buildMainPromptErrorRunState, handlePromptResponse } from './response'
 import { createStreamChunkHandlers } from './stream-handlers'
 import {
-  STATE_SNAPSHOT_INTERVAL_MS,
-  STATE_SNAPSHOT_INTERRUPTION_MESSAGE,
   createAbortError,
   wrapContentForUserMessage,
   type RunExecutionOptions,
@@ -33,6 +31,7 @@ export async function run(options: RunExecutionOptions): Promise<RunState> {
   if (signal?.aborted) {
     const abortError = createAbortError(signal)
     return {
+      schemaVersion: 1,
       // FID-2026-0802-008 D2: omit sessionState when there is no previous
       // run — callers must not assume a session exists on pre-abort.
       ...(options.previousRun?.sessionState
@@ -87,11 +86,22 @@ async function runOnce({
   onFileWritten,
   devMode,
   permissionMode,
+  designContract,
   modelInfoText,
   checkpointDir,
   checkpointTurnId,
   echoCompliance,
+  protocolVariant,
 }: RunExecutionOptions): Promise<RunState> {
+  // Transport payloads may be supplied as serialized JSON at this boundary,
+  // but live in-process RunState objects must bypass deserialization so resume
+  // can preserve function-valued agent handlers.
+  const normalizedPreviousRun =
+    typeof (previousRun as unknown) === 'string'
+      ? deserializeRunState(previousRun as unknown)
+      : previousRun
+  previousRun = normalizedPreviousRun
+
   const fsSourceValue = typeof fsSource === 'function' ? fsSource() : fsSource
   const fs = await fsSourceValue
   let spawn: SavantCodeSpawn
@@ -122,62 +132,29 @@ async function runOnce({
 
   let sessionState: SessionState
   try {
-    if (previousRun?.sessionState) {
-      // applyOverridesToSessionState handles deep cloning and applying any provided overrides
-      sessionState = await applyOverridesToSessionState(
-        cwd,
-        previousRun.sessionState,
-        {
-          knowledgeFiles,
-          agentDefinitions,
-          customToolDefinitions,
-          projectFiles,
-          maxAgentSteps,
-        },
-      )
-    } else {
-      // No previous run, so create a fresh session state
-      sessionState = await initialSessionState({
+    sessionState = await resolveSessionState({
+      options: {
         cwd,
         skillsDir,
-        knowledgeFiles,
-        agentDefinitions,
-        customToolDefinitions,
         projectFiles,
+        knowledgeFiles,
+        customToolDefinitions,
         maxAgentSteps,
+        protocolVariant,
         devMode,
-        fs,
-        spawn,
+        permissionMode,
+        designContract,
+        echoCompliance,
+        prompt,
         logger,
-      })
-    }
+      },
+      previousRun,
+      agentDefinitions,
+      fs,
+      spawn,
+    })
   } catch (error) {
     return errorRunStateFrom(error)
-  }
-
-  // FID-2026-0804-009: create the per-run ECHO compliance tracker and attach it
-  // to the main agent state. `off` disables it; default is `warn`. A fresh
-  // tracker is created every run (never inherited from a restored session).
-  if (echoCompliance?.mode !== 'off') {
-    sessionState.mainAgentState.echoCompliance = new EchoComplianceTracker({
-      mode: echoCompliance?.mode ?? 'warn',
-      fidPaths: echoCompliance?.fidPaths,
-      userPrompt: prompt,
-    })
-  } else {
-    sessionState.mainAgentState.echoCompliance = undefined
-  }
-
-  // Ensure devMode reflects the current CLI state (may have changed since last run)
-  if (devMode !== undefined) {
-    sessionState.fileContext.devMode = devMode
-  }
-  if (permissionMode !== undefined) {
-    sessionState.fileContext.permissionMode = permissionMode
-  }
-
-  for (const toolName of COMPOSIO_META_TOOL_NAMES) {
-    delete sessionState.fileContext.customToolDefinitions[toolName]
   }
 
   let resolvePromise: (
@@ -192,13 +169,11 @@ async function runOnce({
   // Snapshot support: stop emitting the moment the run settles so a late
   // snapshot can never overwrite the final state persisted by the host.
   let settled = false
-  let snapshotTimer: ReturnType<typeof setInterval> | null = null
+  let stopSnapshotting: (() => void) | null = null
   const resolve = (value: RunReturnType) => {
     settled = true
-    if (snapshotTimer !== null) {
-      clearInterval(snapshotTimer)
-      snapshotTimer = null
-    }
+    stopSnapshotting?.()
+    stopSnapshotting = null
     resolvePromise(value)
   }
 
@@ -318,42 +293,14 @@ async function runOnce({
   }
 
   if (onStateSnapshot) {
-    // The runtime replaces mainAgentState.messageHistory with a new array at
-    // each step boundary, so reference identity is a cheap "has anything
-    // durable changed" check. Skipping unchanged ticks avoids deep-cloning a
-    // potentially multi-MB sessionState every interval while the run is just
-    // waiting on a slow LLM call.
-    let lastSnapshotHistory:
-      SessionState['mainAgentState']['messageHistory'] | null = null
-    const emitStateSnapshot = () => {
-      if (settled || signal?.aborted) {
-        return
-      }
-      const history = sessionState.mainAgentState.messageHistory
-      if (history === lastSnapshotHistory) {
-        return
-      }
-      lastSnapshotHistory = history
-      try {
-        onStateSnapshot(
-          getCancelledRunState(STATE_SNAPSHOT_INTERRUPTION_MESSAGE),
-        )
-      } catch (error) {
-        logger?.debug?.(
-          { error: error instanceof Error ? error.message : String(error) },
-          'onStateSnapshot handler threw',
-        )
-      }
-    }
-    // Emit immediately so the user's prompt is checkpointed as soon as the
-    // run starts, then keep checkpointing progress while it is in flight.
-    emitStateSnapshot()
-    snapshotTimer = setInterval(emitStateSnapshot, STATE_SNAPSHOT_INTERVAL_MS)
-    // Don't let the checkpoint timer keep the host process alive.
-    const nodeTimer = snapshotTimer as unknown as { unref?: () => void }
-    if (typeof nodeTimer.unref === 'function') {
-      nodeTimer.unref()
-    }
+    const snapshotter = startStateSnapshotting({
+      sessionState,
+      getCancelledRunState,
+      onStateSnapshot,
+      signal,
+      logger,
+    })
+    stopSnapshotting = snapshotter.stop
   }
 
   callMainPrompt({

@@ -23,7 +23,7 @@ describe('savant-strict (FID-2026-0805-001)', () => {
     const instructions = savantStrict.instructionsPrompt ?? ''
     expect(instructions).toContain('**STRICT mode**')
     expect(instructions).toContain('full ECHO Perfection Loop')
-    expect(instructions).toContain('Spawn the Recorder')
+    expect(instructions).toContain('spawn the Recorder')
     expect(instructions).toContain('spawn the Detective')
     expect(instructions).toContain('spawn Forge')
     expect(instructions).toContain('spawn the Verifier')

@@ -16,6 +16,7 @@ export function createEnforcementState(): EnforcementState {
     filesRead: new Set(),
     filesWritten: new Set(),
     dirtyFiles: new Set(),
+    writtenFileContent: new Map(),
     hasVerifiedSinceLastDirty: true,
     writeCount: 0,
     featuresWired: new Set(),
@@ -26,6 +27,9 @@ export function createEnforcementState(): EnforcementState {
     // FID-2026-0806-005: session-init gate starts unread; turns start at 0.
     protocolRead: false,
     turnCount: 0,
+    // FID-2026-0810-002 Change 5: completion gate starts unspent and armed.
+    completionGateRetries: 0,
+    completionGateDisarmed: false,
     advisoryWarnings: [],
     turnStartWriteCount: 0,
     // P5b (FID-2026-0806-003): YAGNI enforcement state, initially empty.
@@ -42,4 +46,7 @@ export function createEnforcementState(): EnforcementState {
  */
 export function resetForNewTurn(state: EnforcementState): void {
   state.turnStartWriteCount = state.writeCount
+  state.dirtyFiles.clear()
+  state.writtenFileContent.clear()
+  state.hasVerifiedSinceLastDirty = true
 }

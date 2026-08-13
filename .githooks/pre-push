@@ -58,6 +58,13 @@ if [ "$md_status" -ne 0 ]; then
   exit "$md_status"
 fi
 
+bun run generate:protocol-bundle:check
+bundle_status=$?
+if [ "$bundle_status" -ne 0 ]; then
+  echo "❌ pre-push: embedded protocol bundle is stale — run \`bun run generate:protocol-bundle\` before pushing (or use --no-verify)" >&2
+  exit "$bundle_status"
+fi
+
 bunx prettier --check .
 prettier_status=$?
 if [ "$prettier_status" -ne 0 ]; then

@@ -59,7 +59,16 @@ export async function runWriteGate(params: {
   // Safe to deref: the C1 parse-error branch already narrowed toolCall to a
   // validated call, so input is the parsed object — never null/string garbage.
   const input = toolCall.input as Record<string, JSONValue>
-  const rawPath = typeof input.path === 'string' ? input.path : ''
+  const operation =
+    input.operation && typeof input.operation === 'object'
+      ? (input.operation as Record<string, JSONValue>)
+      : undefined
+  const rawPath =
+    typeof input.path === 'string'
+      ? input.path
+      : typeof operation?.path === 'string'
+        ? operation.path
+        : ''
   // FID-2026-0718-013 v3 — defensive null check (symmetric with write-file.ts,
   // str-replace.ts, apply-patch.ts handlers). Runtime always provides fileContext,
   // but tests/mocks may omit it. Fail soft with a clear error rather than crash
@@ -109,7 +118,11 @@ export async function runWriteGate(params: {
   // FID-2026-0718-013 v3 F2: rewrite the symlink-resolved realpath into the tool
   // call input so the downstream handler receives a canonical form. Same Q8
   // hardening, plus the resolved path now reflects any symlink chain.
-  input.path = pathResult.resolved
+  if (toolCall.toolName === 'apply_patch' && operation) {
+    operation.path = pathResult.resolved
+  } else {
+    input.path = pathResult.resolved
+  }
   // FID-2026-0804-009: stash the resolved write path for the post-sandbox
   // Law 1 record (moved there per code-review finding — see below).
   const resolvedWritePath = pathResult.resolved

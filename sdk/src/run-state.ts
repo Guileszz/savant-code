@@ -20,3 +20,9 @@ export {
   withMessageHistory,
 } from './run-state/mutations'
 export type { InitialSessionStateOptions, RunState } from './run-state/types'
+export {
+  deserializeRunState,
+  RUN_STATE_SCHEMA_VERSION,
+  serializeRunState,
+} from './run-state/serialization'
+export type { RunStateTransport } from './run-state/serialization'

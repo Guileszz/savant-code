@@ -6,7 +6,6 @@
 > codebase (see corrected Section 5.1 and gap matrix rows); (2) expanded scope
 > from 4 reference repos to all 16 (full coverage of `resources/`).
 > **⚠️ Archival note (2026-07-23):** The `resources/` directory containing the 16 reference repos has been removed from disk. This report and the companion `adoptable-features-master.md` are preserved as historical research. The `docs/reports/repos/` subfolder retains the individual per-repo analysis files. Feature parity gaps identified here may have changed — run a fresh baseline pass before acting on any recommendation.
-> **Author:** Savant
 > **Purpose:** Identify features present in the 16 reference repositories under
 > `resources/` that **savant-code does not currently have**,
 > to drive a feature-parity program.
@@ -27,7 +26,7 @@
 ## 1. Executive Summary
 
 savant-code is a **TypeScript, Bun-based, multi-agent coding assistant** with a strong
-**governance layer** (ECHO Protocol, 9-agent roster, FID-bound Perfection Loop) and a
+**governance layer** (ECHO Protocol, 10-agent roster, FID-bound Perfection Loop) and a
 **free-tier model catalog**. It is engineered for *correct, reviewable* code generation
 through a small, disciplined agent roster and a single OpenAI-compatible provider
 abstraction.

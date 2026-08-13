@@ -2,8 +2,15 @@ import type { EnforcementResult, AdvisoryWarning } from './types'
 import type { ComplianceWarningLaw } from '@savant-code/common/types/echo-compliance'
 import type { PrintModeComplianceWarning } from '@savant-code/common/types/print-mode'
 
-export function formatBlockingError(reason: string): string {
-  return `[ECHO Enforcement] BLOCKED: ${reason}. Fix the violation and retry.`
+export function formatBlockingError(
+  reason: string,
+  classification?: 'echo' | 'design_contract',
+): string {
+  const prefix =
+    classification === 'design_contract'
+      ? '[DESIGN CONTRACT]'
+      : '[ECHO Enforcement]'
+  return `${prefix} BLOCKED: ${reason}. Fix the violation and retry.`
 }
 
 /**
@@ -29,11 +36,19 @@ export function formatTurnEndReport(results: EnforcementResult[]): string {
   const parts: string[] = []
   if (blocking.length > 0) {
     parts.push(`BLOCKING violations (${blocking.length}):`)
-    blocking.forEach((r) => parts.push(`  - ${r.reason}`))
+    blocking.forEach((r) =>
+      parts.push(
+        `  - ${r.classification === 'design_contract' ? '[DESIGN_CONTRACT] ' : ''}${r.reason}`,
+      ),
+    )
   }
   if (advisory.length > 0) {
     parts.push(`Advisory warnings (${advisory.length}):`)
-    advisory.forEach((w) => parts.push(`  - Law ${w.law}: ${w.message}`))
+    advisory.forEach((w) =>
+      parts.push(
+        `  - ${w.classification === 'design_contract' ? 'Design contract' : `Law ${w.law}`}: ${w.message}`,
+      ),
+    )
   }
   return parts.length > 0 ? `[ECHO Turn End]\n${parts.join('\n')}` : ''
 }
@@ -64,7 +79,10 @@ export function buildComplianceWarningChunks(
 ): PrintModeComplianceWarning[] {
   return warnings.map((warning) => ({
     type: 'compliance_warning',
-    law: lawNumberToComplianceLaw(warning.law),
+    law:
+      warning.classification === 'design_contract'
+        ? 'design_contract'
+        : lawNumberToComplianceLaw(warning.law),
     severity: warning.severity,
     message: warning.message,
     ...(warning.file !== undefined ? { path: warning.file } : {}),

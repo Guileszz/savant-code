@@ -3,7 +3,7 @@
 > **Scope:** This document describes what data Savant Code collects, where it
 > goes, and how users control it. It covers the CLI, SDK, and agent-runtime.
 >
-> **Version:** v0.0.21
+> **Version:** v0.0.23 (pending, unreleased)
 >
 > **Applies to:** `cli`, `sdk`, `packages/agent-runtime`, `common`
 
@@ -35,7 +35,9 @@
 ### What May Leave the Machine
 
 - **Inference requests** to the user's chosen provider (OpenRouter, Ollama,
-  TokenHarbor, another gateway, etc.) when using BYOK mode.
+  TokenHarbor, Nous Research, another gateway, etc.) when using BYOK mode. Nous
+  Research uses the direct OpenAI-compatible API in this integration; Portal OAuth
+  credentials are not accepted by the `NOUS_API_KEY` flow.
 - **Authentication requests** to Savant Code backend when the user logs in.
 - **Telemetry events** while remote analytics is enabled; users can disable them
   with `/telemetry disable`.
@@ -52,7 +54,7 @@
 - Environment-provided BYOK keys are read at runtime and are never copied to
   disk by Savant Code. Current direct-provider variables include
   `OPENCODE_GO_API_KEY`, `TOKENROUTER_API_KEY`, `TOKENHARBOR_API_KEY`,
-  `NVIDIA_API_KEY`, and `COMMAND_CODE_API_KEY`.
+  `NVIDIA_API_KEY`, `COMMAND_CODE_API_KEY`, and `NOUS_API_KEY`.
 - Keys entered through the masked `/provider` flow are stored in the user's
   local `credentials.json` so npm-installed users can configure a provider
   without editing shell profiles.

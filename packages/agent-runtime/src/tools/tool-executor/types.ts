@@ -8,6 +8,7 @@ import type {
   AgentRuntimeScopedDeps,
 } from '@savant-code/common/types/contracts/agent-runtime'
 import type { Logger } from '@savant-code/common/types/contracts/logger'
+import type { TraceWriter } from '@savant-code/common/types/contracts/trace'
 import type { JSONValue } from '@savant-code/common/types/json'
 import type { ToolMessage } from '@savant-code/common/types/messages/savant-code-message'
 import type { PrintModeEvent } from '@savant-code/common/types/print-mode'
@@ -36,7 +37,6 @@ export type ExecuteToolCallParams<T extends string = ToolName> = {
   fileContext: ProjectFileContext
   fileProcessingState: FileProcessingState
   fingerprintId: string
-  fromHandleSteps?: boolean
   fullResponse: string
   localAgentTemplates: Record<string, AgentTemplate>
   logger: Logger
@@ -55,6 +55,7 @@ export type ExecuteToolCallParams<T extends string = ToolName> = {
   toolResultsToAddToMessageHistory: ToolMessage[]
   userId: string | undefined
   userInputId: string
+  traceWriter?: TraceWriter
   /** FID-2026-0802-005 H8: step-built custom tool data (incl. MCP tools). When
    *  provided, executeCustomToolCall skips the per-call getMCPToolData rebuild. */
   customToolDefinitions?: CustomToolDefinitions

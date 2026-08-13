@@ -23,6 +23,8 @@ export type ParsedArgs = {
   initialPermissionMode?: PermissionMode
   /** FID-2026-0806-011: run the prompt headlessly and print the result to stdout. */
   print: boolean
+  /** Versioned design-authoring JSON path, or '-' for stdin. */
+  designInput?: string
 }
 
 export function loadPackageVersion(): string {
@@ -101,6 +103,10 @@ export function parseArgs({
       .option(
         '--print',
         'Run the prompt headlessly and print the final answer to stdout (non-zero exit on failure)',
+      )
+      .option(
+        '--design-input <path>',
+        'Create or update a design system from versioned JSON at a path, or - for stdin',
       )
       .option('--edit', 'Start in HYBRID mode (default; legacy flag name)')
       .option('--scaffold', 'Start in SCAFFOLD mode')
@@ -188,5 +194,7 @@ export function parseArgs({
     initialMode,
     initialPermissionMode,
     print: options.print || false,
+    designInput:
+      typeof options.designInput === 'string' ? options.designInput : undefined,
   }
 }

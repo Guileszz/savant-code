@@ -1,19 +1,20 @@
+import {
+  applySavantCodeModelOverride,
+  buildPromptWithContext,
+  resolveAgent,
+} from './send-message-agent'
 import { useChatStore } from '../../state/chat-store'
 import { IS_SAVANT_FREE } from '../../utils/constants'
 import { createEventHandlerState } from '../../utils/create-event-handler-state'
 import { createRunConfig } from '../../utils/create-run-config'
 import { isFidPath, saveFidDocumentToDb } from '../../utils/db-storage'
+import { getActiveDesignContract } from '../../utils/design-system-service'
 import {
   findGatewayModel,
   formatModelInfo,
   resolveContextWindowForModel,
 } from '../../utils/openrouter-models'
 import { getSavantFreeInstanceId } from '../use-savant-free-session'
-import {
-  applySavantCodeModelOverride,
-  buildPromptWithContext,
-  resolveAgent,
-} from './send-message-agent'
 
 import type { AgentMode } from '../../utils/constants'
 import type { CreateEventHandlerStateParams } from '../../utils/create-event-handler-state'
@@ -183,6 +184,11 @@ export const buildSendRunConfig = (params: BuildSendRunConfigParams) => {
     devMode,
     permissionMode,
     enforcementMode: agentMode === 'STRICT' ? 'strict' : 'hybrid',
+    // The harness product boots under the harness contract (ECHO.md). The
+    // single-agent variant is an SDK opt-in for outside agents working on
+    // the harness — never the CLI's default (operator directive 2026-08-10).
+    protocolVariant: 'harness',
+    designContract: getActiveDesignContract(),
   })
 
   const mainAgentName =

@@ -163,6 +163,13 @@ const ALL_SLASH_COMMANDS: SlashCommand[] = [
     implicitCommand: true,
   },
   {
+    id: 'design',
+    label: 'design',
+    description:
+      'List, select, create, edit, or reset the active design system',
+    aliases: ['ds'],
+  },
+  {
     id: 'history',
     label: 'history',
     description: 'Browse and resume past conversations',

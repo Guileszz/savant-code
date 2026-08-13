@@ -226,7 +226,7 @@ describe('pre-push credential scan', () => {
     }
   })
 
-  test('over-cap blobs are counted oversized, never materialized or blocking', () => {
+  test('over-cap blobs are counted oversized and block the push', () => {
     const repo = initRepo()
     try {
       writeFileSync(
@@ -244,7 +244,8 @@ describe('pre-push credential scan', () => {
         repo,
         `refs/heads/main ${head} refs/heads/main ${'0'.repeat(40)}\n`,
       )
-      expect(result.flagged).toEqual([])
+      expect(result.flagged).toHaveLength(1)
+      expect(result.flagged[0]).toContain('exceed the 2MB credential-scan cap')
       expect(result.oversized).toBe(1)
     } finally {
       rmSync(repo, { recursive: true, force: true })
@@ -280,7 +281,7 @@ describe('pre-push credential scan', () => {
       writeFileSync(path.join(repo, 'leak.env'), `API_KEY=${FAKE_TOKEN}\n`)
       const head = commitAll(repo, 'leaks')
 
-      const hookScript = path.join(process.cwd(), 'scripts', 'pre-push-scan.ts')
+      const hookScript = path.join(import.meta.dir, 'pre-push-scan.ts')
       const hook = spawnSync(process.execPath, [hookScript], {
         cwd: repo,
         input: `refs/heads/main ${head} refs/heads/main ${base}\n`,
@@ -303,7 +304,7 @@ describe('pre-push credential scan', () => {
       writeFileSync(path.join(repo, 'ok2.ts'), 'export const y = 2\n')
       const head = commitAll(repo, 'clean add')
 
-      const hookScript = path.join(process.cwd(), 'scripts', 'pre-push-scan.ts')
+      const hookScript = path.join(import.meta.dir, 'pre-push-scan.ts')
       const hook = spawnSync(process.execPath, [hookScript], {
         cwd: repo,
         input: `refs/heads/main ${head} refs/heads/main ${base}\n`,

@@ -38,6 +38,7 @@ import {
   scanStagedCredentials,
   settingsAlreadyPublic,
   validateToolVersions,
+  validateReleaseCommand,
   sha256Text,
   applyPublicProfile,
   buildPublicReleasePlan,
@@ -58,8 +59,26 @@ import {
   verifyReleaseAssets,
   withLocalStateRestoration,
 } from './public-release'
+import { repositoryValidationGates } from './validation-manifest'
 
 describe('public release contract', () => {
+  test('allowlists release subprocess executables', () => {
+    for (const command of [
+      'bun',
+      'npm',
+      'git',
+      'gh',
+      'powershell.exe',
+      'taskkill',
+    ]) {
+      expect(() => validateReleaseCommand(command)).not.toThrow()
+    }
+    expect(() => validateReleaseCommand('sh')).toThrow('not allowlisted')
+    expect(() => validateReleaseCommand('node -e malicious')).toThrow(
+      'not allowlisted',
+    )
+  })
+
   test('extracts exactly the requested changelog section', () => {
     const changelog = [
       '# Changelog',
@@ -342,14 +361,11 @@ describe('public release contract', () => {
       buildGateManifest('/repo', '0.0.21', '1.3.14', '10.9.2', 'b'.repeat(40))
         .hash,
     ).not.toBe(first.hash)
+    expect(
+      first.specs.slice(0, repositoryValidationGates('/repo').length),
+    ).toEqual([...repositoryValidationGates('/repo')])
     expect(first.specs.map((spec) => spec.label)).toEqual([
-      'lockfile',
-      'build:sdk',
-      'typecheck',
-      'test',
-      'eslint',
-      'markdownlint',
-      'prettier',
+      ...repositoryValidationGates('/repo').map((spec) => spec.label),
       'npm-pack:@savant-code/sdk',
       'npm-pack:savant-code',
     ])
@@ -402,13 +418,7 @@ describe('public release contract', () => {
         'a'.repeat(40),
       )
       expect(scoped.specs.map((spec) => spec.label)).toEqual([
-        'lockfile',
-        'build:sdk',
-        'typecheck',
-        'test',
-        'eslint',
-        'markdownlint',
-        'prettier',
+        ...repositoryValidationGates('/repo').map((spec) => spec.label),
         'npm-pack:savant-code',
       ])
 
@@ -685,6 +695,34 @@ describe('public release contract', () => {
       expect(new TextDecoder().decode(log.stdout).trim()).toBe(
         'chore(release): prepare v0.0.21',
       )
+    } finally {
+      rmSync(repo, { recursive: true, force: true })
+    }
+  })
+
+  test('accepts staged deletions without scanning the missing worktree path', () => {
+    const repo = mkdtempSync(path.join(os.tmpdir(), 'savant-release-delete-'))
+    try {
+      const runGit = (args: string[]) => {
+        const result = Bun.spawnSync({
+          cmd: ['git', ...args],
+          cwd: repo,
+          stdout: 'pipe',
+          stderr: 'pipe',
+        })
+        if (result.exitCode !== 0) {
+          throw new Error(new TextDecoder().decode(result.stderr))
+        }
+      }
+      runGit(['init', '-q'])
+      runGit(['config', 'user.email', 'release-test@example.invalid'])
+      runGit(['config', 'user.name', 'Release Test'])
+      writeFileSync(path.join(repo, 'deleted.txt'), 'safe content')
+      runGit(['add', '--all'])
+      runGit(['commit', '-q', '-m', 'base'])
+      rmSync(path.join(repo, 'deleted.txt'))
+      runGit(['add', '--all'])
+      expect(scanStagedCredentials(['deleted.txt'], repo)).toEqual([])
     } finally {
       rmSync(repo, { recursive: true, force: true })
     }
@@ -1188,7 +1226,11 @@ describe('public release contract', () => {
       '10.9.2',
       'a'.repeat(40),
     )
-    expect(specs).toHaveLength(9)
+    expect(specs).toHaveLength(
+      repositoryValidationGates('/repo').length +
+        configuredReleasePackages().length,
+    )
+
     for (const spec of specs) {
       const argv = [spec.command, ...spec.args].join(' ')
       expect(argv).not.toMatch(/\b(?:tag|push|publish|release|gh)\b/i)

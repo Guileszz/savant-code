@@ -15,8 +15,11 @@ let pendingRequest: AskUserRequest | null = null
 const listeners: Listener[] = []
 
 export const AskUserBridge = {
-  request: (toolCallId: string, questions: AskUserQuestion[]) => {
-    return new Promise((resolve) => {
+  request: (
+    toolCallId: string,
+    questions: AskUserQuestion[],
+  ): Promise<AskUserResponse> => {
+    return new Promise<AskUserResponse>((resolve) => {
       pendingRequest = { toolCallId, questions, resolve }
       notifyListeners()
     })

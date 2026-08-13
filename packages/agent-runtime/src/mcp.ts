@@ -2,32 +2,23 @@ import { getErrorObject } from '@savant-code/common/util/error'
 import { convertJsonSchemaToZod } from 'zod-from-json-schema'
 
 import { MCP_TOOL_SEPARATOR } from './mcp-constants'
+import { markTrustedCustomToolDefinitions } from './tools/tool-executor/trusted-custom-tool-definitions'
 
 import type { AgentTemplate } from './templates/types'
 import type { RequestMcpToolDataFn } from '@savant-code/common/types/contracts/client'
 import type { Logger } from '@savant-code/common/types/contracts/logger'
-import type { OptionalFields } from '@savant-code/common/types/function-params'
 import type { JSONValue } from '@savant-code/common/types/json'
-import type {
-  CustomToolDefinitions,
-  ProjectFileContext,
-} from '@savant-code/common/util/file'
+import type { CustomToolDefinitions } from '@savant-code/common/util/file'
 
-export async function getMCPToolData(
-  params: OptionalFields<
-    {
-      toolNames: AgentTemplate['toolNames']
-      mcpServers: AgentTemplate['mcpServers']
-      writeTo: ProjectFileContext['customToolDefinitions']
-      requestMcpToolData: RequestMcpToolDataFn
-      logger?: Logger
-    },
-    'writeTo'
-  >,
-): Promise<CustomToolDefinitions> {
-  const withDefaults = { writeTo: {}, ...params }
-  const { toolNames, mcpServers, writeTo, requestMcpToolData, logger } =
-    withDefaults
+export async function getMCPToolData(params: {
+  toolNames: AgentTemplate['toolNames']
+  mcpServers: AgentTemplate['mcpServers']
+  writeTo?: CustomToolDefinitions
+  requestMcpToolData: RequestMcpToolDataFn
+  logger?: Logger
+}): Promise<CustomToolDefinitions> {
+  const { toolNames, mcpServers, requestMcpToolData, logger } = params
+  const writeTo: CustomToolDefinitions = params.writeTo ?? {}
 
   // User-facing toolNames use '/' as separator (e.g., 'supabase/list_tables')
   // but internally we use MCP_TOOL_SEPARATOR ('__') for LLM API compatibility
@@ -62,6 +53,8 @@ export async function getMCPToolData(
               ),
               endsAgentStep: true,
               description,
+              effect: 'mixed',
+              permission: 'prompt',
             }
           }
         } catch (error) {
@@ -79,5 +72,5 @@ export async function getMCPToolData(
   }
   await Promise.all(promises)
 
-  return writeTo
+  return markTrustedCustomToolDefinitions(writeTo)
 }

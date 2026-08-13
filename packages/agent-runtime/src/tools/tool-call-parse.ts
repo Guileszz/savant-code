@@ -1,7 +1,6 @@
 import { endsAgentStepParam } from '@savant-code/common/tools/constants'
 import { toolParams } from '@savant-code/common/tools/list'
 
-import { MCP_TOOL_SEPARATOR } from '../mcp-constants'
 import { ensureZodSchema } from './prompts'
 import { getAgentShortName, getAgentToolName } from '../templates/prompts'
 
@@ -279,10 +278,7 @@ export function parseRawCustomToolCall(params: {
   const { customToolDefs, rawToolCall, autoInsertEndStepParam = false } = params
   const toolName = rawToolCall.toolName
 
-  if (
-    !(customToolDefs && toolName in customToolDefs) &&
-    !toolName.includes(MCP_TOOL_SEPARATOR)
-  ) {
+  if (!(customToolDefs && toolName in customToolDefs)) {
     return {
       toolName,
       toolCallId: rawToolCall.toolCallId,

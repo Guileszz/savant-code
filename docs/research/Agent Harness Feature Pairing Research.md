@@ -1,6 +1,5 @@
 # Agent Harness Feature Pairing Research
 
-**Author:** Savant
 **Date:** 2026-08-03
 **Status:** research — no FIDs opened yet
 **Scope:** Full catalog scan of `resources/` (~120 repos, 0 unscanned), consolidating

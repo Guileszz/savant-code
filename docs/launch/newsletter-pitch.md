@@ -1,8 +1,8 @@
 # Newsletter Pitch (Console.dev style)
 
 **To:** Console.dev submissions
-**Subject:** Submission: Savant Code — local-first AI coding CLI with a 9-agent
-auditing loop
+**Subject:** Submission: Savant Code — local-first AI coding CLI with a
+10-agent auditing loop
 
 ---
 
@@ -13,7 +13,7 @@ I would like to submit Savant Code for consideration.
 ## What it is
 
 Savant Code is an open-source, terminal-native AI coding assistant. Instead of
-racing to generate code as fast as possible, it runs a 9-agent "perfection
+racing to generate code as fast as possible, it runs a 10-agent "perfection
 loop" that audits, critiques, and rewrites changes before they touch your
 codebase.
 

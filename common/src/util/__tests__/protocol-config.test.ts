@@ -45,6 +45,11 @@ describe('readProtocolConfig', () => {
       language: 'typescript',
       openFids: ['FID-2026-0731-001-example.md'],
       maxIterations: 5,
+      harness: {
+        version: '0.2.0',
+        strictMode: false,
+      },
+      singleAgent: null,
       savant: {
         version: '0.1.2-savant',
         strictMode: true,
@@ -99,6 +104,10 @@ describe('readProtocolConfig', () => {
       ].join('\n'),
     )
 
+    expect(readProtocolConfig(cwd).singleAgent).toEqual({
+      version: '0.1.2-single-agent',
+      strictMode: true,
+    })
     expect(readProtocolConfig(cwd).savant).toEqual({
       version: '0.1.2-single-agent',
       strictMode: true,
@@ -131,6 +140,10 @@ describe('readProtocolConfig', () => {
       version: '0.1.2-savant',
       strictMode: false,
     })
+    expect(readProtocolConfig(cwd).singleAgent).toEqual({
+      version: '0.1.2-single-agent',
+      strictMode: true,
+    })
   })
 
   test('returns safe defaults when the config is unavailable', () => {
@@ -142,6 +155,8 @@ describe('readProtocolConfig', () => {
       language: null,
       openFids: [],
       maxIterations: 10,
+      harness: null,
+      singleAgent: null,
       savant: null,
       compression: {
         enabled: true,

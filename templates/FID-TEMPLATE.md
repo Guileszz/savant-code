@@ -5,7 +5,6 @@
 **Severity:** critical | high | medium | low
 **Status:** created | analyzed | fixed | verified | closed
 **Created:** YYYY-MM-DD HH:MM
-**Author:** [Agent/Human Name]
 **YAGNI-Compliance:** Pending | Verified | Debt-Incurred
 
 ---
@@ -75,57 +74,62 @@ How will we confirm the fix works?
 
 ## Perfection Loop
 
-### Loop 1
+### Loop 1 — RED
 
 - **RED:** [Issues identified]
 - **GREEN:** [Fixes applied]
 - **AUDIT:** [Verification results]
-- **CHANGE DELTA:** [Percentage of code changed]
+- **ADVERSARIAL:** [Independent challenge]
+- **CHANGE DELTA:** [Percentage of FID text changed]
 
 ### Missed Questions
 
-> As part of the Perfection Loop, the Thinker must ask: *"What questions should I have asked when this FID was
-  created, but failed to?"* Surface every missed question, answer it with the most robust default derivable from
-  code inspection, and fold those answers directly back into the existing FID sections.
+> Surface every question that should have been asked when this FID was created, answer it with the most robust default
+> derivable from inspection, and fold the answer back into the relevant sections.
 
 1. [Missed question → answer]
 2. [Missed question → answer]
 
 ### Code Verification Evidence
 
-> Before marking status as `fixed` or `verified`, verify that the code referenced in this FID actually exists. FID
-  metadata is a claim — the code is ground truth. (FID-2026-0725-086)
+> Before marking status as `fixed` or `verified`, verify that referenced code exists. FID metadata is a claim; code is
+> ground truth.
 
-- [ ] Files referenced in "Affected Components" exist in the codebase
-- [ ] Implementation matches the proposed solution
-- [ ] Typecheck passes: [command output]
-- [ ] FID status updated to reflect actual implementation state
+- [ ] Files referenced in Affected Components exist
+- [ ] Implementation matches the Proposed Solution
+- [ ] Typecheck/tests/lint pass with pasted tool output
+- [ ] Production call-graph evidence is present for new or repaired wiring
+- [ ] FID status reflects the actual implementation state
 
-> **AUDIT evidence-citation rule (FID-2026-0805-004):** every PASS and every FAIL in the AUDIT phase cites
-> `path/to/file.ts:LINE` with the quoted code that justifies it; absence-shaped checks paste the exact search
-> (NO-MATCH). Out-of-reach evidence is marked `NEEDS-REVIEW` naming the screen/system a human must check — never
-> converted to PASS.
+> Every PASS and FAIL in AUDIT cites `path/to/file.ts:LINE` plus quoted code or exact command output. Absence-shaped
+> checks paste the exact search and mark out-of-reach evidence `NEEDS-REVIEW`.
 
-### Loop 2 (if needed)
+### Loop 2 — Independent audit and self-correction
 
 - **RED:** [Remaining issues]
-- **GREEN:** [Additional fixes]
-- **AUDIT:** [Verification results]
+- **GREEN:** [Corrections applied]
+- **AUDIT:** [Independent evidence]
+- **ADVERSARIAL:** [Residual challenge]
+- **CHANGE DELTA:** [Percentage]
+
+### Loop 3 — Final convergence
+
+- **RED:** [Final risks]
+- **GREEN:** [Final corrections]
+- **AUDIT:** [Final independent evidence]
+- **ADVERSARIAL:** [Final challenge]
 - **CHANGE DELTA:** [Percentage]
 
 ## Resolution
 
-- **Fixed By:** [Agent/Human Name]
-- **Fixed Date:** YYYY-MM-DD HH:MM
+- **Closed Date:** YYYY-MM-DD HH:MM (set when closure is independently verified)
 - **Fix Description:** [What was changed]
 - **Tests Added:** [Yes/No — describe]
-- **Verified By:** [Verification method]
-- **Commit/PR:** [Reference]
+- **Verification Evidence:** [Commands and results]
 - **Archived:** YYYY-MM-DD HH:MM (set when moved to `dev/fids/archive/`)
 
-> When status is set to **Closed**, move this file to `dev/fids/archive/` and
-> append an entry to `CHANGELOG.md`.
+> When status is set to **closed**, move this file to `dev/fids/archive/` and append an entry to `CHANGELOG.md`.
 
 ## Lessons Learned
 
-What can we learn from this finding? How can we prevent similar issues?
+What can we learn from this finding and how can we prevent similar issues?

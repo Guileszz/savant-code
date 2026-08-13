@@ -4,7 +4,11 @@
  * Provides plugin system and customization support for themes
  */
 
+import { designSystemThemeOverrides } from '@savant-code/design-systems'
+
+import { resolveCurrentDesignSystem } from './design-system-service'
 import { logger } from './logger'
+import { mergeThemeOverrides } from './theme-system'
 
 import type { ChatTheme } from '../types/theme-system'
 
@@ -122,16 +126,24 @@ export const buildTheme = (
   // Start with cloned base theme (cloning handled by caller)
   const theme = { ...baseTheme }
 
-  // Layer 1: Apply global custom colors
+  // Layer 1: Apply the active design contract, then explicit user overrides.
+  try {
+    mergeThemeOverrides(
+      theme,
+      designSystemThemeOverrides(resolveCurrentDesignSystem(), mode),
+    )
+  } catch {
+    // Theme construction must remain usable when an optional custom contract is unavailable.
+  }
   if (customColors) {
-    Object.assign(theme, customColors)
+    mergeThemeOverrides(theme, customColors)
   }
 
   // Layer 2: Apply plugins
   if (plugins) {
     for (const plugin of plugins) {
       const pluginOverrides = plugin.apply(theme, mode)
-      Object.assign(theme, pluginOverrides)
+      mergeThemeOverrides(theme, pluginOverrides)
     }
   }
 

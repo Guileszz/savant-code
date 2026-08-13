@@ -83,6 +83,9 @@ No code is written without a plan. No plan is accepted without audit. No audit p
 - **Database helper** — 4 native tools with adapter-enforced safety (read-only by default, LIMIT injection, SQL redaction)
 - **Knowledge graph** — Deterministic, incremental codebase graph with blast-radius/node-edge/cluster queries and a branded interactive offline export
 - **HTML export** — Fully self-contained branded HTML reports of conversations
+- **Design systems** — `/design` manages a project-local token system (create/edit/import/drafts/reset) that the agent applies to every visual output; built-ins are immutable and persistence is atomic
+- **Release automation** — `/release preview \| diagnose \| go \| resume \| status` drives a fail-closed public-release pipeline with receipts and a structured audit trail
+- **Universal session-init grounding** — every session deterministically boots by reading the harness protocol local-first, with a drift-checked embedded fallback for npm-installed copies (FID-2026-0810-002)
 
 ---
 

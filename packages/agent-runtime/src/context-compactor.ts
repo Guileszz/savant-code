@@ -8,15 +8,44 @@
  * - Layer 4 (ReactiveCompact): Emergency truncation on API prompt-too-long error
  *
  * Layer 1 (SNPE) is user-initiated via /compact command, handled separately.
+ *
+ * FID-2026-0809-015: decomposed into `context-compactor/{state,circuit-breaker,phases}`;
+ * this path re-exports the full public surface (Law 4 — zero consumer changes).
  */
 
-import { ECHO_CRITICAL_SENTINEL } from './echo/protocol-summary'
+import { CircuitBreaker } from './context-compactor/circuit-breaker'
+import {
+  CompactionMessage_,
+  isPromptTooLongError,
+} from './context-compactor/phases'
+import { AUTO_COMPACT_BUFFER } from './context-compactor/state'
 
-import type { Logger } from '@savant-code/common/types/contracts/logger'
 import type {
-  Message,
-  ToolMessage,
-} from '@savant-code/common/types/messages/savant-code-message'
+  AutoCompactCheck,
+  CompactorOptions,
+  MicroCompactResult,
+  ReactiveCompactResult,
+  Thresholds,
+} from './context-compactor/state'
+import type { Logger } from '@savant-code/common/types/contracts/logger'
+import type { Message } from '@savant-code/common/types/messages/savant-code-message'
+
+export {
+  AUTO_COMPACT_BUFFER,
+  CIRCUIT_BREAKER_COOLDOWN_MS,
+  CIRCUIT_BREAKER_MAX_FAILURES,
+} from './context-compactor/state'
+
+export { CompactionMessage_ } from './context-compactor/phases'
+
+export type {
+  AutoCompactCheck,
+  CircuitState,
+  CompactorOptions,
+  MicroCompactResult,
+  ReactiveCompactResult,
+  Thresholds,
+} from './context-compactor/state'
 
 // FID-2026-0802-005 L8: compaction operations now operate on the canonical
 // `Message` type directly — the previous `CompactionMessage` loose twin forced
@@ -24,116 +53,13 @@ import type {
 // run-agent-step.ts. The Message type lives in common, so importing it here
 // introduces no circularity.
 
-interface CompactorOptions {
-  logger: Logger
-  contextWindow?: number
-  model?: string
-}
-
-interface Thresholds {
-  /** Token count at which auto-compact triggers */
-  autoCompact: number
-  /** Token count at which reactive compact triggers (hard limit) */
-  reactiveCompact: number
-  /** Max messages to keep in micro-compact */
-  microCompactMaxKeepRecent: number
-}
-
-interface MicroCompactResult {
-  messages: Message[]
-  tokensSaved: number
-  messagesCleared: number
-}
-
-interface AutoCompactCheck {
-  shouldCompact: boolean
-  reason?: string
-  percentUsed?: number
-}
-
-interface ReactiveCompactResult {
-  truncated: boolean
-  messages: Message[]
-  tokensSaved: number
-  messagesRemoved: number
-}
-
-/**
- * Circuit breaker states for compaction failures.
- */
-type CircuitState = 'healthy' | 'degraded' | 'open' | 'half-open'
-
-const CIRCUIT_BREAKER_MAX_FAILURES = 3
-const CIRCUIT_BREAKER_COOLDOWN_MS = 5 * 60 * 1000 // 5 minutes
-const AUTO_COMPACT_BUFFER = 30_000 // 30k token buffer before hard limit
-
-export class CompactionMessage_ {
-  // Helper to check if a message has a specific tag
-  static hasTag(msg: Message, tag: string): boolean {
-    return msg.tags?.includes(tag) ?? false
-  }
-
-  // Helper to check if a message is a tool result
-  static isToolResult(msg: Message): msg is ToolMessage {
-    return msg.role === 'tool'
-  }
-
-  // Helper to extract text content from a message
-  static getTextContent(msg: Message): string {
-    if (typeof msg.content === 'string') {
-      return msg.content
-    }
-    if (Array.isArray(msg.content)) {
-      return msg.content
-        .filter(
-          (part): part is Extract<typeof part, { type: 'text' }> =>
-            part.type === 'text',
-        )
-        .map((part) => part.text)
-        .join('\n')
-    }
-    return ''
-  }
-
-  /**
-   * FID-2026-0806-003 Phase 1 (P1b): a compaction summary message carries the
-   * <structured_state> preserved-state block — the ONLY copy of FID state,
-   * todos, loaded skills, and file ops across the compaction boundary.
-   * Emergency truncation must never drop it, or the continuation loses the
-   * state the pruner worked to preserve.
-   */ static hasPreservedState(msg: Message): boolean {
-    const text = CompactionMessage_.getTextContent(msg)
-    return (
-      text.includes('<conversation_summary>') ||
-      text.includes('<structured_state>')
-    )
-  }
-
-  /**
-   * FID-2026-0806-005 Layer 3: messages carrying the critical-context
-   * sentinel (the protocol refresh) must survive emergency truncation.
-   */
-  static hasCriticalContext(msg: Message): boolean {
-    return CompactionMessage_.getTextContent(msg).includes(
-      ECHO_CRITICAL_SENTINEL,
-    )
-  }
-}
-
 export class ContextCompactor {
   private logger: Logger
   private contextWindow: number
   private model: string
   private thresholds: Thresholds
 
-  // Circuit breaker state
-  private circuitState: CircuitState = 'healthy'
-  private failureCount = 0
-  private lastFailureTime = 0
-  private lastSuccessTime = 0
-
-  // Degradation warning tracking
-  private degradationWarningShown = false
+  private circuitBreaker: CircuitBreaker
 
   // P3b (FID-2026-0806-003): anti-thrash scoring. A preflight threshold
   // crossing only ARMS a pending score; the effectiveness of the compaction
@@ -147,6 +73,7 @@ export class ContextCompactor {
     this.logger = options.logger
     this.contextWindow = options.contextWindow ?? 200_000
     this.model = options.model ?? 'unknown'
+    this.circuitBreaker = new CircuitBreaker(this.logger)
 
     // Calculate thresholds based on context window
     this.thresholds = {
@@ -253,17 +180,9 @@ export class ContextCompactor {
     contextTokenCount: number,
   ): AutoCompactCheck {
     // Check circuit breaker
-    if (this.circuitState === 'open') {
-      const elapsed = Date.now() - this.lastFailureTime
-      if (elapsed > CIRCUIT_BREAKER_COOLDOWN_MS) {
-        this.circuitState = 'half-open'
-        this.logger.info('Circuit breaker: half-open (cooldown elapsed)')
-      } else {
-        return {
-          shouldCompact: false,
-          reason: `Circuit breaker open — cooldown ${Math.ceil((CIRCUIT_BREAKER_COOLDOWN_MS - elapsed) / 60_000)}min remaining`,
-        }
-      }
+    const breaker = this.circuitBreaker.checkCooldown()
+    if (!breaker.allowed) {
+      return { shouldCompact: false, reason: breaker.reason }
     }
 
     const percentUsed = Math.round(
@@ -301,7 +220,7 @@ export class ContextCompactor {
     this.awaitingCompactionScore = false
 
     const succeeded = realPostResponseTokenCount < this.thresholds.autoCompact
-    this.recordCompactionResult(succeeded, realPostResponseTokenCount)
+    this.circuitBreaker.recordResult(succeeded)
 
     if (succeeded) {
       this.logger.debug(
@@ -441,101 +360,21 @@ export class ContextCompactor {
    * Record a compaction result for circuit breaker tracking.
    */
   recordCompactionResult(success: boolean, contextTokenCount?: number): void {
-    if (success) {
-      this.failureCount = 0
-      this.lastSuccessTime = Date.now()
-      if (this.circuitState === 'half-open') {
-        this.circuitState = 'healthy'
-        this.logger.info('Circuit breaker: healthy (compaction succeeded)')
-      }
-    } else {
-      this.failureCount++
-      this.lastFailureTime = Date.now()
-
-      if (this.failureCount >= CIRCUIT_BREAKER_MAX_FAILURES) {
-        this.circuitState = 'open'
-        this.logger.warn(
-          { failureCount: this.failureCount },
-          `Circuit breaker: open (${this.failureCount} consecutive failures, ${CIRCUIT_BREAKER_COOLDOWN_MS / 60_000}min cooldown)`,
-        )
-      } else if (this.circuitState === 'half-open') {
-        this.circuitState = 'open'
-        this.logger.warn('Circuit breaker: re-opened (half-open test failed)')
-      }
-    }
+    void contextTokenCount
+    this.circuitBreaker.recordResult(success)
   }
 
   /**
    * Get degradation warning if context is approaching limits.
    */
   getDegradationWarning(): string | null {
-    if (this.degradationWarningShown) return null
-
-    if (this.circuitState === 'open') {
-      this.degradationWarningShown = true
-      return '⚠️ Context compaction circuit breaker is OPEN. Auto-compaction disabled for 5 minutes due to repeated failures. Context may grow unbounded during this period.'
-    }
-    if (this.circuitState === 'degraded') {
-      return '⚠️ Context compaction is degraded. Some compaction attempts have failed.'
-    }
-    return null
+    return this.circuitBreaker.getDegradationWarning()
   }
 
   /**
    * Check if an error is a prompt-too-long error from any supported provider.
    */
   static isPromptTooLongError(error: unknown): boolean {
-    if (!error || typeof error !== 'object') return false
-
-    const getString = (value: unknown): string | undefined => {
-      if (typeof value === 'string') return value
-      return undefined
-    }
-
-    const message =
-      getString('message' in error ? error.message : undefined) ??
-      getString('error' in error ? error.error : undefined) ??
-      ''
-    const statusCode =
-      'statusCode' in error && typeof error.statusCode === 'number'
-        ? error.statusCode
-        : undefined
-
-    // HTTP 400/413/422 with prompt-too-long patterns
-    if (statusCode === 400 || statusCode === 413 || statusCode === 422) {
-      const lowerMsg = message.toLowerCase()
-      return (
-        lowerMsg.includes('prompt is too long') ||
-        lowerMsg.includes('context_length_exceeded') ||
-        lowerMsg.includes('maximum context length') ||
-        lowerMsg.includes('token limit') ||
-        lowerMsg.includes('too many tokens') ||
-        lowerMsg.includes('input too long') ||
-        lowerMsg.includes('request too large')
-      )
-    }
-
-    // Error code patterns (Anthropic, OpenRouter, etc.)
-    const code =
-      getString('code' in error ? error.code : undefined) ??
-      getString('error_code' in error ? error.error_code : undefined) ??
-      ''
-    if (
-      code === 'context_length_exceeded' ||
-      code === 'prompt_too_long' ||
-      code === 'max_tokens'
-    ) {
-      return true
-    }
-
-    // Message-only patterns (fallback)
-    const lowerMsg = message.toLowerCase()
-    return (
-      lowerMsg.includes('prompt is too long') ||
-      lowerMsg.includes('context_length_exceeded') ||
-      lowerMsg.includes('maximum context length') ||
-      lowerMsg.includes('token limit exceeded') ||
-      lowerMsg.includes('request too large')
-    )
+    return isPromptTooLongError(error)
   }
 }

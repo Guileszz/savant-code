@@ -2,7 +2,10 @@ import { SAVANT_FREE_KIMI_MODEL_ID } from '@savant-code/common/constants/savant-
 
 import type { SecretAgentDefinition } from '../types/secret-agent-definition'
 
-type SavantHandleSteps = NonNullable<SecretAgentDefinition['handleSteps']>
+type SavantHandleSteps = Extract<
+  NonNullable<SecretAgentDefinition['handleSteps']>,
+  (...args: never[]) => unknown
+>
 
 export function getSavantContextPrunerMaxContextLength(
   model: SecretAgentDefinition['model'],

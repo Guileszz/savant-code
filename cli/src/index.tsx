@@ -245,7 +245,38 @@ async function main(): Promise<void> {
     initialMode,
     initialPermissionMode,
     print,
+    designInput,
   } = parseArgs()
+
+  if (designInput) {
+    try {
+      const source =
+        designInput === '-'
+          ? await readStdin()
+          : await fs.promises.readFile(path.resolve(designInput), 'utf8')
+      const parsed = JSON.parse(source) as unknown
+      const { saveCustomDesignSystem, validateDesignInput } =
+        await import('./utils/design-system-service')
+      const validation = validateDesignInput(parsed)
+      if (!validation.ok) {
+        throw new Error(`${validation.code}: ${validation.message}`)
+      }
+      const result = saveCustomDesignSystem(
+        parsed as Parameters<typeof saveCustomDesignSystem>[0],
+      )
+      // eslint-disable-next-line no-console -- machine-readable authoring result
+      console.log(JSON.stringify({ ok: true, resource: result }))
+      process.exit(0)
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+      const code = message.startsWith('INTERACTIVE_INPUT_REQUIRED')
+        ? 'INTERACTIVE_INPUT_REQUIRED'
+        : 'DESIGN_INPUT_INVALID'
+      // eslint-disable-next-line no-console -- machine-readable authoring error
+      console.error(JSON.stringify({ ok: false, code, message }))
+      process.exit(2)
+    }
+  }
 
   const isLoginCommand = command === 'login'
   const isPublishCommand = command === 'publish'
@@ -560,6 +591,8 @@ async function main(): Promise<void> {
   startTerminalWatchdog()
 
   const renderer = await createCliRenderer({
+    // React's AppShell paints the resolved theme after initializeApp; keep the
+    // renderer transparent only as the infrastructure fallback before mount.
     backgroundColor: 'transparent',
     exitOnCtrlC: false,
     screenMode: 'alternate-screen',

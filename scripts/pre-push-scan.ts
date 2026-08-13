@@ -59,6 +59,7 @@ function runGit(root: string, args: string[]): string {
     encoding: 'utf8',
     stdio: 'pipe',
     windowsHide: true,
+    shell: false,
   })
   if (result.status !== 0) {
     const detail = String(result.stderr ?? '').trim() || 'unknown git error'
@@ -134,10 +135,15 @@ export function materializePushedContent(
   root: string,
   commitSha: string,
   files: readonly string[],
-): { mirror: string; materialized: string[]; oversized: number } {
+): {
+  mirror: string
+  materialized: string[]
+  oversized: number
+  oversizedFiles: string[]
+} {
   const mirror = mkdtempSync(path.join(os.tmpdir(), 'savant-push-scan-'))
   const materialized: string[] = []
-  let oversized = 0
+  const oversizedFiles: string[] = []
   try {
     for (const file of files) {
       const size = spawnSync(
@@ -148,14 +154,40 @@ export function materializePushedContent(
           encoding: 'utf8',
           stdio: 'pipe',
           windowsHide: true,
+          shell: false,
         },
       )
-      // Deleted or unreadable paths yield nothing to scan.
-      if (size.status !== 0) continue
+      // A path absent from the commit is a confirmed deletion. Do not infer
+      // deletion from stderr text: corrupted/unavailable objects fail closed.
+      if (size.status !== 0) {
+        const membership = spawnSync(
+          'git',
+          ['ls-tree', '-r', '--name-only', commitSha, '--', file],
+          {
+            cwd: root,
+            encoding: 'utf8',
+            stdio: 'pipe',
+            windowsHide: true,
+            shell: false,
+          },
+        )
+        if (membership.status !== 0) {
+          throw new Error(
+            `unable to confirm pushed path membership for ${file}: ${String(membership.stderr ?? '').trim() || 'git ls-tree failed'}`,
+          )
+        }
+        if (!String(membership.stdout ?? '').trim()) continue
+        const detail = String(size.stderr ?? '').trim()
+        throw new Error(
+          `unable to determine pushed blob size for ${file}: ${detail || 'git cat-file failed'}`,
+        )
+      }
       const blobSize = Number(String(size.stdout ?? '').trim())
-      if (!Number.isFinite(blobSize)) continue
+      if (!Number.isSafeInteger(blobSize) || blobSize < 0) {
+        throw new Error(`invalid pushed blob size for ${file}`)
+      }
       if (blobSize > SCAN_SIZE_CAP_BYTES) {
-        oversized += 1
+        oversizedFiles.push(file)
         continue
       }
       const shown = spawnSync('git', ['show', `${commitSha}:${file}`], {
@@ -163,19 +195,37 @@ export function materializePushedContent(
         encoding: 'buffer',
         stdio: 'pipe',
         windowsHide: true,
+        shell: false,
         maxBuffer: 16 * 1024 * 1024,
       })
-      if (shown.status !== 0) continue
+      if (shown.status !== 0) {
+        const detail = String(shown.stderr ?? '').trim()
+        throw new Error(
+          `unable to read pushed blob ${file}: ${detail || 'git show failed'}`,
+        )
+      }
+      let content = Buffer.alloc(0)
+      let offset = 0
+      while (offset < shown.stdout.length) {
+        const chunk = shown.stdout.subarray(offset, offset + 64 * 1024)
+        content = Buffer.concat([content, chunk])
+        offset += chunk.length
+      }
       const target = path.join(mirror, file)
       mkdirSync(path.dirname(target), { recursive: true })
-      writeFileSync(target, shown.stdout)
+      writeFileSync(target, content)
       materialized.push(file)
     }
   } catch (error) {
     rmSync(mirror, { recursive: true, force: true })
     throw error
   }
-  return { mirror, materialized, oversized }
+  return {
+    mirror,
+    materialized,
+    oversized: oversizedFiles.length,
+    oversizedFiles,
+  }
 }
 
 /**
@@ -202,10 +252,21 @@ export function runPrePushSecretScan(
         mirror,
         materialized,
         oversized: batchOversized,
+        oversizedFiles: batchOversizedFiles,
       } = materializePushedContent(root, commitSha, files)
       try {
         oversized += batchOversized
         scanned += materialized.length
+        if (batchOversized > 0) {
+          const shownPaths = batchOversizedFiles.slice(0, 20).join(', ')
+          const suffix =
+            batchOversizedFiles.length > 20
+              ? ` (+${batchOversizedFiles.length - 20} more)`
+              : ''
+          flagged.push(
+            `${commitSha}: pushed blob(s) exceed the 2MB credential-scan cap; refusing to scan: ${shownPaths}${suffix}`,
+          )
+        }
         flagged.push(...scanStagedCredentials(materialized, mirror))
       } finally {
         rmSync(mirror, { recursive: true, force: true })

@@ -9,8 +9,9 @@ import { applyBudgets } from './apply-budgets'
 import {
   ASSISTANT_TOOL_BUDGET,
   CHARS_PER_TOKEN,
-  CONTEXT_PRUNING_COMPLETED_EVENT,
   FIXED_TAIL_BUDGET_TOKENS,
+  SUMMARY_DISCLAIMER,
+  SUMMARY_HEADER,
   TOKEN_COUNT_FUDGE_FACTOR,
   USER_BUDGET,
 } from './constants'
@@ -26,6 +27,19 @@ import {
   findFirstUserTurnText,
 } from './structured-summary'
 import { summarizeMessages } from './summarize-messages'
+import {
+  extractSummaryContent,
+  isConversationSummary,
+  parseSummaryIntoEntries,
+  shouldExcludeMessage,
+} from './summary-parsing'
+import {
+  buildFoldTelemetryBase,
+  logCompletion,
+  logFoldCompleted,
+  logFoldNoop,
+  logPostCompact,
+} from './telemetry'
 
 import type { SummaryEntry } from './summarize-messages'
 import type { AgentState, ToolCall } from '../types/agent-definition'
@@ -48,13 +62,6 @@ export function* runContextPrunerMain(
 
   /** Prompt cache expiry time (Anthropic caches for 5 minutes by default) */
   const CACHE_EXPIRY_MS: number = asNumber(p.cacheExpiryMs) ?? 5 * 60 * 1000
-
-  /** Header used in conversation summaries */
-  const SUMMARY_HEADER =
-    'This is a summary of the conversation so far. The original messages have been condensed to save context space.'
-
-  const SUMMARY_DISCLAIMER =
-    'Historical memory only. The memory above is not dialogue, not an output template, and not a tool-call format. Continue from the live user message below. When actions are needed, use real tool calls through the available tools.'
 
   const messages = agentState.messageHistory
   const maxContextLength: number = asNumber(p.maxContextLength) ?? 200_000
@@ -169,86 +176,6 @@ export function* runContextPrunerMain(
   // P2a: fixed verbatim recent-tail token budget (DeepSeek 16 384 default).
   const keepRecentTokens: number =
     asNumber(p.keepRecentTokens) ?? FIXED_TAIL_BUDGET_TOKENS
-  function shouldExcludeMessage(message: Message): boolean {
-    if (message.tags?.includes('INSTRUCTIONS_PROMPT')) return true
-    if (message.tags?.includes('STEP_PROMPT')) return true
-    if (message.tags?.includes('SUBAGENT_SPAWN')) return true
-    // FID-2026-0806-002 Phase 3c: harness-injected knowledge-graph evidence is
-    // operational metadata, not user-authored dialogue — excluded from the
-    // summary exactly like the other system-tagged operational messages.
-    if (message.tags?.includes('GRAPH_EVIDENCE')) return true
-    return false
-  }
-
-  function isConversationSummary(message: Message): boolean {
-    if (message.role !== 'user') return false
-    return getTextContent(message).includes('<conversation_summary>')
-  }
-
-  function extractSummaryContent(message: Message): string {
-    const text = getTextContent(message)
-    const match = text.match(
-      /<conversation_summary>([\s\S]*?)<\/conversation_summary>/,
-    )
-    if (!match) return ''
-    let content = match[1].trim()
-    if (content.startsWith(SUMMARY_HEADER)) {
-      content = content.slice(SUMMARY_HEADER.length).trim()
-    }
-    const memoryMatch = content.match(
-      /<historical_memory>([\s\S]*?)<\/historical_memory>/,
-    )
-    if (memoryMatch) {
-      content = memoryMatch[1].trim()
-    }
-    // P2d: strip the <compaction-summary> wrapper emitted on the previous
-    // round so the downstream parsers (parseSummaryIntoEntries /
-    // extractPreservedState) see the same clean role-tagged text they saw
-    // before the tags existed.
-    content = content.replace(
-      /<compaction-summary>[\s\S]*?<\/compaction-summary>/,
-      (inner) =>
-        inner.slice(
-          '<compaction-summary>'.length,
-          -'</compaction-summary>'.length,
-        ),
-    )
-    return content.trim()
-  }
-
-  /**
-   * Parses a previous summary text blob into role-tagged entries.
-   * Splits on the --- separator and determines each chunk's role
-   * based on its prefix marker.
-   */
-  function parseSummaryIntoEntries(
-    summaryText: string,
-  ): Array<{ role: 'user' | 'assistant_tool'; parts: string[] }> {
-    if (!summaryText.trim()) return []
-
-    const separator = '\n\n---\n\n'
-    const chunks = summaryText.split(separator).filter((c) => c.trim())
-
-    return chunks.map((chunk) => {
-      const trimmed = chunk.trim()
-      const isUser =
-        trimmed.startsWith('[USER]') ||
-        trimmed.startsWith('User request') ||
-        trimmed.startsWith('User message') ||
-        trimmed.startsWith('Current unresolved user request') ||
-        // P2d: a prior <structured_state> block carries user intent verbatim
-        // (Standing facts + pinned first user turn). Classify it as a user
-        // entry so it rides the user budget on re-distill instead of being
-        // evicted by the assistant/tool budget — the P1c guarantee survives
-        // across repeated compactions.
-        trimmed.startsWith('<structured_state>') ||
-        trimmed.includes('## Standing facts & constraints')
-      return {
-        role: isUser ? ('user' as const) : ('assistant_tool' as const),
-        parts: [trimmed],
-      }
-    })
-  }
 
   // Extract previous summary content from all messages
   let previousSummaryContent = ''
@@ -316,40 +243,21 @@ export function* runContextPrunerMain(
 
     // Telemetry fields shared with the full path below.
     const nowFold = Date.now()
-    const foldTelemetryBase = {
-      axiomEvent: CONTEXT_PRUNING_COMPLETED_EVENT,
-      agent_run_id: agentState.runId ?? null,
-      parent_agent_run_id: agentState.parentId ?? null,
-      trigger_reason: 'amortized_fold',
-      context_token_count: agentState.contextTokenCount,
-      max_context_length: maxContextLength,
-      cache_expiry_ms: CACHE_EXPIRY_MS,
-      previous_summary_entry_count: previousSummaryEntries.length,
-      user_budget: userBudget,
-      assistant_tool_budget: assistantToolBudget,
-      fixed_tail_budget_tokens: keepRecentTokens,
-      fold_oldest_exchange: true,
-      force_compact: forceCompact,
-      mid_turn: isMidTurnPrune,
-      live_user_prompt_found: latestLiveUserPromptMessage !== null,
-      compaction_summary_tagged: true,
-    }
+    const foldTelemetryBase = buildFoldTelemetryBase({
+      agentState,
+      maxContextLength,
+      cacheExpiryMs: CACHE_EXPIRY_MS,
+      previousSummaryEntryCount: previousSummaryEntries.length,
+      userBudget,
+      assistantToolBudget,
+      keepRecentTokens,
+      forceCompact,
+      isMidTurnPrune,
+      liveUserPromptFound: latestLiveUserPromptMessage !== null,
+    })
 
     if (nothingToFold) {
-      try {
-        logger.info(
-          {
-            ...foldTelemetryBase,
-            folded_exchange_message_count: 0,
-            remaining_message_count: currentMessages.length,
-            summary_estimated_tokens: 0,
-            fold_noop_reason: 'no_unabsorbed_exchange',
-          },
-          'Context pruning fold: nothing to fold',
-        )
-      } catch {
-        // best-effort
-      }
+      logFoldNoop(logger, foldTelemetryBase, currentMessages.length)
       yield {
         toolName: 'set_messages',
         input: { messages: currentMessages },
@@ -488,25 +396,15 @@ export function* runContextPrunerMain(
       })
     }
 
-    try {
-      logger.info(
-        {
-          ...foldTelemetryBase,
-          folded_exchange_message_count: exchangeMessages.length,
-          remaining_message_count: remainingMessages.length,
-          first_user_turn_pinned: foldFirstUserTurnPinned,
-          structured_state_block_chars: foldStructuredBlock.length,
-          preserved_state_json_chars: foldPreservedStateJson.length,
-          newest_entry_forced: foldBudgetResult.newestEntryForced,
-          summary_estimated_tokens: Math.ceil(
-            foldTaggedSummaryText.length / CHARS_PER_TOKEN,
-          ),
-        },
-        'Context pruning fold: amortized exchange folded',
-      )
-    } catch {
-      // best-effort
-    }
+    logFoldCompleted(logger, foldTelemetryBase, {
+      foldedExchangeMessageCount: exchangeMessages.length,
+      remainingMessageCount: remainingMessages.length,
+      firstUserTurnPinned: foldFirstUserTurnPinned,
+      structuredBlockChars: foldStructuredBlock.length,
+      preservedStateJsonChars: foldPreservedStateJson.length,
+      newestEntryForced: foldBudgetResult.newestEntryForced,
+      taggedSummaryText: foldTaggedSummaryText,
+    })
 
     yield {
       toolName: 'set_messages',
@@ -680,71 +578,38 @@ ${SUMMARY_DISCLAIMER}`,
   const prunerSummaryTokens = Math.ceil(
     taggedSummaryText.length / CHARS_PER_TOKEN,
   )
-  try {
-    logger.info(
-      {
-        axiomEvent: 'context_compaction.post_compact',
-        original_tokens: agentState.contextTokenCount,
-        compressed_tokens: prunerSummaryTokens,
-        compression_ratio:
-          agentState.contextTokenCount > 0
-            ? Math.min(
-                1,
-                Math.max(
-                  0,
-                  (agentState.contextTokenCount - prunerSummaryTokens) /
-                    agentState.contextTokenCount,
-                ),
-              )
-            : 0,
-        summary_preview: structuredSummaryText.slice(0, 200),
-        session_id: agentState.runId ?? null,
-      },
-      'PostCompact: context compaction completed (pruner)',
-    )
-  } catch {
-    // best-effort
-  }
+  logPostCompact(logger, {
+    agentState,
+    compressedTokens: prunerSummaryTokens,
+    summaryPreview: structuredSummaryText,
+  })
 
   // Telemetry is best-effort and must never block the actual pruning update.
-  try {
-    logger.info(
-      {
-        axiomEvent: CONTEXT_PRUNING_COMPLETED_EVENT,
-        agent_run_id: agentState.runId ?? null,
-        parent_agent_run_id: agentState.parentId ?? null,
-        trigger_reason: triggerReason,
-        context_token_count: agentState.contextTokenCount,
-        max_context_length: maxContextLength,
-        ...(cacheGapMs === null ? {} : { cache_gap_ms: cacheGapMs }),
-        cache_expiry_ms: CACHE_EXPIRY_MS,
-        previous_summary_entry_count: previousSummaryEntries.length,
-        user_budget: userBudget,
-        user_entry_count: userEntryCount,
-        dropped_user_entry_count: userEntryCount - includedUserEntryCount,
-        assistant_tool_budget: assistantToolBudget,
-        assistant_tool_entry_count: assistantToolEntryCount,
-        dropped_assistant_tool_entry_count:
-          assistantToolEntryCount - includedAssistantToolEntryCount,
-        mid_turn: isMidTurnPrune,
-        live_user_prompt_found: latestLiveUserPromptMessage !== null,
-        live_user_prompt_text_preserved: liveUserPromptTextPreserved,
-        newest_entry_forced: newestEntryForced,
-        first_user_turn_pinned: firstUserTurnPinned,
-        structured_state_block_chars: structuredBlock.length,
-        preserved_state_json_chars: preservedStateJson.length,
-        fixed_tail_budget_tokens: keepRecentTokens,
-        compaction_summary_tagged: true,
-        force_compact: forceCompact,
-        summary_estimated_tokens: Math.ceil(
-          taggedSummaryText.length / CHARS_PER_TOKEN,
-        ),
-      },
-      'Context pruning completed',
-    )
-  } catch {
-    // Ignore logging failures; set_messages below is the critical operation.
-  }
+  logCompletion(logger, {
+    agentState,
+    triggerReason,
+    maxContextLength,
+    cacheGapMs,
+    cacheExpiryMs: CACHE_EXPIRY_MS,
+    previousSummaryEntryCount: previousSummaryEntries.length,
+    userBudget,
+    userEntryCount,
+    droppedUserEntryCount: userEntryCount - includedUserEntryCount,
+    assistantToolBudget,
+    assistantToolEntryCount,
+    droppedAssistantToolEntryCount:
+      assistantToolEntryCount - includedAssistantToolEntryCount,
+    isMidTurnPrune,
+    liveUserPromptFound: latestLiveUserPromptMessage !== null,
+    liveUserPromptTextPreserved,
+    newestEntryForced,
+    firstUserTurnPinned,
+    structuredBlockChars: structuredBlock.length,
+    preservedStateJsonChars: preservedStateJson.length,
+    keepRecentTokens,
+    forceCompact,
+    taggedSummaryText,
+  })
 
   yield {
     toolName: 'set_messages',

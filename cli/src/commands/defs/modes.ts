@@ -10,6 +10,7 @@ import {
 import { getSystemMessage, getUserMessage } from '../../utils/message-history'
 import { fetchGatewayModels } from '../../utils/openrouter-models'
 import {
+  activateConfiguredProvider,
   beginProviderSetup,
   getConfiguredProviderNames,
   getProviderSetupInfo,
@@ -207,7 +208,7 @@ export const MODE_COMMANDS = [
             const provider = beginProviderSetup(trimmedArgs)
             const info = provider ? getProviderSetupInfo(provider) : undefined
 
-            if (!info) {
+            if (!provider || !info) {
               params.setMessages((prev) => [
                 ...prev,
                 getUserMessage(params.inputValue.trim()),
@@ -225,6 +226,20 @@ export const MODE_COMMANDS = [
               cursorPosition: 0,
               lastEditDueToNav: false,
             })
+            const configured = activateConfiguredProvider(provider)
+            if (configured) {
+              params.setMessages((prev) => [
+                ...prev,
+                getUserMessage(params.inputValue.trim()),
+                getSystemMessage(
+                  `${info.label} selected. The existing configured key will be used; no key entry is needed.`,
+                ),
+              ])
+              params.setInputFocused(true)
+              params.inputRef.current?.focus()
+              return
+            }
+
             useChatStore.getState().setInputMode('providerSetup')
             params.setInputFocused(true)
             params.inputRef.current?.focus()

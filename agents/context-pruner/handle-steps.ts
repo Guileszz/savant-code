@@ -6,10 +6,15 @@ import * as preservedState from './preserved-state'
 import * as structuredSummary from './structured-summary'
 import { summarizeMessages } from './summarize-messages'
 import { summarizeToolCall } from './summarize-tool-call'
+import * as summaryParsing from './summary-parsing'
+import * as telemetry from './telemetry'
 
 import type { AgentDefinition } from '../types/agent-definition'
 
-type ContextPrunerHandleSteps = NonNullable<AgentDefinition['handleSteps']>
+type ContextPrunerHandleSteps = Extract<
+  NonNullable<AgentDefinition['handleSteps']>,
+  (...args: never[]) => unknown
+>
 
 /**
  * Builds the context-pruner handleSteps generator as a fully self-contained
@@ -47,6 +52,15 @@ export function createContextPrunerHandleSteps(): ContextPrunerHandleSteps {
       .filter((v) => typeof v === 'function')
       .map((fn) => (fn as () => unknown).toString()),
     ...Object.values(structuredSummary)
+      .filter((v) => typeof v === 'function')
+      .map((fn) => (fn as () => unknown).toString()),
+    // FID-2026-0809-015: summary-parsing + telemetry helpers extracted from
+    // main.ts — embedded the same way so the generator's calls resolve
+    // in-scope.
+    ...Object.values(summaryParsing)
+      .filter((v) => typeof v === 'function')
+      .map((fn) => (fn as () => unknown).toString()),
+    ...Object.values(telemetry)
       .filter((v) => typeof v === 'function')
       .map((fn) => (fn as () => unknown).toString()),
     runContextPrunerMain.toString(),

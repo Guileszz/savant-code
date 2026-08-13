@@ -16,6 +16,8 @@ import type { RouterParams } from '../command-registry'
 describe('routeUserPrompt providerSetup mode', () => {
   let originalConfigDir: string | undefined
   let originalApiKey: string | undefined
+  let originalTokenrouterApiKey: string | undefined
+  let originalNousApiKey: string | undefined
   let originalDirectProvider: string | undefined
   let originalInferenceBaseUrl: string | undefined
   let originalBackendApiKey: string | undefined
@@ -24,12 +26,16 @@ describe('routeUserPrompt providerSetup mode', () => {
   beforeEach(() => {
     originalConfigDir = process.env.SAVANT_CODE_CONFIG_DIR
     originalApiKey = process.env.OPENCODE_GO_API_KEY
+    originalTokenrouterApiKey = process.env.TOKENROUTER_API_KEY
+    originalNousApiKey = process.env.NOUS_API_KEY
     originalDirectProvider = process.env.DIRECT_PROVIDER
     originalInferenceBaseUrl = process.env.INFERENCE_BASE_URL
     originalBackendApiKey = process.env.SAVANT_CODE_API_KEY
     tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'savant-provider-route-'))
     process.env.SAVANT_CODE_CONFIG_DIR = tempDir
     delete process.env.OPENCODE_GO_API_KEY
+    delete process.env.TOKENROUTER_API_KEY
+    delete process.env.NOUS_API_KEY
     delete process.env.DIRECT_PROVIDER
     delete process.env.INFERENCE_BASE_URL
     delete process.env.SAVANT_CODE_API_KEY
@@ -45,6 +51,11 @@ describe('routeUserPrompt providerSetup mode', () => {
     else process.env.SAVANT_CODE_CONFIG_DIR = originalConfigDir
     if (originalApiKey === undefined) delete process.env.OPENCODE_GO_API_KEY
     else process.env.OPENCODE_GO_API_KEY = originalApiKey
+    if (originalTokenrouterApiKey === undefined)
+      delete process.env.TOKENROUTER_API_KEY
+    else process.env.TOKENROUTER_API_KEY = originalTokenrouterApiKey
+    if (originalNousApiKey === undefined) delete process.env.NOUS_API_KEY
+    else process.env.NOUS_API_KEY = originalNousApiKey
     if (originalDirectProvider === undefined) delete process.env.DIRECT_PROVIDER
     else process.env.DIRECT_PROVIDER = originalDirectProvider
     if (originalInferenceBaseUrl === undefined)
@@ -127,6 +138,55 @@ describe('routeUserPrompt providerSetup mode', () => {
     await routeUserPrompt(params)
 
     expect(useChatStore.getState().inputMode).toBe('providerSetup')
+  })
+
+  test('skips key setup when Nous is already configured in the environment', async () => {
+    // Slash commands are only parsed in normal input mode; providerSetup mode
+    // deliberately treats all input as the masked secret to avoid leaking it.
+    useChatStore.getState().setInputMode('default')
+    process.env.NOUS_API_KEY = 'env-nous-key'
+    const setInputValue = mock(() => {})
+    const setInputFocused = mock(() => {})
+    let renderedMessages: ChatMessage[] = []
+    const setMessages = mock(
+      (update: ChatMessage[] | ((prev: ChatMessage[]) => ChatMessage[])) => {
+        renderedMessages =
+          typeof update === 'function' ? update(renderedMessages) : update
+      },
+    )
+
+    const params = {
+      abortControllerRef: { current: null },
+      agentMode: 'HYBRID',
+      inputRef: { current: null },
+      inputValue: '/provider nous',
+      isChainInProgressRef: { current: false },
+      isStreaming: false,
+      logoutMutation: {} as RouterParams['logoutMutation'],
+      streamMessageIdRef: { current: null },
+      addToQueue: () => {},
+      clearMessages: () => {},
+      saveToHistory: mock(() => {}),
+      scrollToLatest: () => {},
+      sendMessage: mock(async () => {}),
+      setCanProcessQueue: () => {},
+      setInputFocused,
+      setInputValue,
+      setIsAuthenticated: () => {},
+      setMessages,
+      setUser: () => {},
+      stopStreaming: () => {},
+    } satisfies RouterParams
+
+    const { routeUserPrompt } = await import('../router')
+    await routeUserPrompt(params)
+
+    expect(useChatStore.getState().inputMode).toBe('default')
+    expect(setInputFocused).toHaveBeenCalledWith(true)
+    expect(JSON.stringify(renderedMessages)).toContain(
+      'existing configured key',
+    )
+    expect(JSON.stringify(renderedMessages)).not.toContain('env-nous-key')
   })
 
   test('stores the key without saving or rendering the secret', async () => {

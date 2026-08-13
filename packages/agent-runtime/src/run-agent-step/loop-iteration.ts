@@ -1,6 +1,8 @@
 import { AbortError } from '@savant-code/common/util/error'
 import { userMessage } from '@savant-code/common/util/messages'
 
+import { getOrCreateEnforcement } from '../echo/enforcement'
+import { appendGroundingRefresh } from '../echo/grounding'
 import { runProgrammaticStep } from '../run-programmatic-step'
 import { NATIVE_TOOL_CALL_RECOVERY_EXHAUSTED_MESSAGE } from './constants'
 import { prepareStepContext } from './context-tokens'
@@ -10,7 +12,6 @@ import { buildUserMessageContent, withSystemTags } from '../util/messages'
 
 import type { ContextCompactor } from '../context-compactor'
 import type { LoopAgentStepsParams } from './types'
-import type { EchoEnforcement } from '../echo/enforcement'
 import type { AgentTemplate } from '@savant-code/common/types/agent-template'
 import type { Logger } from '@savant-code/common/types/contracts/logger'
 import type { JSONValue } from '@savant-code/common/types/json'
@@ -46,6 +47,45 @@ export type LoopIterationContext = {
   logger: Logger
   signal: AbortSignal
   initialAgentState: AgentState
+}
+
+/**
+ * FID-2026-0810-002 Change 5: first-turn completion gate. When a MAIN agent
+ * would end its turn while the protocol is unread (and the enforcement gate is
+ * armed), inject corrective steering mirroring the existing ECHO_COMPLIANCE
+ * pattern and force the loop to continue so the boot reads actually happen.
+ * After the retry cap the completion gate disarms with a one-time notice and
+ * the turn is allowed to proceed. Subagents (parentId) are exempt.
+ */
+function applyUngroundedCompletionGate(
+  agentState: AgentState,
+  wouldEndTurn: boolean,
+): { agentState: AgentState; shouldEndTurn: boolean } {
+  if (!wouldEndTurn || agentState.parentId) {
+    return { agentState, shouldEndTurn: wouldEndTurn }
+  }
+  const enforcement = getOrCreateEnforcement(agentState)
+  if (!enforcement) {
+    return { agentState, shouldEndTurn: wouldEndTurn }
+  }
+  const result = enforcement.evaluateUngroundedTurnEnd()
+  const text = result.steering ?? result.notice
+  if (!result.blocked && !text) {
+    return { agentState, shouldEndTurn: wouldEndTurn }
+  }
+  agentState.messageHistory = [
+    ...agentState.messageHistory,
+    userMessage({
+      content: buildUserMessageContent(text!, undefined, undefined),
+      tags: ['ECHO_COMPLIANCE'],
+      keepDuringTruncation: true,
+    }),
+  ]
+  if (result.blocked) {
+    return { agentState, shouldEndTurn: false }
+  }
+  // Disarm notice: allow the turn to proceed (bounded escape hatch).
+  return { agentState, shouldEndTurn: wouldEndTurn }
 }
 
 /**
@@ -107,6 +147,29 @@ export async function runLoopIteration(params: {
     additionalToolDefinitionsWithCache,
   })
 
+  // FID-2026-0811-015: one shared turn-end evaluator is used by both
+  // programmatic and LLM completion paths. It emits bounded corrective
+  // context and keeps blocked turns inside the loop for self-correction.
+  const applyTurnEndEnforcement = (ending: boolean): boolean => {
+    if (!ending || currentAgentState.parentId) return ending
+    const enforcement = getOrCreateEnforcement(currentAgentState)
+    const result = enforcement.evaluateTurnEnd()
+    if (!result.blocked && !result.report) return ending
+    currentAgentState.messageHistory = [
+      ...currentAgentState.messageHistory,
+      userMessage({
+        content: buildUserMessageContent(
+          result.report || 'ECHO turn-end enforcement blocked completion.',
+          undefined,
+          undefined,
+        ),
+        tags: ['ECHO_COMPLIANCE'],
+        keepDuringTruncation: true,
+      }),
+    ]
+    return result.blocked ? false : ending
+  }
+
   // 1. Run programmatic step first if it exists
   let n: number | undefined = undefined
 
@@ -145,6 +208,17 @@ export async function runLoopIteration(params: {
     totalSteps = stepNumber
 
     shouldEndTurn = endTurn
+
+    // FID-2026-0810-002 Change 5: the completion gate runs on the
+    // programmatic end-turn path TOO — before the output-schema restart
+    // branch and before the `if (!shouldContinue) return` below — so a
+    // handleSteps main agent that ends its turn programmatically cannot skip
+    // grounding. Steering runs before the output-schema restart, so a
+    // structured-output agent's "must use set_output" restart is never
+    // starved while ungrounded: grounding completes first.
+    ;({ agentState: currentAgentState, shouldEndTurn } =
+      applyUngroundedCompletionGate(currentAgentState, shouldEndTurn))
+    shouldEndTurn = applyTurnEndEnforcement(shouldEndTurn)
   }
 
   // Check if output is required but missing
@@ -244,6 +318,12 @@ export async function runLoopIteration(params: {
     shouldEndTurn = llmShouldEndTurn
   }
 
+  // FID-2026-0810-002 Change 5: first-turn completion gate (LLM path). A
+  // text-only completion by an ungrounded main agent is blocked, steered,
+  // and looped; after the retry cap the gate disarms with a one-time notice.
+  ;({ agentState: currentAgentState, shouldEndTurn } =
+    applyUngroundedCompletionGate(currentAgentState, shouldEndTurn))
+
   // FID-2026-0801-012: Thinker convergence gate.
   // Runs at the runtime boundary AFTER the native step's tool results are
   // committed to history, and BEFORE the loop-top `output === undefined &&
@@ -253,6 +333,8 @@ export async function runLoopIteration(params: {
   // the "You must use set_output" message and reintroduce
   // `structuredOutput: null` (set_output is not in the Thinker's
   // toolNames). Retries keep the loop going with a typed message.
+  shouldEndTurn = applyTurnEndEnforcement(shouldEndTurn)
+
   if (
     agentTemplate.outputMode === 'structured_output' &&
     agentTemplate.toolNames.includes('sequentialthinking')
@@ -356,29 +438,13 @@ export async function runLoopIteration(params: {
     }
   }
 
-  // FID-2026-0806-005 Layer 2: 15-turn protocol refresh. The main agent's
-  // EHEL instance (created lazily on its first tool call) re-injects a
-  // condensed protocol summary every 15 iterations so the governing laws
-  // survive context compaction. The refresh message carries the
-  // critical-context sentinel, so emergency truncation preserves it.
-  const ehelEnforcement = (currentAgentState as Record<string, unknown>)
-    ._echoEnforcement as EchoEnforcement | undefined
-  if (ehelEnforcement && !currentAgentState.parentId) {
-    const refresh = ehelEnforcement.onStepBoundary()
-    if (refresh.refreshText) {
-      currentAgentState.messageHistory = [
-        ...currentAgentState.messageHistory,
-        userMessage({
-          content: buildUserMessageContent(
-            refresh.refreshText,
-            undefined,
-            undefined,
-          ),
-          tags: ['ECHO_REFRESH'],
-          keepDuringTruncation: true,
-        }),
-      ]
-    }
+  // Adaptive grounding refreshes are evaluated at every internal step. The
+  // helper is the single writer for the replacement refresh message; this
+  // keeps the 12-step/time backstop effective even when one user turn contains
+  // many tool/LLM iterations.
+  if (!currentAgentState.parentId) {
+    const refresh = getOrCreateEnforcement(currentAgentState).onStepBoundary()
+    appendGroundingRefresh(currentAgentState, refresh.refreshText)
   }
 
   Object.assign(state, {

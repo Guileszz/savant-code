@@ -3,6 +3,8 @@ dev/fids/archive/**
 CHANGELOG.md
 research/
 resources/
+packages/design-systems/library/**
+cli/bin/savant-design-systems/SKILL.md
 dev/test-prompts/archive/**
 dev/nova/inbox/archive/**
 dev/nova/outbox/archive/**
@@ -30,6 +32,11 @@ dev/scratchpad/**
 # existing dev/nova/reports/** precedent.
 dev/nova/inbox/**
 dev/nova/outbox/**
+dev/nova/scratchpad/**
+
+# Untracked dated planning doc (2026-08-12) — long paste-in lines not maintainable
+# under strict MD013; same per-file exemption precedent as the dated design reports.
+dev/Savant-Code Self-Evolution Retrofit Plan.md
 
 # Dated design report (FID-2026-0806-008) — historical record, not live docs;
 # matches the docs/launch/** + per-file exemption precedent.

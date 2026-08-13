@@ -10,6 +10,7 @@ import {
   mkdtempSync,
   openSync,
   readFileSync,
+  readSync,
   readdirSync,
   readlinkSync,
   renameSync,
@@ -20,10 +21,11 @@ import os from 'os'
 import path from 'path'
 import { createInterface } from 'readline/promises'
 
+import { repositoryValidationGates } from './validation-manifest.js'
 import {
   CANONICAL_NEXT_PUBLIC_DEFAULTS,
   CANONICAL_RELEASE_RUNTIME_DEFAULTS,
-} from '../cli/scripts/build-binary'
+} from '../cli/scripts/build-binary.js'
 
 export type PackageTarget = {
   name: string
@@ -432,47 +434,7 @@ export function buildGateManifest(
   headSha = '',
 ): { specs: GateSpec[]; hash: string } {
   const specs: GateSpec[] = [
-    // A stale lockfile kills every --frozen-lockfile consumer (CI, the release
-    // binary workflow, local dev). Gate it pre-publish so drift aborts the
-    // release with receipt evidence before any tag/push/npm mutation
-    // (FID-2026-0809-002 Fix A).
-    {
-      label: 'lockfile',
-      command: 'bun',
-      args: ['install', '--frozen-lockfile'],
-      cwd: root,
-    },
-    {
-      label: 'build:sdk',
-      command: 'bun',
-      args: ['run', 'build:sdk'],
-      cwd: root,
-    },
-    {
-      label: 'typecheck',
-      command: 'bun',
-      args: ['run', 'typecheck'],
-      cwd: root,
-    },
-    { label: 'test', command: 'bun', args: ['run', 'test'], cwd: root },
-    {
-      label: 'eslint',
-      command: 'bun',
-      args: ['x', 'eslint', '.', '--max-warnings', '0'],
-      cwd: root,
-    },
-    {
-      label: 'markdownlint',
-      command: 'bun',
-      args: ['run', 'lint:md'],
-      cwd: root,
-    },
-    {
-      label: 'prettier',
-      command: 'bunx',
-      args: ['prettier', '--check', '.'],
-      cwd: root,
-    },
+    ...repositoryValidationGates(root),
     ...configuredReleasePackages().map((target) => ({
       label: `npm-pack:${target.name}`,
       command: 'npm',
@@ -892,6 +854,21 @@ type ProcessResult = {
 }
 
 const COMMAND_TIMEOUT_MS = 30 * 60 * 1_000
+const ALLOWED_RELEASE_COMMANDS = new Set([
+  'bun',
+  'npm',
+  'git',
+  'gh',
+  'powershell.exe',
+  'taskkill',
+])
+
+export function validateReleaseCommand(command: string): void {
+  const executable = path.basename(command).toLowerCase()
+  if (!ALLOWED_RELEASE_COMMANDS.has(executable)) {
+    throw new Error(`Release command is not allowlisted: ${command}`)
+  }
+}
 
 function processTableRows(): Array<[number, number]> | undefined {
   const result = spawnSync(
@@ -908,6 +885,7 @@ function processTableRows(): Array<[number, number]> | undefined {
       windowsHide: true,
       timeout: 20_000,
       killSignal: 'SIGTERM',
+      shell: false,
     },
   )
   if (result.status !== 0 || !result.stdout.trim()) return undefined
@@ -981,6 +959,7 @@ export function terminateOwnedProcessTree(
     encoding: 'utf8',
     stdio: 'pipe',
     windowsHide: true,
+    shell: false,
   })
   if (terminated.status !== 0) {
     return 'timed-out process tree could not be terminated safely'
@@ -995,6 +974,7 @@ export function terminateOwnedProcessTree(
         encoding: 'utf8',
         stdio: 'pipe',
         windowsHide: true,
+        shell: false,
       })
     }
     survivors = owned.filter((entry) => isProcessAlive(entry))
@@ -1047,6 +1027,7 @@ function run(
   extraEnv?: Record<string, string>,
   replaceEnv = false,
 ): ProcessResult {
+  validateReleaseCommand(command)
   let temporaryDirectory: string | undefined
   let stdoutPath: string | undefined
   let stderrPath: string | undefined
@@ -1071,6 +1052,7 @@ function run(
       windowsHide: true,
       timeout: COMMAND_TIMEOUT_MS,
       killSignal: 'SIGTERM',
+      shell: false,
       env: extraEnv
         ? replaceEnv
           ? { ...extraEnv }
@@ -1081,7 +1063,8 @@ function run(
     if (stderrFd !== undefined) closeSync(stderrFd)
     stdoutFd = undefined
     stderrFd = undefined
-    const timedOut = result.error?.code === 'ETIMEDOUT'
+    const resultError = result.error as (Error & { code?: string }) | undefined
+    const timedOut = resultError?.code === 'ETIMEDOUT'
     const cleanupFailure = timedOut
       ? terminateOwnedProcessTree(result.pid)
       : undefined
@@ -1334,6 +1317,19 @@ function verifyPreflight(
       'utf8',
     ),
   })
+
+  const repositoryValidation = run(
+    'bun',
+    ['run', 'validate:repository'],
+    root,
+    true,
+  )
+  if (repositoryValidation.status !== 0) {
+    const message =
+      `Repository metadata/command parity validation failed:\\n${repositoryValidation.stdout}${repositoryValidation.stderr}`.trim()
+    if (mutationMode) fail(message)
+    warnings.push(message)
+  }
 
   if (mutationMode) {
     const branch = run('git', ['branch', '--show-current'], root, true)
@@ -1676,14 +1672,64 @@ export function scanStagedCredentials(
       continue
     }
     const absolute = path.join(root, file)
-    if (!existsSync(absolute)) continue
-    let content: string
+    if (!existsSync(absolute)) {
+      const stagedDeletion = run(
+        'git',
+        [
+          'diff',
+          '--cached',
+          '--diff-filter=D',
+          '--name-only',
+          '-z',
+          '--',
+          file,
+        ],
+        root,
+        true,
+      )
+      if (stagedDeletion.status === 0 && stagedDeletion.stdout.includes('\0'))
+        continue
+      throw new Error(
+        `credential scan could not confirm missing path ${file} as a staged deletion`,
+      )
+    }
+    const scanBuffer = Buffer.allocUnsafe(2 * 1024 * 1024 + 1)
+    let bytesRead = 0
+    let fd: number | undefined
     try {
-      content = readFileSync(absolute, 'utf8')
-    } catch {
+      const byteSize = lstatSync(absolute).size
+      if (byteSize > 2 * 1024 * 1024) {
+        flagged.push(
+          `${file} (content exceeds the 2MB credential-scan cap; refusing to scan)`,
+        )
+        continue
+      }
+      fd = openSync(absolute, 'r')
+      while (bytesRead < scanBuffer.length) {
+        const read = readSync(
+          fd,
+          scanBuffer,
+          bytesRead,
+          scanBuffer.length - bytesRead,
+          bytesRead,
+        )
+        if (read === 0) break
+        bytesRead += read
+      }
+    } catch (error) {
+      throw new Error(
+        `credential scan could not read ${file}: ${error instanceof Error ? error.message : String(error)}`,
+      )
+    } finally {
+      if (fd !== undefined) closeSync(fd)
+    }
+    if (bytesRead > 2 * 1024 * 1024) {
+      flagged.push(
+        `${file} (content exceeds the 2MB credential-scan cap; refusing to scan)`,
+      )
       continue
     }
-    if (content.length > 2 * 1024 * 1024) continue
+    const content = scanBuffer.subarray(0, bytesRead).toString('utf8')
     if (CREDENTIAL_CONTENT_PATTERNS.some((pattern) => pattern.test(content))) {
       flagged.push(`${file} (content matches a credential pattern)`)
       continue
@@ -2446,6 +2492,7 @@ async function runReleaseTransaction(): Promise<void> {
           receipt.gateManifestHash = manifest.hash
           receipt.evidenceHeadSha = receipt.headSha
           receipt.evidenceFinalized = false
+          receipt.gateAttempts = receipt.gateAttempts ?? []
           for (const spec of manifest.specs) {
             const attempt = executeGate(
               spec,

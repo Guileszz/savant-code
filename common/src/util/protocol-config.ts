@@ -1,9 +1,24 @@
 import fs from 'fs'
 import path from 'path'
 
-export interface SavantProtocolConfig {
+export interface ProtocolContractConfig {
   version: string
   strictMode: boolean
+}
+
+/** Backward-compatible name for the normalized Savant contract. */
+export type SavantProtocolConfig = ProtocolContractConfig
+
+function parseProtocolContract(lines: string[]): ProtocolContractConfig | null {
+  const versionMatch = lines
+    .join('\n')
+    .match(/^\s+version:\s*["']([^"']+)["']/m)
+  const strictMatch = lines.join('\n').match(/^\s+strict_mode:\s*(true|false)/m)
+  if (!versionMatch || !strictMatch) return null
+  return {
+    version: versionMatch[1],
+    strictMode: strictMatch[1] === 'true',
+  }
 }
 
 /** Token-optimization settings (FID-2026-0806-003, design doc §5). */
@@ -60,6 +75,11 @@ export interface ProtocolConfig {
   openFids: string[]
   /** Perfection-loop circuit breaker limit from `perfection_loop.max_iterations`. */
   maxIterations: number
+  /** Top-level harness `protocol:` contract. */
+  harness: ProtocolContractConfig | null
+  /** Explicit single-agent `single_agent.protocol:` contract. */
+  singleAgent: ProtocolContractConfig | null
+  /** Legacy normalized Savant compatibility field. */
   savant: SavantProtocolConfig | null
   /** Token-optimization settings (FID-2026-0806-003). */
   compression: ProtocolCompressionConfig
@@ -138,6 +158,8 @@ export function readProtocolConfig(cwd: string): ProtocolConfig {
   let strictMode = true
   let language: string | null = null
   let maxIterations = 10
+  let harness: ProtocolContractConfig | null = null
+  let singleAgent: ProtocolContractConfig | null = null
   let savant: SavantProtocolConfig | null = null
   const compression: ProtocolCompressionConfig = {
     ...DEFAULT_COMPRESSION,
@@ -160,6 +182,7 @@ export function readProtocolConfig(cwd: string): ProtocolConfig {
     if (protocolStrictMatch) {
       strictMode = protocolStrictMatch[1] === 'true'
     }
+    harness = parseProtocolContract(protocolLines)
 
     // perfection_loop.max_iterations drives the FSM circuit breaker
     // (transition-phase.ts). FID-2026-0803-001 ECHO-3.
@@ -185,22 +208,11 @@ export function readProtocolConfig(cwd: string): ProtocolConfig {
       2,
     )
     const savantProtocolLines = extractYamlSection(savantLines, 'protocol', 2)
-    const protocolContractLines =
-      savantProtocolLines.length > 0
-        ? savantProtocolLines
-        : singleAgentProtocolLines
-    const savantVersionMatch = protocolContractLines
-      .join('\n')
-      .match(/^\s+version:\s*["']([^"']+)["']/m)
-    const savantStrictMatch = protocolContractLines
-      .join('\n')
-      .match(/^\s+strict_mode:\s*(true|false)/m)
-    if (savantVersionMatch && savantStrictMatch) {
-      savant = {
-        version: savantVersionMatch[1],
-        strictMode: savantStrictMatch[1] === 'true',
-      }
-    }
+    singleAgent = parseProtocolContract(singleAgentProtocolLines)
+    const explicitSavant = parseProtocolContract(savantProtocolLines)
+    // Preserve the historical normalized compatibility field while exposing
+    // both explicit contracts for variant-aware boot resolution.
+    savant = explicitSavant ?? singleAgent
 
     const langMatch = lines
       .map((line) => line.match(/^language:\s*["']([^"']+)["']/))
@@ -336,6 +348,8 @@ export function readProtocolConfig(cwd: string): ProtocolConfig {
     language,
     openFids,
     maxIterations,
+    harness,
+    singleAgent,
     savant,
     compression,
     yagni,

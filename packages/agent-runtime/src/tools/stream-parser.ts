@@ -1,5 +1,4 @@
 import { toolNames } from '@savant-code/common/tools/constants'
-import { buildArray } from '@savant-code/common/util/array'
 import { AbortError } from '@savant-code/common/util/error'
 import {
   assistantMessage,
@@ -8,13 +7,16 @@ import {
 import { generateCompactId } from '@savant-code/common/util/string'
 
 import { INCLUDE_REASONING_IN_MESSAGE_HISTORY } from '../constants'
-import { processStreamWithTools } from '../tool-stream-parser'
 import {
   executeCustomToolCall,
   executeToolCall,
   tryTransformAgentToolCall,
 } from './tool-executor'
+import { isAgentGrounded } from '../echo/grounding'
+import { processStreamWithTools } from '../tool-stream-parser'
 import { withSystemTags } from '../util/messages'
+import { buildFinalMessageHistory } from './stream-parser/finalize'
+import { createResponseHandler } from './stream-parser/response-handler'
 
 import type { CustomToolCall, ExecuteToolCallParams } from './tool-executor'
 import type { AgentTemplate } from '../templates/types'
@@ -57,7 +59,6 @@ export async function processStream(
   } & Omit<
     ExecuteToolCallParams<string>,
     | 'fileProcessingState'
-    | 'fromHandleSteps'
     | 'fullResponse'
     | 'input'
     | 'previousToolCallFinished'
@@ -91,6 +92,81 @@ export async function processStream(
   // `fullResponseChunks.join('')` on every tool call was O(k·L) copying for
   // tool-dense responses. The chunks array is kept only for the final return.
   let fullResponseSoFar = fullResponse
+  // FID-2026-0812-005: stage all main-agent assistant output until the
+  // grounding checkpoint is complete. The completion gate runs after stream
+  // consumption, so forwarding text or reasoning immediately would let an
+  // ungrounded first response flash in the host UI. Staged output is flushed
+  // only after successful grounding reads settle; otherwise it is discarded.
+  const pendingGroundingOutput: Array<{
+    kind: 'text' | 'reasoning'
+    text: string
+  }> = []
+  // Match the enforcement factory's arming predicate rather than the optional
+  // protocolVariant field. Legacy/SDK states may have a protocol file without
+  // a variant; those sessions are still gated and must stage output.
+  const groundingGateArmed =
+    !agentState.parentId && Boolean(agentState.protocolFile)
+
+  const emitCommittedText = (text: string): void => {
+    if (!text) return
+    assistantMessages.push(assistantMessage(text))
+    onResponseChunk(text)
+    fullResponseSoFar += text
+    if (fullResponseChunks[0] === fullResponse) {
+      fullResponseChunks[0] = fullResponse + text
+    } else {
+      fullResponseChunks.push(text)
+    }
+  }
+  const emitCommittedReasoning = (text: string): void => {
+    if (!text) return
+    if (INCLUDE_REASONING_IN_MESSAGE_HISTORY) {
+      const last = assistantMessages[assistantMessages.length - 1]
+      const lastPart =
+        last?.role === 'assistant' && Array.isArray(last.content)
+          ? last.content[last.content.length - 1]
+          : undefined
+      if (lastPart?.type === 'reasoning') {
+        lastPart.text += text
+      } else {
+        assistantMessages.push(assistantMessage({ type: 'reasoning', text }))
+      }
+    }
+    onResponseChunk({
+      type: 'reasoning_delta',
+      text,
+      ancestorRunIds,
+      runId,
+      agentId: agentState.agentId,
+    })
+  }
+  const emitGroundedText = (text: string): void => {
+    if (!text) return
+    if (groundingGateArmed && !isAgentGrounded(agentState)) {
+      pendingGroundingOutput.push({ kind: 'text', text })
+      return
+    }
+    emitCommittedText(text)
+  }
+  const emitGroundedReasoning = (text: string): void => {
+    if (!text) return
+    if (groundingGateArmed && !isAgentGrounded(agentState)) {
+      pendingGroundingOutput.push({ kind: 'reasoning', text })
+      return
+    }
+    emitCommittedReasoning(text)
+  }
+  const flushGroundingOutput = (): void => {
+    if (groundingGateArmed && !isAgentGrounded(agentState)) {
+      pendingGroundingOutput.length = 0
+      return
+    }
+    const staged = pendingGroundingOutput.splice(0)
+    for (const output of staged) {
+      if (output.kind === 'text') emitCommittedText(output.text)
+      else emitCommittedReasoning(output.text)
+    }
+  }
 
   // === MUTABLE STATE ===
   const toolResults: ToolMessage[] = []
@@ -118,29 +194,19 @@ export async function processStream(
   // === RESPONSE HANDLER ===
   // Creates a response handler that captures tool events into assistantMessages.
   // When isXmlMode=true, also captures tool_result events for interleaved ordering.
-  function createResponseHandler() {
-    return (chunk: string | PrintModeEvent) => {
-      if (typeof chunk !== 'string') {
-        if (chunk.type === 'error') {
-          hadToolCallError = true
-          errorMessages.push(
-            userMessage({
-              content: withSystemTags(
-                `Error during tool call: ${chunk.message}. Please check the tool name and arguments and try again.`,
-              ),
-              tags: ['TOOL_CALL_ERROR'],
-            }),
-          )
-        }
-      }
-      return onResponseChunk(chunk)
-    }
-  }
+  const createResponseHandlerForStream = () =>
+    createResponseHandler({
+      onResponseChunk,
+      errorMessages,
+      markToolCallError: () => {
+        hadToolCallError = true
+      },
+    })
 
   // === TOOL EXECUTION ===
   // Unified callback factory for both native and custom tools.
   function createToolExecutionCallback(toolName: string, isXmlMode: boolean) {
-    const responseHandler = createResponseHandler()
+    const responseHandler = createResponseHandlerForStream()
     return {
       onTagStart: () => {},
       onTagEnd: async (_: string, input: Record<string, JSONValue>) => {
@@ -177,8 +243,6 @@ export async function processStream(
               ? transformed.toolName
               : (toolName as ToolName),
             input: transformed ? transformed.input : input,
-            fromHandleSteps: false,
-
             fileProcessingState,
             fullResponse: fullResponseSoFar,
             previousToolCallFinished: previousPromise,
@@ -243,18 +307,17 @@ export async function processStream(
     },
     onResponseChunk: (chunk) => {
       if (chunk.type === 'text') {
-        if (chunk.text) {
-          assistantMessages.push(assistantMessage(chunk.text))
-        }
-      } else if (chunk.type === 'error') {
-        // do nothing
-      } else {
-        chunk satisfies never
-        throw new Error(
-          `Internal error: unhandled chunk type: ${JSON.stringify(chunk)}`,
-        )
+        // Text is committed only by the stream-consumption branch below,
+        // after the grounding predicate has been evaluated.
+        return
       }
-      return onResponseChunk(chunk)
+      if (chunk.type === 'error') {
+        return onResponseChunk(chunk)
+      }
+      chunk satisfies never
+      throw new Error(
+        `Internal error: unhandled chunk type: ${JSON.stringify(chunk)}`,
+      )
     },
     // Execute XML-parsed tool calls immediately during streaming
     executeXmlToolCall: async ({ toolName, input }) => {
@@ -288,31 +351,9 @@ export async function processStream(
       }
 
       if (chunk.type === 'reasoning') {
-        if (INCLUDE_REASONING_IN_MESSAGE_HISTORY && chunk.text) {
-          const last = assistantMessages[assistantMessages.length - 1]
-          const lastPart =
-            last?.role === 'assistant' && Array.isArray(last.content)
-              ? last.content[last.content.length - 1]
-              : undefined
-          if (lastPart && lastPart.type === 'reasoning') {
-            lastPart.text += chunk.text
-          } else {
-            assistantMessages.push(
-              assistantMessage({ type: 'reasoning', text: chunk.text }),
-            )
-          }
-        }
-        onResponseChunk({
-          type: 'reasoning_delta',
-          text: chunk.text,
-          ancestorRunIds,
-          runId,
-          agentId: agentState.agentId,
-        })
+        emitGroundedReasoning(chunk.text)
       } else if (chunk.type === 'text') {
-        onResponseChunk(chunk.text)
-        fullResponseSoFar += chunk.text
-        fullResponseChunks.push(chunk.text)
+        emitGroundedText(chunk.text)
       } else if (chunk.type === 'error') {
         onResponseChunk(chunk)
         hadToolCallError = true
@@ -340,6 +381,10 @@ export async function processStream(
     resolveStreamDonePromise()
     if (!signal.aborted) {
       await previousToolCallFinished
+      // Native tool results (including grounding reads) settle after the
+      // provider stream ends. Flush staged assistant output only after those
+      // results positively complete; otherwise the safety contract discards it.
+      flushGroundingOutput()
     }
   } finally {
     // FID-2026-0802-005 H7: ALWAYS settle streamDonePromise — even on abort
@@ -373,22 +418,13 @@ export async function processStream(
     // causes provider errors ("unexpected tool_use_id found in tool_result
     // blocks"). Filter them out so every tool_call has a corresponding
     // tool_result.
-    const completedToolCallIds = new Set(
-      toolResultsToAddToMessageHistory.map((r) => r.toolCallId),
-    )
-    const filteredToolCalls = toolCallsToAddToMessageHistory.filter((tc) =>
-      completedToolCallIds.has(tc.toolCallId),
-    )
-
-    agentState.messageHistory = buildArray<Message>([
-      ...agentState.messageHistory,
-      ...assistantMessages,
-      ...filteredToolCalls.map((toolCall) =>
-        assistantMessage({ ...toolCall, type: 'tool-call' }),
-      ),
-      ...toolResultsToAddToMessageHistory,
-      ...errorMessages,
-    ])
+    agentState.messageHistory = buildFinalMessageHistory({
+      agentState,
+      assistantMessages,
+      toolCallsToAddToMessageHistory,
+      toolResultsToAddToMessageHistory,
+      errorMessages,
+    })
   }
 
   if (signal.aborted) {

@@ -1,6 +1,7 @@
 import fs from 'fs'
 import path from 'path'
 
+import { allowsDevelopmentDefaults } from './env-boundary'
 import { clientEnvSchema, clientEnvVars } from './env-schema'
 
 /**
@@ -34,20 +35,43 @@ function loadBinaryEnvIfPresent(): void {
 
 loadBinaryEnvIfPresent()
 
+// FID-2026-0811-011: development defaults are a convenience only. They are
+// disabled for CI, production, release automation, and any explicit unknown
+// environment so a mode mistake cannot silently weaken validation.
+const developmentDefaultsAllowed = allowsDevelopmentDefaults(
+  process.env.NEXT_PUBLIC_CB_ENVIRONMENT,
+)
+
+const DEV_DEFAULTS: Record<string, string> = {
+  NEXT_PUBLIC_SUPPORT_EMAIL: 'dev@example.com',
+  NEXT_PUBLIC_POSTHOG_API_KEY: 'phc_dev_placeholder',
+  NEXT_PUBLIC_POSTHOG_HOST_URL: 'http://localhost:4000',
+  NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: 'pk_dev_placeholder',
+  NEXT_PUBLIC_STRIPE_CUSTOMER_PORTAL: 'http://localhost:3000/portal',
+  NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION_ID: 'dev_placeholder',
+}
+
 // Build the env input after loading env.json so that release binaries see
 // the canonical runtime values rather than whatever the shell provided.
 const rawEnv: Record<string, string | undefined> = {}
 for (const key of clientEnvVars) {
-  rawEnv[key] = process.env[key]
+  rawEnv[key] =
+    process.env[key] ??
+    (developmentDefaultsAllowed ? DEV_DEFAULTS[key] : undefined)
 }
 
 const parsedEnv = clientEnvSchema.safeParse(rawEnv)
 if (!parsedEnv.success) {
+  // FID-2026-0810-001 Phase 2: actionable error message instead of raw zod dump.
   // eslint-disable-next-line no-console -- environment validation failed before any logger is available
-  console.error('Environment validation failed:', parsedEnv.error.issues)
-  throw new Error(
-    `Invalid environment configuration: ${parsedEnv.error.message}`,
+  console.error('Missing required environment variables.')
+  // eslint-disable-next-line no-console -- actionable remediation for the failing validation
+  console.error(
+    'Copy .env.example to .env.local and replace the dummy values with your own.',
   )
+  // eslint-disable-next-line no-console -- validation details are the diagnostic payload
+  console.error('Validation details:', parsedEnv.error.issues)
+  throw new Error('Invalid environment configuration')
 }
 
 export const env = parsedEnv.data

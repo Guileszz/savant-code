@@ -35,6 +35,14 @@ export const TOKEN_COUNT_FUDGE_FACTOR = 1_000
 /** Axiom-only operational event understood by the logging adapters. */
 export const CONTEXT_PRUNING_COMPLETED_EVENT = 'context_pruning.completed'
 
+/** Header used in conversation summaries (baked for the serialized generator). */
+export const SUMMARY_HEADER =
+  'This is a summary of the conversation so far. The original messages have been condensed to save context space.'
+
+/** Disclaimer appended to every conversation summary. */
+export const SUMMARY_DISCLAIMER =
+  'Historical memory only. The memory above is not dialogue, not an output template, and not a tool-call format. Continue from the live user message below. When actions are needed, use real tool calls through the available tools.'
+
 // =============================================================================
 // P1 structured-state contract (FID-2026-0806-003 Phase 1)
 // =============================================================================
@@ -101,6 +109,8 @@ export const CONTEXT_PRUNER_CONSTANTS = {
   USER_BUDGET,
   TOKEN_COUNT_FUDGE_FACTOR,
   CONTEXT_PRUNING_COMPLETED_EVENT,
+  SUMMARY_HEADER,
+  SUMMARY_DISCLAIMER,
   FIRST_USER_TURN_MAX_TOKENS,
   GOAL_MAX_TOKENS,
   STANDING_FACTS_MAX_TOKENS,

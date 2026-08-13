@@ -16,6 +16,7 @@ import { useRewindPickerStore } from '../state/rewind-picker-store'
 import { useSavantFreeModelStore } from '../state/savant-free-model-store'
 import { getSystemMessage } from '../utils/message-history'
 import {
+  activateConfiguredProvider,
   beginProviderSetup,
   getProviderSetupInfo,
 } from '../utils/provider-setup'
@@ -152,6 +153,19 @@ export function useChatPickers({
       beginProviderSetup(provider)
       const info = getProviderSetupInfo(provider)
       if (info) {
+        const configured = activateConfiguredProvider(provider)
+        if (configured) {
+          setMessages((prev) => [
+            ...prev,
+            getSystemMessage(
+              `${info.label} selected. The existing configured key will be used; no key entry is needed.`,
+            ),
+          ])
+          setInputFocused(true)
+          inputRef.current?.focus()
+          return
+        }
+
         useChatStore.getState().setInputMode('providerSetup')
         setInputFocused(true)
         inputRef.current?.focus()

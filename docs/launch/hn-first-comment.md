@@ -8,7 +8,7 @@ Hi HN. I built Savant Code because I kept spending more time debugging
 AI-generated code than it would have taken to write it myself.
 
 The core bet is that accuracy matters more than speed. Savant Code runs a
-9-agent ECHO loop before it writes anything to disk:
+10-agent ECHO loop before it writes anything to disk:
 
 1. **Detective** explores the codebase and finds relevant context.
 2. **Thinker** reasons about the approach.

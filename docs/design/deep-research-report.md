@@ -14,7 +14,7 @@ implementation roadmap.
 
 Loop engineering treats the agent workflow as a **recursive, automated cycle** rather than manual prompting. Greyling
 articulates that a production loop is “a small system with six parts” (five capabilities + persistent memory). Savant’s
-9-agent roster aligns with these components:
+10-agent roster aligns with these components:
 
 - **Automations (Scheduler):** The **Orchestrator** agent implements Greyling’s “heartbeat”. It schedules loop
   iterations (e.g. via cron or in-process timers) and triggers each cycle automatically. This corresponds to Osmani’s

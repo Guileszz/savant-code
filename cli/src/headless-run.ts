@@ -181,6 +181,10 @@ export async function runHeadlessPrint(
       signal: abortController.signal,
       // Headless runs are scripted — never pause for interactive approval.
       permissionMode: 'safe',
+      // Harness contract (ECHO.md) for headless runs — the single-agent
+      // variant is an SDK opt-in for outside agents, not the CLI default
+      // (operator directive 2026-08-10).
+      protocolVariant: 'harness',
       devMode: false,
     })
 

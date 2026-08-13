@@ -2,63 +2,31 @@ import * as fs from 'fs'
 import * as path from 'path'
 
 import { getLanguageConfig } from './languages'
+import {
+  MAX_PARSE_FILE_BYTES,
+  MAX_PARSE_FILES,
+  MAX_TOTAL_PARSE_BYTES,
+  loadSourceWithinLimits,
+  type SourceReader,
+} from './parse/limits'
+import {
+  boostScoresByExternalCalls,
+  buildTokenCallers,
+  scoreFileTokens,
+} from './parse/scoring'
 
 import type { LanguageConfig } from './languages'
+import type {
+  FileTokenData,
+  ParseTokensOptions,
+  ParsedTokens,
+  ParsedTokensForScoring,
+} from './parse/types'
 import type { Parser, Query } from 'web-tree-sitter'
 
+export type { FileTokenData, TokenCallerMap } from './parse/types'
+
 export const DEBUG_PARSING = false
-const IGNORE_TOKENS = ['__init__', '__post_init__', '__call__', 'constructor']
-const MAX_CALLERS = 25
-const DEFAULT_MAX_PARSE_FILES = 10_000
-const DEFAULT_MAX_PARSE_FILE_BYTES = 1_000_000
-const DEFAULT_MAX_TOTAL_PARSE_BYTES = 500_000_000
-
-const MAX_PARSE_FILES = getPositiveIntegerEnv(
-  'SAVANT_CODE_MAX_PARSE_FILES',
-  DEFAULT_MAX_PARSE_FILES,
-)
-const MAX_PARSE_FILE_BYTES = getPositiveIntegerEnv(
-  'SAVANT_CODE_MAX_PARSE_FILE_BYTES',
-  DEFAULT_MAX_PARSE_FILE_BYTES,
-)
-const MAX_TOTAL_PARSE_BYTES = getPositiveIntegerEnv(
-  'SAVANT_CODE_MAX_TOTAL_PARSE_BYTES',
-  DEFAULT_MAX_TOTAL_PARSE_BYTES,
-)
-
-type ParseTokensOptions = {
-  maxBytes?: number
-  remainingBytes?: number
-}
-
-type ParsedTokens = {
-  numLines: number
-  identifiers: string[]
-  calls: string[]
-}
-
-type ParsedTokensForScoring = ParsedTokens & {
-  bytes: number
-  skipped: boolean
-}
-
-type SourceReader = (filePath: string) => string | null | Promise<string | null>
-
-type FileCallData = {
-  calls: string[]
-  scores: Record<string, number>
-}
-
-export interface TokenCallerMap {
-  [filePath: string]: {
-    [token: string]: string[] // Array of files that call this token
-  }
-}
-
-export interface FileTokenData {
-  tokenScores: { [filePath: string]: { [token: string]: number } }
-  tokenCallers: TokenCallerMap
-}
 
 export async function getFileTokenScores(
   projectRoot: string,
@@ -246,117 +214,6 @@ function parseTokensWithLimits(
   }
 }
 
-function loadSourceWithinLimits(params: {
-  filePath: string
-  readFile?: (filePath: string) => string | null
-  maxBytes: number
-  remainingBytes: number
-}): { code: string; bytes: number } | null {
-  const { filePath, readFile, maxBytes, remainingBytes } = params
-
-  if (!readFile) {
-    let bytes: number
-    let code: string
-    try {
-      // stat + read in one window: a file that vanishes before or between
-      // the two (or is unreadable) is a skip, not a parse error (TOCTOU,
-      // CM-7, FID-2026-0803-006).
-      bytes = fs.statSync(filePath).size
-      code = fs.readFileSync(filePath, 'utf8')
-    } catch {
-      return null
-    }
-    if (bytes > maxBytes || bytes > remainingBytes) return null
-
-    return { code, bytes }
-  }
-
-  const code = readFile(filePath)
-  if (code === null) return null
-
-  const bytes = Buffer.byteLength(code, 'utf8')
-  if (bytes > maxBytes || bytes > remainingBytes) return null
-
-  return { code, bytes }
-}
-
-function scoreFileTokens(fullPath: string, parsed: ParsedTokens): FileCallData {
-  const scores: Record<string, number> = {}
-  const dirs = path.dirname(fullPath).split(path.sep)
-  const depth = dirs.length
-  const tokenBaseScore =
-    0.8 ** depth * Math.sqrt(parsed.numLines / (parsed.identifiers.length + 1))
-
-  for (const identifier of parsed.identifiers) {
-    if (!IGNORE_TOKENS.includes(identifier)) {
-      scores[identifier] = tokenBaseScore
-    }
-  }
-
-  return { scores, calls: parsed.calls }
-}
-
-function buildTokenCallers(
-  tokenScores: Record<string, Record<string, number>>,
-  fileCallsMap: Map<string, string[]>,
-): TokenCallerMap {
-  const tokenDefinitionMap = new Map<string, string>()
-  const highestScores = new Map<string, number>()
-
-  for (const [filePath, scores] of Object.entries(tokenScores)) {
-    for (const [token, score] of Object.entries(scores)) {
-      const currentHighestScore = highestScores.get(token) ?? -Infinity
-      if (score > currentHighestScore) {
-        highestScores.set(token, score)
-        tokenDefinitionMap.set(token, filePath)
-      }
-    }
-  }
-
-  const tokenCallers: TokenCallerMap = {}
-  for (const [callingFile, calls] of fileCallsMap.entries()) {
-    for (const call of calls) {
-      const definingFile = tokenDefinitionMap.get(call)
-      // `call in Object.prototype` (not `in {}`, which only caught the
-      // inherited `__proto__`): skip tokens that collide with Object
-      // prototype keys (constructor/toString/valueOf/…) — otherwise a
-      // truthy inherited member is treated as the caller list and crashes
-      // on `.includes` (CM-1, FID-2026-0803-006).
-      if (
-        !definingFile ||
-        callingFile === definingFile ||
-        call in Object.prototype
-      ) {
-        continue
-      }
-
-      const callersByToken = (tokenCallers[definingFile] ??= {})
-      const callerFiles = (callersByToken[call] ??= [])
-      if (
-        callerFiles.length < MAX_CALLERS &&
-        !callerFiles.includes(callingFile)
-      ) {
-        callerFiles.push(callingFile)
-      }
-    }
-  }
-
-  return tokenCallers
-}
-
-function boostScoresByExternalCalls(
-  tokenScores: Record<string, Record<string, number>>,
-  externalCalls: Record<string, number>,
-): void {
-  for (const scores of Object.values(tokenScores)) {
-    for (const token of Object.keys(scores)) {
-      const numCalls = externalCalls[token] ?? 0
-      scores[token] *= 1 + Math.log(1 + numCalls)
-      scores[token] = Math.round(scores[token] * 1000) / 1000
-    }
-  }
-}
-
 function emptyParsedTokens(skipped: boolean): ParsedTokensForScoring {
   return {
     numLines: 0,
@@ -369,14 +226,6 @@ function emptyParsedTokens(skipped: boolean): ParsedTokensForScoring {
 
 function countLines(sourceCode: string): number {
   return (sourceCode.match(/\n/g)?.length ?? 0) + 1
-}
-
-function getPositiveIntegerEnv(name: string, fallback: number): number {
-  const raw = process.env[name]
-  if (!raw) return fallback
-
-  const parsed = Number.parseInt(raw, 10)
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback
 }
 
 function parseFile(

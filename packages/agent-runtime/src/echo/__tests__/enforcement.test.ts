@@ -12,7 +12,11 @@ import { join } from 'node:path'
 
 import { afterEach, describe, expect, it } from 'bun:test'
 
-import { EchoEnforcement } from '../enforcement'
+import {
+  EchoEnforcement,
+  getOrCreateEnforcement,
+  resolveEnforcementMode,
+} from '../enforcement'
 
 describe('EchoEnforcement — pre-write steering', () => {
   const tempDirs: string[] = []
@@ -93,8 +97,8 @@ describe('EchoEnforcement — pre-write steering', () => {
     expect(enforcement.takeSteeringMessages()).toHaveLength(0)
   })
 
-  it('is a no-op in hybrid mode (Law 7 is strict-only, so nothing collects)', () => {
-    const enforcement = new EchoEnforcement('hybrid')
+  it('is a no-op in hybrid mode for Law 7 (strict-only advisory; protocol gate isolated)', () => {
+    const enforcement = new EchoEnforcement('hybrid', { gateArmed: false })
     const result = enforcement.beforeToolCall({
       toolName: 'write_file',
       input: { path: newFilePath('a.ts') },
@@ -158,13 +162,31 @@ describe('EchoEnforcement — session-init protocol gate (FID-2026-0806-005)', (
     expect(allowedGlob.blocked).toBe(false)
   })
 
+  it('does not accept a same-basename protocol file in another directory', () => {
+    const enforcement = new EchoEnforcement('strict', {
+      protocolFile: 'docs/ECHO.md',
+    })
+    const wrongRead = enforcement.beforeToolCall({
+      toolName: 'read_files',
+      input: { paths: ['other/ECHO.md'] },
+      agentId: 'savant',
+    })
+    expect(wrongRead.blocked).toBe(false)
+    const blockedGlob = enforcement.beforeToolCall({
+      toolName: 'glob',
+      input: { pattern: '**/*.ts' },
+      agentId: 'savant',
+    })
+    expect(blockedGlob.blocked).toBe(true)
+  })
+
   it('matches a nested protocol path and a configured protocol file', () => {
     const enforcement = new EchoEnforcement('strict', {
-      protocolFile: 'dev/nova/specs/echo-v0.1.2-single-agent.md',
+      protocolFile: 'docs/ECHO.md',
     })
     const read = enforcement.beforeToolCall({
       toolName: 'read_files',
-      input: { paths: ['dev/nova/specs/echo-v0.1.2-single-agent.md'] },
+      input: { paths: ['docs/ECHO.md'] },
       agentId: 'savant',
     })
     expect(read.blocked).toBe(false)
@@ -176,14 +198,86 @@ describe('EchoEnforcement — session-init protocol gate (FID-2026-0806-005)', (
     expect(glob.blocked).toBe(false)
   })
 
-  it('is a no-op in hybrid mode', () => {
+  it('is no longer a no-op in hybrid mode (universal gate, FID-2026-0810-002)', () => {
     const enforcement = new EchoEnforcement('hybrid')
     const result = enforcement.beforeToolCall({
       toolName: 'glob',
       input: { pattern: '**/*.ts' },
       agentId: 'savant',
     })
+    expect(result.blocked).toBe(true)
+    expect(result.reason).toContain('ECHO.md')
+  })
+
+  it('honors gateArmed:false as the legacy no-gate contract (SDK embedders)', () => {
+    const enforcement = new EchoEnforcement('hybrid', { gateArmed: false })
+    const result = enforcement.beforeToolCall({
+      toolName: 'glob',
+      input: { pattern: '**/*.ts' },
+      agentId: 'savant',
+    })
     expect(result.blocked).toBe(false)
+  })
+
+  it('clears the universal gate when a read targets the protocol file (hybrid)', () => {
+    const enforcement = new EchoEnforcement('hybrid')
+    expect(
+      enforcement.beforeToolCall({
+        toolName: 'glob',
+        input: { pattern: '**/*.ts' },
+        agentId: 'savant',
+      }).blocked,
+    ).toBe(true)
+
+    enforcement.beforeToolCall({
+      toolName: 'read_files',
+      input: { paths: ['ECHO.md'] },
+      agentId: 'savant',
+    })
+
+    expect(
+      enforcement.beforeToolCall({
+        toolName: 'glob',
+        input: { pattern: '**/*.ts' },
+        agentId: 'savant',
+      }).blocked,
+    ).toBe(false)
+  })
+
+  it('completion gate blocks an ungrounded turn end with corrective steering', () => {
+    const enforcement = new EchoEnforcement('hybrid')
+    const result = enforcement.evaluateUngroundedTurnEnd()
+    expect(result.blocked).toBe(true)
+    expect(result.steering).toContain('Session-init grounding required')
+    expect(result.steering).toContain('ECHO.md')
+  })
+
+  it('completion gate passes after the protocol is read', () => {
+    const enforcement = new EchoEnforcement('hybrid')
+    enforcement.beforeToolCall({
+      toolName: 'read_files',
+      input: { paths: ['ECHO.md'] },
+      agentId: 'savant',
+    })
+    expect(enforcement.evaluateUngroundedTurnEnd()).toEqual({ blocked: false })
+  })
+
+  it('completion gate disarms with a one-time notice after the retry cap', () => {
+    const enforcement = new EchoEnforcement('hybrid')
+    // The cap is 3; retries 1-3 block, the 4th exceeds the cap and disarms.
+    expect(enforcement.evaluateUngroundedTurnEnd().blocked).toBe(true)
+    expect(enforcement.evaluateUngroundedTurnEnd().blocked).toBe(true)
+    expect(enforcement.evaluateUngroundedTurnEnd().blocked).toBe(true)
+    const disarmed = enforcement.evaluateUngroundedTurnEnd()
+    expect(disarmed.blocked).toBe(false)
+    expect(disarmed.notice).toContain('disarmed')
+    // Session-wide disarm: further ungrounded turn ends are no-ops.
+    expect(enforcement.evaluateUngroundedTurnEnd()).toEqual({ blocked: false })
+  })
+
+  it('completion gate is a no-op when gateArmed is false (legacy)', () => {
+    const enforcement = new EchoEnforcement('hybrid', { gateArmed: false })
+    expect(enforcement.evaluateUngroundedTurnEnd()).toEqual({ blocked: false })
   })
 
   it('subagent-seeded instances skip the gate', () => {
@@ -198,23 +292,30 @@ describe('EchoEnforcement — session-init protocol gate (FID-2026-0806-005)', (
     expect(result.blocked).toBe(false)
   })
 
-  it('injects a protocol refresh every 15 turns after the gate clears', () => {
+  it('injects a protocol refresh after five completed logical turns', () => {
     const enforcement = new EchoEnforcement('strict')
-    enforcement.beforeToolCall({
-      toolName: 'read_files',
-      input: { paths: ['ECHO.md'] },
-      agentId: 'savant',
-    })
+    for (const path of [
+      'ECHO.md',
+      'ARCHITECTURE.md',
+      'protocol.config.yaml',
+      'dev/LEARNINGS.md',
+    ]) {
+      enforcement.beforeToolCall({
+        toolName: 'read_files',
+        input: { paths: [path] },
+        agentId: 'savant',
+      })
+      enforcement.recordSuccessfulGroundingRead([path])
+    }
 
     let refresh: string | undefined
-    for (let i = 1; i <= 15; i++) {
-      refresh = enforcement.onStepBoundary().refreshText
+    for (let i = 1; i <= 5; i++) {
+      refresh = enforcement.recordLogicalUserTurn().refreshText
     }
     expect(refresh).toBeDefined()
     expect(refresh).toContain('<!--echo-critical-->')
     expect(refresh).toContain('Read 0-EOF')
-    // Turn 16 is not a refresh boundary; no dedupe break.
-    expect(enforcement.onStepBoundary().refreshText).toBeUndefined()
+    expect(enforcement.recordLogicalUserTurn().refreshText).toBeUndefined()
   })
 
   it('does not refresh before the protocol is read', () => {
@@ -224,5 +325,121 @@ describe('EchoEnforcement — session-init protocol gate (FID-2026-0806-005)', (
       refresh = enforcement.onStepBoundary().refreshText
     }
     expect(refresh).toBeUndefined()
+  })
+
+  it('allows the internal backstop during the first long turn after cadence refresh', () => {
+    const enforcement = new EchoEnforcement('strict')
+    enforcement.beforeToolCall({
+      toolName: 'read_files',
+      input: { paths: ['ECHO.md'] },
+      agentId: 'savant',
+    })
+
+    for (let i = 0; i < 5; i++) {
+      enforcement.recordLogicalUserTurn()
+    }
+
+    let refresh: string | undefined
+    for (let i = 0; i < 12; i++) {
+      refresh = enforcement.onStepBoundary().refreshText
+    }
+    expect(refresh).toContain('<!--echo-critical-->')
+  })
+
+  it('rejects duplicate paths in a persisted grounding checkpoint', () => {
+    const agentState = {
+      agentId: 'main',
+      protocolVariant: 'harness',
+      protocolFile: 'ECHO.md',
+      protocolSource: 'local',
+      protocolVersion: '0.2.0',
+      groundingCheckpoint: {
+        schemaVersion: 1,
+        gateArmed: true,
+        protocolVariant: 'harness',
+        protocolFile: 'echo.md',
+        protocolSource: 'local',
+        protocolVersion: '0.2.0',
+        groundingSetFingerprint: 'not-used',
+        requiredPaths: ['echo.md', 'echo.md'],
+        completedPaths: ['echo.md', 'echo.md'],
+        fullGroundingCompleted: true,
+        logicalUserTurnCount: 0,
+        lastFullGroundingTurn: null,
+        lastRefreshTurn: null,
+        lastRefreshReason: null,
+        lastRefreshEpoch: null,
+        completionGateRetries: 0,
+        completionGateDisarmed: false,
+      },
+    } as never
+    const enforcement = new EchoEnforcement('hybrid', {
+      agentState,
+      gateArmed: true,
+    })
+    expect(enforcement.getState().protocolRead).toBe(false)
+  })
+
+  it('delivers a fresh refresh after history replacement even after pre-compaction refresh', () => {
+    const enforcement = new EchoEnforcement('strict')
+    for (const path of [
+      'ECHO.md',
+      'ARCHITECTURE.md',
+      'protocol.config.yaml',
+      'dev/LEARNINGS.md',
+    ]) {
+      enforcement.beforeToolCall({
+        toolName: 'read_files',
+        input: { paths: [path] },
+        agentId: 'savant',
+      })
+      enforcement.recordSuccessfulGroundingRead([path])
+    }
+    expect(enforcement.recordCompaction().refreshText).toBeDefined()
+    expect(enforcement.recordHistoryReplacement().refreshText).toContain(
+      '<!--echo-critical-->',
+    )
+  })
+
+  it('requests an idempotent refresh for compaction', () => {
+    const enforcement = new EchoEnforcement('strict')
+    for (const path of [
+      'ECHO.md',
+      'ARCHITECTURE.md',
+      'protocol.config.yaml',
+      'dev/LEARNINGS.md',
+    ]) {
+      enforcement.beforeToolCall({
+        toolName: 'read_files',
+        input: { paths: [path] },
+        agentId: 'savant',
+      })
+      enforcement.recordSuccessfulGroundingRead([path])
+    }
+    const first = enforcement.recordCompaction().refreshText
+    const second = enforcement.recordCompaction().refreshText
+    expect(first).toContain('<!--echo-critical-->')
+    expect(second).toBeUndefined()
+  })
+})
+
+describe('FID-0811-005 typed contract boundary', () => {
+  it('keeps valid modes and defaults an absent mode to hybrid', () => {
+    expect(resolveEnforcementMode(undefined)).toBe('hybrid')
+    expect(resolveEnforcementMode('hybrid')).toBe('hybrid')
+    expect(resolveEnforcementMode('strict')).toBe('strict')
+  })
+
+  it('rejects an invalid runtime mode instead of silently downgrading', () => {
+    expect(() => resolveEnforcementMode('invalid' as never)).toThrow(
+      'Invalid EHEL enforcement mode',
+    )
+  })
+
+  it('stores one enforcement instance per agent state without serializing it', () => {
+    const state = { enforcementMode: 'strict' } as never
+    const first = getOrCreateEnforcement(state)
+    expect(getOrCreateEnforcement(state)).toBe(first)
+    expect(JSON.stringify(state)).toBe('{"enforcementMode":"strict"}')
   })
 })

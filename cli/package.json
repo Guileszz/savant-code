@@ -1,6 +1,6 @@
 {
   "name": "@savant-code/cli",
-  "version": "0.0.22",
+  "version": "0.0.23",
   "type": "module",
   "bin": {
     "savant-code": "./bin/savant-code"
@@ -32,6 +32,7 @@
     "@gravity-ai/api": "^0.1.2",
     "@opentui/core": "0.2.2",
     "@opentui/react": "0.2.2",
+    "@savant-code/design-systems": "workspace:*",
     "@savant-code/knowledge-graph": "workspace:*",
     "@savant-code/sdk": "workspace:*",
     "@tanstack/react-query": "^5.90.12",

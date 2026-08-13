@@ -53,6 +53,13 @@ Install dependencies:
 bun install
 ```
 
+The install lifecycle wires `core.hooksPath` to `.githooks`. The `commit-msg` hook
+rejects the known unauthorized `CommandCodeBot` / `commandcode.ai`
+`Co-authored-by` trailer so future commits cannot recreate that contributor
+attribution accidentally. It is a local defense-in-depth guard, not a substitute
+for CI or server-side enforcement, and can be bypassed only with an explicitly
+authorized `git commit --no-verify`.
+
 Run the CLI in dev mode (paid variant):
 
 ```bash

@@ -1,3 +1,7 @@
+import fs from 'fs'
+import os from 'os'
+import path from 'path'
+
 import { afterEach, beforeEach, describe, expect, mock, test } from 'bun:test'
 
 import { useGatewayCatalogStore } from '../../state/gateway-catalog-store'
@@ -5,15 +9,20 @@ import {
   __resetOpenRouterModelsCacheForTest,
   fetchCommandCodeModels,
   fetchGatewayModels,
-  getTokenHarborModels,
+  fetchNousModels,
   fetchOpenRouterModels,
+  getTokenHarborModels,
   findGatewayModel,
   formatModelInfo,
   getCachedOpenRouterModels,
+  hasNousCatalog,
+  parseNousModelsForTest,
   hasOpenRouterCatalog,
   resolveContextWindowForModel,
   subscribeGatewayCatalog,
 } from '../openrouter-models'
+import { applyPersistedProviderApiKeys } from '../provider-setup'
+
 const REAL_FETCH = globalThis.fetch
 const makeJsonResponse = (body: unknown): Response =>
   new Response(JSON.stringify(body), {
@@ -86,6 +95,25 @@ describe('openrouter-models', () => {
     expect(models).toHaveLength(1)
     expect(models[0].id).toBe('x/y')
   })
+  test('parses Nous ids with one internal prefix and preserves nested ids', () => {
+    const models = parseNousModelsForTest({
+      data: [
+        { id: 'hermes-4-70b', name: 'Hermes 4 70B' },
+        { id: 'anthropic/claude-sonnet-4.6' },
+        { id: 'nous/already-prefixed' },
+        { id: '', name: 'invalid' },
+        { id: 42 },
+      ],
+    })
+
+    expect(models.map((model) => model.id)).toEqual([
+      'nous/already-prefixed',
+      'nous/anthropic/claude-sonnet-4.6',
+      'nous/hermes-4-70b',
+    ])
+    expect(models.every((model) => model.provider === 'nous')).toBe(true)
+  })
+
   test('degrades to empty list on fetch failure (never throws)', async () => {
     // @ts-expect-error - mock fetch to reject
     globalThis.fetch = mock(() => Promise.reject(new Error('network down')))
@@ -197,6 +225,119 @@ describe('openrouter-models', () => {
     expect(models.every((model) => model.contextLength !== undefined)).toBe(
       true,
     )
+  })
+
+  test('includes Nous models in the combined gateway catalog', async () => {
+    const originalNousKey = process.env.NOUS_API_KEY
+    process.env.NOUS_API_KEY = 'nous-catalog-test-key'
+    try {
+      // @ts-expect-error - mock fetch
+      globalThis.fetch = mock(
+        (input: RequestInfo | URL, init?: RequestInit) => {
+          const url = String(input)
+          if (url.includes('nousresearch.com')) {
+            expect(new Headers(init?.headers).get('authorization')).toBe(
+              'Bearer nous-catalog-test-key',
+            )
+            return Promise.resolve(
+              makeJsonResponse({ data: [{ id: 'hermes-4-70b' }] }),
+            )
+          }
+          return Promise.resolve(makeJsonResponse({ data: [] }))
+        },
+      )
+
+      const models = await fetchGatewayModels(true)
+
+      expect(hasNousCatalog()).toBe(true)
+      expect(models).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            id: 'nous/hermes-4-70b',
+            provider: 'nous',
+          }),
+        ]),
+      )
+    } finally {
+      if (originalNousKey === undefined) delete process.env.NOUS_API_KEY
+      else process.env.NOUS_API_KEY = originalNousKey
+    }
+  })
+
+  test('uses a persisted Nous key for authenticated catalog refresh', async () => {
+    const originalConfigDir = process.env.SAVANT_CODE_CONFIG_DIR
+    const originalNousKey = process.env.NOUS_API_KEY
+    const originalDirectProvider = process.env.DIRECT_PROVIDER
+    const originalInferenceBaseUrl = process.env.INFERENCE_BASE_URL
+    const tempDir = fs.mkdtempSync(
+      path.join(os.tmpdir(), 'savant-nous-catalog-'),
+    )
+    process.env.SAVANT_CODE_CONFIG_DIR = tempDir
+    delete process.env.NOUS_API_KEY
+    fs.writeFileSync(
+      path.join(tempDir, 'credentials.json'),
+      JSON.stringify({ providerApiKeys: { NOUS_API_KEY: 'stored-nous-key' } }),
+    )
+
+    try {
+      applyPersistedProviderApiKeys()
+      // @ts-expect-error - mock fetch
+      globalThis.fetch = mock(
+        (input: RequestInfo | URL, init?: RequestInit) => {
+          expect(String(input)).toContain('inference-api.nousresearch.com')
+          expect(new Headers(init?.headers).get('authorization')).toBe(
+            'Bearer stored-nous-key',
+          )
+          return Promise.resolve(
+            makeJsonResponse({ data: [{ id: 'stored-model' }] }),
+          )
+        },
+      )
+
+      const models = await fetchNousModels(true)
+      expect(models.map((model) => model.id)).toEqual(['nous/stored-model'])
+    } finally {
+      if (originalConfigDir === undefined)
+        delete process.env.SAVANT_CODE_CONFIG_DIR
+      else process.env.SAVANT_CODE_CONFIG_DIR = originalConfigDir
+      if (originalNousKey === undefined) delete process.env.NOUS_API_KEY
+      else process.env.NOUS_API_KEY = originalNousKey
+      if (originalDirectProvider === undefined)
+        delete process.env.DIRECT_PROVIDER
+      else process.env.DIRECT_PROVIDER = originalDirectProvider
+      if (originalInferenceBaseUrl === undefined)
+        delete process.env.INFERENCE_BASE_URL
+      else process.env.INFERENCE_BASE_URL = originalInferenceBaseUrl
+      fs.rmSync(tempDir, { recursive: true, force: true })
+    }
+  })
+
+  test('isolates Nous catalog failure while retaining other gateway models', async () => {
+    process.env.NOUS_API_KEY = 'nous-catalog-test-key'
+    // @ts-expect-error - mock fetch
+    globalThis.fetch = mock((input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url.includes('nousresearch.com')) {
+        return Promise.resolve(new Response('unauthorized', { status: 401 }))
+      }
+      if (url.includes('openrouter.ai')) {
+        return Promise.resolve(
+          makeJsonResponse({ data: [{ id: 'openai/kept' }] }),
+        )
+      }
+      return Promise.resolve(makeJsonResponse({ data: [] }))
+    })
+
+    const models = await fetchGatewayModels(true)
+
+    expect(hasNousCatalog()).toBe(false)
+    expect(models).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ id: 'openai/kept' }),
+        expect.objectContaining({ id: 'tokenharbor/th-orchestra' }),
+      ]),
+    )
+    expect(models.some((model) => model.id.startsWith('nous/'))).toBe(false)
   })
 
   test('includes TokenHarbor models in the combined gateway catalog', async () => {

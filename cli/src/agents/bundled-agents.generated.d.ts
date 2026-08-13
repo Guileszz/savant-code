@@ -8,7 +8,13 @@
  */
 import type { LocalAgentInfo } from '../utils/local-agent-registry'
 
-export declare const bundledAgents: Record<string, any>
+import type { AgentDefinition } from '@savant-code/common/templates/initial-agents-dir/types/agent-definition'
+
+export type BundledAgentDefinition = Omit<AgentDefinition, 'handleSteps'> & {
+  handleSteps?: string
+  [key: string]: unknown
+}
+export declare const bundledAgents: Record<string, BundledAgentDefinition>
 export declare function getBundledAgentsAsLocalInfo(): LocalAgentInfo[]
 export declare function getBundledAgentIds(): string[]
 export declare function isBundledAgent(agentId: string): boolean

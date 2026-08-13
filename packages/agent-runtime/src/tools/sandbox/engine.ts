@@ -6,6 +6,7 @@ import type {
   SandboxDecision,
   SandboxPermissionMode,
   SandboxPolicy,
+  ToolSafety,
 } from '@savant-code/common/tools/safety'
 import type { JSONValue } from '@savant-code/common/types/json'
 
@@ -39,9 +40,10 @@ export function evaluateToolCall(params: {
   toolName: string
   input: Record<string, JSONValue>
   policy: SandboxPolicy
+  safetyOverride?: ToolSafety
 }): SandboxDecision {
-  const { toolName, input, policy } = params
-  const safety = getToolSafety(toolName)
+  const { toolName, input, policy, safetyOverride } = params
+  const safety = safetyOverride ?? getToolSafety(toolName)
 
   // `unsafe` mode bypasses the sandbox engine. Path containment for write
   // tools is already enforced by the caller before the sandbox check runs.

@@ -203,6 +203,11 @@ export default tseslint.config(
       'cli/scripts/**',
       'cli/release*/**',
       'savant-free/cli/**',
+      // Manual E2E harnesses (renamed from *.test.ts so `bun test` discovery
+      // does not execute them): console is the output mechanism for these CLI
+      // scripts, same as scripts/** tooling.
+      'agents/browser-use/manual-e2e.ts',
+      'agents/librarian/manual-e2e.ts',
     ],
     rules: {
       'no-console': 'off',

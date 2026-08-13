@@ -1,3 +1,5 @@
+import { filterInternalEchoMessages } from '@savant-code/common/util/messages'
+
 import type { AgentTemplate } from '@savant-code/common/types/agent-template'
 import type { Message } from '@savant-code/common/types/messages/savant-code-message'
 import type {
@@ -6,7 +8,12 @@ import type {
 } from '@savant-code/common/types/session-state'
 
 /** Messages tagged with these tags are stripped from agent output. */
-const EXCLUDED_OUTPUT_TAGS = ['TOOL_CALL_ERROR'] as const
+const EXCLUDED_OUTPUT_TAGS = [
+  'TOOL_CALL_ERROR',
+  'ECHO_COMPLIANCE',
+  'ECHO_REFRESH',
+  'ECHO_STEERING',
+] as const
 
 function isExcludedFromOutput(message: Message): boolean {
   return !!message.tags?.some((t) =>
@@ -87,9 +94,9 @@ export function getAgentOutput(
   }
   if (agentTemplate.outputMode === 'all_messages') {
     // Remove the first message, which includes the previous conversation history.
-    const agentMessages = agentState.messageHistory
-      .slice(1)
-      .filter((m) => !isExcludedFromOutput(m))
+    const agentMessages = filterInternalEchoMessages(
+      agentState.messageHistory.slice(1),
+    ).filter((m) => !isExcludedFromOutput(m))
     return {
       type: 'allMessages',
       value: agentMessages,

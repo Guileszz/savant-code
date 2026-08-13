@@ -11,8 +11,8 @@
  * - (b) derived ModelProvider union / settings.validProviders gain `cloudflare`
  * - (c) derived providerDomains gains `openrouter`
  * - (d) `order` values replicate the current picker sort exactly
- *       (openrouter 0, tokenrouter 1, nvidia 2, opencode-go 3, and the 4-way
- *       tie of tokenharbor/commandcode/ollama/cloudflare at 4)
+ *       (openrouter 0, tokenrouter 1, nvidia 2, opencode-go 3, and the 5-way
+ *       tie of tokenharbor/commandcode/nous/ollama/cloudflare at 4)
  */
 import type { ProviderConfig } from './types'
 
@@ -116,6 +116,26 @@ export const PROVIDER_REGISTRY = {
     catalog: { source: 'static', modelsRef: 'commandcode' },
     setupAvailable: true,
     domain: 'commandcode.ai',
+    order: 4,
+  },
+  nous: {
+    id: 'nous',
+    label: 'Nous Research',
+    kind: 'gateway',
+    credentials: {
+      envVar: 'NOUS_API_KEY',
+      missingKeyMessage:
+        'Nous Research API key not set. Set NOUS_API_KEY environment variable or run /provider nous.',
+    },
+    baseUrl: 'https://inference-api.nousresearch.com/v1',
+    protocol: 'openai',
+    idTransform: 'strip',
+    catalog: {
+      source: 'live',
+      url: 'https://inference-api.nousresearch.com/v1/models',
+    },
+    setupAvailable: true,
+    domain: 'nousresearch.com',
     order: 4,
   },
   cloudflare: {

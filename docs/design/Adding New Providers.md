@@ -44,8 +44,7 @@ is `satisfies Record<string, ProviderConfig>`, so a typo or missing field is a
 compile error. The **OpenAI-compatible gateway** is the common case — TokenHarbor
 is the canonical template:
 
-```ts
-tokenharbor: {
+```ts  tokenharbor: {
   id: 'tokenharbor',                       // routing prefix — must match the key
   label: 'TokenHarbor',                    // display label
   kind: 'gateway',                         // 'gateway' | 'local' | 'env-only'
@@ -91,12 +90,42 @@ Pick the catalog source in the registry entry:
   catalog automatically; if you want friendly display names, add a `X_NAMES`
   map in `cli/src/utils/openrouter-models/static-catalogs.ts` (TokenHarbor
   pattern).
-- **`source: 'live'`** — the provider exposes a public model-list API (OpenRouter,
-  NVIDIA). Put the endpoint in the entry: `catalog: { source: 'live', url: '…' }`.
-  The generic fetcher (`cli/src/utils/openrouter-models/live-catalog.ts`) handles
-  cache/TTL/degrade. If the catalog endpoint is auth-gated with a master-key
-  chain, wire a credential resolver like OpenRouter's
-  (`resolveKey: () => resolveOpenRouterApiKey()`).
+- **`source: 'live'`** — the provider exposes a model-list API (OpenRouter,
+  NVIDIA, Nous Research). Put the endpoint in the entry:
+  `catalog: { source: 'live', url: '…' }`. The generic fetcher
+  (`cli/src/utils/openrouter-models/live-catalog.ts`) handles cache/TTL/degrade.
+  If the catalog endpoint is authenticated, wire a provider-specific resolver
+  such as Nous's `resolveKey: () => process.env.NOUS_API_KEY`; never read
+  `.env.local` directly from a catalog wrapper.
+
+### Nous Research direct-provider example
+
+Nous is a standard OpenAI-compatible gateway when configured with a direct
+`NOUS_API_KEY`:
+
+```text
+/provider nous
+/health
+/model nous/<exact-id-from-the-live-catalog>
+```
+
+The registry base URL is `https://inference-api.nousresearch.com/v1`; the
+catalog is fetched from `/v1/models` with `Authorization: Bearer <key>`, and
+`nous/` is an internal picker namespace removed before chat requests. Catalog
+failure does not disable exact free-text model selection. Shell keys take
+precedence over keys stored by the masked `/provider` flow.
+
+This integration is direct API-key-only. Nous Portal browser OAuth, refresh
+tokens, short-lived inference JWTs, and re-authentication are a separate
+credential lifecycle and are not implemented by the direct provider entry.
+The operator's current credential-safe probe authenticated `/v1/models`, but
+sampled public inference requests returned HTTP 404 across `/v1/chat/completions`,
+`/v1/responses`, and `/v1/completions`. Treat the catalog and inference contracts
+as separate acceptance checks; do not claim end-to-end inference until Nous
+confirms the public endpoint and credential lifecycle. The local Hermes API
+server and subscription proxy documented by Nous are separate endpoints and are
+not silently substituted here.
+
 - **`source: 'none'`** — no catalog section in the picker (Ollama).
 
 ### Step 3 — Dual-protocol only: protocol map

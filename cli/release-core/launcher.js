@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 const { spawn, execFileSync } = require('child_process')
+const crypto = require('crypto')
 const fs = require('fs')
 const http = require('http')
 const https = require('https')
@@ -13,6 +14,150 @@ const zlib = require('zlib')
 const tar = require('tar')
 
 const { createReleaseHttpClient } = require('./http')
+
+const DESIGN_SYSTEM_ID = /^[a-z0-9]+(?:-[a-z0-9]+)*$/
+
+function validateDesignSystemCatalog(designRoot) {
+  const manifestPath = path.join(designRoot, 'manifest.json')
+  if (!fs.existsSync(manifestPath)) {
+    const error = new Error(
+      'Release archive is missing the savant-design-systems manifest.',
+    )
+    error.code = 'DESIGN_SYSTEM_ASSET_MISSING'
+    throw error
+  }
+
+  let manifest
+  try {
+    manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'))
+  } catch (cause) {
+    const error = new Error(
+      `Release archive contains an unreadable savant-design-systems manifest: ${cause.message}`,
+    )
+    error.code = 'DESIGN_SYSTEM_CATALOG_INVALID'
+    throw error
+  }
+
+  if (
+    manifest?.rawCount !== 74 ||
+    manifest?.admittedCount !== 74 ||
+    !Array.isArray(manifest?.resources) ||
+    manifest.resources.length !== 74
+  ) {
+    const error = new Error(
+      'Release archive contains an incomplete savant-design-systems catalog.',
+    )
+    error.code = 'DESIGN_SYSTEM_CATALOG_INVALID'
+    throw error
+  }
+
+  const resourceDir = path.join(designRoot, 'resources')
+  if (!fs.existsSync(resourceDir)) {
+    const error = new Error(
+      'Release archive is missing the savant-design-systems resources directory.',
+    )
+    error.code = 'DESIGN_SYSTEM_CATALOG_INVALID'
+    throw error
+  }
+
+  const resourceFiles = fs
+    .readdirSync(resourceDir)
+    .filter((name) => name.endsWith('.json'))
+  const manifestEntries = manifest.resources
+  const manifestIds = new Set(manifestEntries.map((resource) => resource?.id))
+  const resourceIds = new Set(
+    resourceFiles.map((name) => name.slice(0, -'.json'.length)),
+  )
+  const validManifestIds =
+    manifestEntries.every(
+      (resource) =>
+        resource &&
+        typeof resource.id === 'string' &&
+        DESIGN_SYSTEM_ID.test(resource.id),
+    ) && manifestIds.size === 74
+  const exactResourceSet =
+    resourceIds.size === 74 &&
+    resourceFiles.every((name) => DESIGN_SYSTEM_ID.test(name.slice(0, -5))) &&
+    [...manifestIds].every((id) => resourceIds.has(id)) &&
+    [...resourceIds].every((id) => manifestIds.has(id))
+  if (resourceFiles.length !== 74 || !validManifestIds || !exactResourceSet) {
+    const error = new Error(
+      'Release archive resource count does not match its manifest.',
+    )
+    error.code = 'DESIGN_SYSTEM_CATALOG_INVALID'
+    throw error
+  }
+
+  for (const entry of manifest.resources) {
+    const resourcePath = path.join(resourceDir, `${entry.id}.json`)
+    const relativeResourcePath = path.relative(
+      path.resolve(resourceDir),
+      path.resolve(resourcePath),
+    )
+    if (
+      relativeResourcePath.startsWith('..') ||
+      path.isAbsolute(relativeResourcePath)
+    ) {
+      const error = new Error(`resource path escapes catalog: ${entry.id}`)
+      error.code = 'DESIGN_SYSTEM_CATALOG_INVALID'
+      throw error
+    }
+    try {
+      const resourceText = fs.readFileSync(resourcePath, 'utf8')
+      const separator = '\n\n---\n\n'
+      const separatorIndex = resourceText.indexOf(separator)
+      if (separatorIndex < 0) throw new Error('resource separator missing')
+      const frontmatter = resourceText.slice(0, separatorIndex)
+      const sourceContent = resourceText.slice(
+        separatorIndex + separator.length,
+      )
+      const resource = JSON.parse(frontmatter)
+      const sourceHash = crypto
+        .createHash('sha256')
+        .update(sourceContent ?? '', 'utf8')
+        .digest('hex')
+      const normalizedPayload = JSON.stringify({
+        schemaVersion: resource.schemaVersion,
+        id: resource.id,
+        displayName: resource.displayName,
+        description: resource.description,
+        tokens: resource.tokens,
+        fonts: resource.fonts,
+        targets: resource.targets,
+        provenance: resource.provenance,
+      })
+      const normalizedHash = crypto
+        .createHash('sha256')
+        .update(normalizedPayload, 'utf8')
+        .digest('hex')
+      if (
+        resource.schemaVersion !== '1' ||
+        typeof resource.displayName !== 'string' ||
+        typeof resource.description !== 'string' ||
+        !Array.isArray(resource.targets) ||
+        !resource.tokens ||
+        typeof resource.tokens !== 'object' ||
+        !resource.provenance ||
+        typeof resource.provenance !== 'object' ||
+        resource.id !== entry.id ||
+        sourceHash !== entry.sourceContentHash ||
+        normalizedHash !== entry.normalizedContentHash
+      ) {
+        throw new Error(`resource does not match manifest: ${entry.id}`)
+      }
+    } catch (cause) {
+      const error = new Error(
+        cause?.code === 'DESIGN_SYSTEM_CATALOG_INVALID'
+          ? cause.message
+          : `Release archive contains an unreadable design-system resource: ${entry.id}`,
+      )
+      error.code = 'DESIGN_SYSTEM_CATALOG_INVALID'
+      throw error
+    }
+  }
+
+  return { count: resourceFiles.length }
+}
 
 function createLauncher(productConfig) {
   const {
@@ -860,19 +1005,44 @@ function createLauncher(productConfig) {
   }
 
   function rollbackReplacements(replacements) {
-    for (const { backupPath, targetPath } of replacements.reverse()) {
-      removeFileIfPresent(targetPath)
+    for (const {
+      backupPath,
+      targetPath,
+      directory,
+    } of replacements.reverse()) {
+      if (directory) {
+        fs.rmSync(targetPath, { recursive: true, force: true })
+      } else {
+        removeFileIfPresent(targetPath)
+      }
       if (backupPath && fs.existsSync(backupPath)) {
         fs.renameSync(backupPath, targetPath)
       }
     }
   }
 
+  function moveDirectoryWithRollback(sourcePath, targetPath, replacements) {
+    const backupPath = fs.existsSync(targetPath)
+      ? `${targetPath}.old.${Date.now()}.${process.pid}`
+      : null
+    if (backupPath) fs.renameSync(targetPath, backupPath)
+    try {
+      fs.renameSync(sourcePath, targetPath)
+    } catch (error) {
+      if (backupPath && fs.existsSync(backupPath)) {
+        fs.renameSync(backupPath, targetPath)
+      }
+      throw error
+    }
+    replacements.push({ backupPath, targetPath, directory: true })
+  }
+
   function commitReplacements(replacements) {
-    for (const { backupPath } of replacements) {
+    for (const { backupPath, directory } of replacements) {
       if (!backupPath) continue
       try {
-        removeFileIfPresent(backupPath)
+        if (directory) fs.rmSync(backupPath, { recursive: true, force: true })
+        else removeFileIfPresent(backupPath)
       } catch {
         // The replacement is already committed. A stale backup is safer than
         // rolling back a working install because cleanup failed.
@@ -926,6 +1096,23 @@ function createLauncher(productConfig) {
           replacements,
         )
       }
+
+      const tempDesignSystemsPath = path.join(
+        CONFIG.tempDownloadDir,
+        'savant-design-systems',
+      )
+      // Validate the extracted catalog through the same production helper used
+      // by archive smoke tests before moving it into the install directory.
+      validateDesignSystemCatalog(tempDesignSystemsPath)
+      const targetDesignSystemsPath = path.join(
+        path.dirname(CONFIG.binaryPath),
+        'savant-design-systems',
+      )
+      moveDirectoryWithRollback(
+        tempDesignSystemsPath,
+        targetDesignSystemsPath,
+        replacements,
+      )
 
       replaceFileWithRollback(
         metadataTempPath,
@@ -1334,4 +1521,4 @@ function createLauncher(productConfig) {
   }
 }
 
-module.exports = { createLauncher }
+module.exports = { createLauncher, validateDesignSystemCatalog }

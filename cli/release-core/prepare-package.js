@@ -20,6 +20,15 @@ if (!supportedPackages.has(packageJson.name)) {
 }
 
 const generatedFiles = ['launcher.js', 'http.js']
+const designSystemsSource = path.resolve(
+  __dirname,
+  '..',
+  '..',
+  '.agents',
+  'skills',
+  'savant-design-systems',
+)
+const designSystemsDestination = path.join(packageDir, 'savant-design-systems')
 
 for (const fileName of generatedFiles) {
   const destinationPath = path.join(packageDir, fileName)
@@ -28,4 +37,15 @@ for (const fileName of generatedFiles) {
   } else {
     fs.copyFileSync(path.join(__dirname, fileName), destinationPath)
   }
+}
+
+if (process.argv.includes('--clean')) {
+  fs.rmSync(designSystemsDestination, { recursive: true, force: true })
+} else {
+  if (!fs.existsSync(designSystemsSource)) {
+    throw new Error(
+      `Missing design-system skill source: ${designSystemsSource}`,
+    )
+  }
+  fs.cpSync(designSystemsSource, designSystemsDestination, { recursive: true })
 }

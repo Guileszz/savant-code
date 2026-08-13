@@ -14,6 +14,7 @@ const ENV_KEYS = [
   'INFERENCE_BASE_URL',
   'OPENROUTER_API_KEY',
   'OPENCODE_GO_API_KEY',
+  'NOUS_API_KEY',
   'SAVANT_CODE_API_KEY',
 ] as const
 
@@ -87,6 +88,41 @@ describe('handleHealthCommand provider reporting', () => {
     expect(output).toContain('**Provider mode:** direct (openrouter)')
     expect(output).toContain('**Required key env var:** OPENROUTER_API_KEY')
     expect(output).toContain('**Key configured:** yes')
+  })
+
+  test('reports Nous direct mode with redacted key status', async () => {
+    process.env.DIRECT_PROVIDER = 'nous'
+    process.env.INFERENCE_BASE_URL = 'https://inference-api.nousresearch.com/v1'
+    process.env.NOUS_API_KEY = 'nous-health-test-key'
+
+    await handleHealthCommand(makeParams())
+
+    const output = renderedMessages[0]?.content ?? ''
+    expect(output).toContain('**Provider mode:** direct (nous)')
+    expect(output).toContain(
+      '**Base URL:** https://inference-api.nousresearch.com/v1',
+    )
+    expect(output).toContain('**Required key env var:** NOUS_API_KEY')
+    expect(output).toContain('**Key configured:** yes')
+    expect(output).not.toContain('nous-health-test-key')
+  })
+
+  test('reports a stored Nous key without rendering the credential', async () => {
+    fs.writeFileSync(
+      path.join(tempDir, 'credentials.json'),
+      JSON.stringify({
+        providerApiKeys: { NOUS_API_KEY: 'stored-nous-health-key' },
+      }),
+    )
+    process.env.DIRECT_PROVIDER = 'nous'
+    process.env.INFERENCE_BASE_URL = 'https://inference-api.nousresearch.com/v1'
+
+    await handleHealthCommand(makeParams())
+
+    const output = renderedMessages[0]?.content ?? ''
+    expect(output).toContain('**Required key env var:** NOUS_API_KEY')
+    expect(output).toContain('**Key configured:** yes')
+    expect(output).not.toContain('stored-nous-health-key')
   })
 
   test('reports key not configured when only routing is set', async () => {

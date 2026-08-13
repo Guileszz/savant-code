@@ -1,6 +1,6 @@
 # Savant Versioning
 
-**Current release:** Savant-Code `0.0.21`.
+**Pending release:** Savant-Code `0.0.23` (unreleased; active working-tree target). The latest published release is `0.0.22`.
 
 Savant-Code does **not** use SemVer. It uses **Savant Versioning** — a base-10 iteration counter with epistemic resets.
 

@@ -1,6 +1,7 @@
 import {
   BASE_AGENTS,
   MAX_AGENT_STEPS_DEFAULT,
+  MAX_SUBAGENT_DEPTH,
 } from '@savant-code/common/constants/agents'
 import { toolNames } from '@savant-code/common/tools/constants'
 import {
@@ -47,8 +48,23 @@ import type { ToolSet } from 'ai'
  * These are the params that don't change between different spawn calls
  * and are passed through from the parent agent runtime.
  */
+export type SubagentPropagationSnapshot = {
+  parentAgentId: string
+  parentRunId: string | undefined
+  ancestorRunIds: string[]
+  protocolVariant: AgentState['protocolVariant']
+  protocolFile: string | undefined
+  protocolVersion: string | undefined
+  protocolStrictMode: boolean | undefined
+  checkpointTurnId: string | undefined
+  hasTraceWriter: boolean
+}
+
 export type SubagentContextParams = AgentRuntimeDeps &
   AgentRuntimeScopedDeps & {
+    agentState?: AgentState
+    /** Explicit propagation snapshot for the child boundary. */
+    propagation?: SubagentPropagationSnapshot
     clientSessionId: string
     extraSavantCodeMetadata?: Record<string, string>
     fileContext: ProjectFileContext
@@ -89,6 +105,7 @@ export function extractSubagentContextParams(
     trackEvent: params.trackEvent,
     // AgentRuntimeDeps - Other
     logger: params.logger,
+    traceWriter: params.traceWriter,
     fetch: params.fetch,
 
     // AgentRuntimeScopedDeps - Client (WebSocket)
@@ -115,6 +132,22 @@ export function extractSubagentContextParams(
     repoUrl: params.repoUrl,
     signal: params.signal,
     userId: params.userId,
+    ...(params.agentState
+      ? {
+          agentState: params.agentState,
+          propagation: {
+            parentAgentId: params.agentState.agentId,
+            parentRunId: params.agentState.runId,
+            ancestorRunIds: [...params.agentState.ancestorRunIds],
+            protocolVariant: params.agentState.protocolVariant,
+            protocolFile: params.agentState.protocolFile,
+            protocolVersion: params.agentState.protocolVersion,
+            protocolStrictMode: params.agentState.protocolStrictMode,
+            checkpointTurnId: params.checkpointTurnId,
+            hasTraceWriter: params.traceWriter !== undefined,
+          },
+        }
+      : {}),
   }
 }
 
@@ -300,6 +333,12 @@ export function createAgentState(
   agentContext: Record<string, Subgoal>,
   graphInjectionProjectRoot?: string,
 ): AgentState {
+  if (parentAgentState.ancestorRunIds.length >= MAX_SUBAGENT_DEPTH) {
+    throw new Error(
+      `Subagent depth limit exceeded (maximum ${MAX_SUBAGENT_DEPTH} ancestors).`,
+    )
+  }
+
   const agentId = generateCompactId()
 
   // When including message history, filter out any tool calls that don't have
@@ -356,6 +395,10 @@ export function createAgentState(
     contextTokenCount: parentAgentState.contextTokenCount,
     fsmPhase: parentAgentState.fsmPhase,
     iterationCount: parentAgentState.iterationCount,
+    protocolVariant: parentAgentState.protocolVariant,
+    protocolFile: parentAgentState.protocolFile,
+    protocolVersion: parentAgentState.protocolVersion,
+    protocolStrictMode: parentAgentState.protocolStrictMode,
     // FID-2026-0804-009: thread the run's ECHO compliance tracker into subagent
     // states so subagent writes/verification/spawns record against the same
     // run and the Verifier criteria see the full picture (L-001: Forge wrote
@@ -394,6 +437,7 @@ export function withParentModel(
 export async function executeSubagent(
   options: OptionalFields<
     {
+      propagation: SubagentPropagationSnapshot
       agentTemplate: AgentTemplate
       parentAgentState: AgentState
       parentTools?: ToolSet
@@ -418,6 +462,53 @@ export async function executeSubagent(
     prompt,
     spawnParams,
   } = withDefaults
+
+  const propagation = withDefaults.propagation
+  if (!propagation) {
+    throw new Error('Subagent propagation context is missing.')
+  }
+  if (
+    propagation.parentAgentId !== parentAgentState.agentId ||
+    propagation.parentRunId !== parentAgentState.runId ||
+    propagation.protocolVariant !== parentAgentState.protocolVariant ||
+    propagation.protocolFile !== parentAgentState.protocolFile ||
+    propagation.protocolVersion !== parentAgentState.protocolVersion ||
+    propagation.protocolStrictMode !== parentAgentState.protocolStrictMode ||
+    propagation.ancestorRunIds.length !==
+      parentAgentState.ancestorRunIds.length ||
+    propagation.ancestorRunIds.some(
+      (runId: string, index: number) =>
+        runId !== parentAgentState.ancestorRunIds[index],
+    )
+  ) {
+    throw new Error('Subagent propagation context does not match parent state.')
+  }
+  const expectedChildAncestorRunIds = [
+    ...propagation.ancestorRunIds,
+    propagation.parentRunId ?? 'NULL',
+  ]
+  if (
+    withDefaults.agentState.parentId !== propagation.parentAgentId ||
+    withDefaults.agentState.ancestorRunIds.length !==
+      expectedChildAncestorRunIds.length ||
+    withDefaults.agentState.ancestorRunIds.some(
+      (runId: string, index: number) =>
+        runId !== expectedChildAncestorRunIds[index],
+    ) ||
+    withDefaults.agentState.protocolVariant !==
+      parentAgentState.protocolVariant ||
+    withDefaults.agentState.protocolFile !== parentAgentState.protocolFile ||
+    withDefaults.agentState.protocolVersion !==
+      parentAgentState.protocolVersion ||
+    withDefaults.agentState.protocolStrictMode !==
+      parentAgentState.protocolStrictMode ||
+    withDefaults.checkpointTurnId !== propagation.checkpointTurnId ||
+    (withDefaults.traceWriter !== undefined) !== propagation.hasTraceWriter
+  ) {
+    throw new Error(
+      'Constructed child state does not match propagation context.',
+    )
+  }
 
   const startEvent = {
     type: 'subagent_start' as const,

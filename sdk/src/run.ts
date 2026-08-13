@@ -5,6 +5,11 @@ export {
   STATE_SNAPSHOT_INTERRUPTION_MESSAGE,
   cloneSessionState,
 } from './run/types'
+export {
+  deserializeRunState,
+  RUN_STATE_SCHEMA_VERSION,
+  serializeRunState,
+} from './run-state/serialization'
 export { extractStatusCodeFromMessage } from './run/status-code'
 export type {
   ImageContent,

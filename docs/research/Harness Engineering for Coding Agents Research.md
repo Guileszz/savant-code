@@ -1,6 +1,5 @@
 # Harness Engineering for Coding Agents — Research & Savant-Code Opportunity Map
 
-**Author:** Savant
 **Date:** 2026-08-03
 **Status:** research — no FIDs opened yet
 **Primary source:** HumanLayer — "Skill Issue: Harness Engineering for Coding Agents"

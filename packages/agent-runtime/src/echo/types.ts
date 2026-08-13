@@ -17,6 +17,8 @@ export interface EnforcementState {
 
   // Law 3: Verification gate
   dirtyFiles: Set<string>
+  /** Exact content from a successful write, including the empty string. */
+  writtenFileContent: Map<string, string>
   hasVerifiedSinceLastDirty: boolean
   writeCount: number
 
@@ -37,6 +39,14 @@ export interface EnforcementState {
   // turn counter driving the 15-turn protocol refresh.
   protocolRead: boolean
   turnCount: number
+
+  // FID-2026-0810-002 Change 5: first-turn completion gate. Retries count
+  // ungrounded text-only completions steered back into the loop; after
+  // COMPLETION_GATE_MAX_RETRIES the completion gate disarms for the session
+  // (one-time notice) so a model that never reads cannot wedge or re-trigger
+  // steering on every subsequent message.
+  completionGateRetries: number
+  completionGateDisarmed: boolean
 
   // Advisory violations (Hybrid mode)
   advisoryWarnings: AdvisoryWarning[]
@@ -61,6 +71,7 @@ export interface EnforcementState {
 export interface AdvisoryWarning {
   law: number
   severity: 'info' | 'warning'
+  classification?: 'echo' | 'design_contract'
   message: string
   file?: string
   line?: number
@@ -76,6 +87,7 @@ export interface Violation {
 export interface EnforcementResult {
   blocked: boolean
   reason?: string
+  classification?: 'echo' | 'design_contract'
   warnings: AdvisoryWarning[]
 }
 

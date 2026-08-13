@@ -1,4 +1,9 @@
 export { toContentString } from './messages/content-string'
+export {
+  INTERNAL_ECHO_MESSAGE_TAGS,
+  filterInternalEchoMessages,
+  isInternalEchoMessage,
+} from './messages/internal'
 export { withCacheControl, withoutCacheControl } from './messages/cache-control'
 export type { SavantModelMessage } from './messages/types'
 export { convertCbToModelMessages } from './messages/aggregate'

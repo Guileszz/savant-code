@@ -3,10 +3,49 @@ import { z } from 'zod/v4'
 import { jsonValueSchema } from './json'
 import { MAX_AGENT_STEPS_DEFAULT } from '../constants/agents'
 
+import type { DesignContract } from './design-system'
 import type { EchoComplianceTrackerLike } from './echo-compliance'
 import type { JSONValue } from './json'
 import type { Message } from './messages/savant-code-message'
+import type { ProtocolVariant } from '../util/boot-contract'
 import type { ProjectFileContext } from '../util/file'
+
+/**
+ * Durable ECHO grounding progress. Runtime enforcement objects are ephemeral;
+ * this JSON-safe checkpoint is the source of truth across cloned and
+ * serialized session states.
+ */
+export type GroundingCheckpoint = {
+  schemaVersion: 1
+  gateArmed: boolean
+  protocolVariant: ProtocolVariant
+  protocolFile: string
+  protocolSource: 'local' | 'embedded'
+  protocolVersion: string
+  groundingSetFingerprint: string
+  requiredPaths: string[]
+  completedPaths: string[]
+  fullGroundingCompleted: boolean
+  logicalUserTurnCount: number
+  lastFullGroundingTurn: number | null
+  lastRefreshTurn: number | null
+  lastRefreshReason:
+    | 'initial'
+    | 'cadence'
+    | 'compaction'
+    | 'contract-change'
+    | 'explicit'
+    | 'backstop'
+    | null
+  lastRefreshEpoch: string | null
+  completionGateRetries: number
+  completionGateDisarmed: boolean
+  /** Runtime safety backstops persisted so resumes cannot reset them. */
+  internalStepsSinceRefresh?: number
+  lastRefreshAtMs?: number | null
+}
+
+export const GROUNDING_CHECKPOINT_SCHEMA_VERSION = 1 as const
 
 export const toolCallSchema = z.object({
   toolName: z.string(),
@@ -151,6 +190,28 @@ export type AgentState = {
    * Set by parsing <goal condition="..."> from message history.
    */
   goalCondition?: string
+
+  /** Explicitly resolved governance contract for this session. */
+  protocolVariant?: ProtocolVariant
+  protocolFile?: string
+  protocolVersion?: string
+  protocolStrictMode?: boolean
+  /**
+   * FID-2026-0810-002 Change 2: where the resolved contract's content lives.
+   * 'local' = project files in cwd; 'embedded' = baked-in harness bundle
+   * (npm install in an arbitrary project). Drives the synthetic read path:
+   * when 'embedded', grounding-set reads resolve from the bundle.
+   */
+  protocolSource?: 'local' | 'embedded'
+  /** Durable ECHO grounding progress; JSON-safe and preserved across resume. */
+  groundingCheckpoint?: GroundingCheckpoint
+  /**
+   * EHEL enforcement axis. This is intentionally separate from protocol
+   * variant and protocol strictness; absent values retain the hybrid default.
+   */
+  enforcementMode?: 'hybrid' | 'strict'
+  /** Active visual design contract used by write-boundary checks. */
+  designContract?: DesignContract
 
   /**
    * @internal — FID-2026-0804-009: per-run harness ECHO compliance tracker.

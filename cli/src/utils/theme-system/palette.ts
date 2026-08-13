@@ -8,7 +8,7 @@ import type { MarkdownPalette } from '../markdown-renderer'
 const DEFAULT_CHAT_THEMES: Record<ThemeName, ChatTheme> = {
   dark: {
     name: 'dark',
-    // Core semantic colors — Neon Slate palette
+    // Core semantic colors — Savant Cyberpunk palette
     primary: '#18faf9', // Cyan — max contrast on near-black
     secondary: '#18faf9', // Cyan — unified with primary for Savant branding
     success: '#39ff14', // Neon green — high-energy completion
@@ -20,8 +20,8 @@ const DEFAULT_CHAT_THEMES: Record<ThemeName, ChatTheme> = {
 
     // Neutral scale
     foreground: '#e2e8f0', // Slate-200 — high contrast on dark
-    background: 'transparent',
-    muted: '#64748b', // Slate-500 — neutral, doesn't compete with neons
+    background: '#050508', // Deep void — never inherit the host terminal canvas
+    muted: '#94a3b8', // Slate-400 — readable muted text on deep void
     border: '#1e293b', // Slate-800 — subtle
     surface: '#0f172a', // Slate-900 — slightly lighter than bg
     surfaceHover: '#1e293b', // Slate-800
@@ -59,7 +59,7 @@ const DEFAULT_CHAT_THEMES: Record<ThemeName, ChatTheme> = {
     // Syntax highlighting tokens (FID-033a) — fed to OpenTUI SyntaxStyle.
     // Mapping pattern adapted from opencode-dev generateSyntax (theme/index.ts:556).
     syntaxComment: '#64748b', // Slate-500 — muted, matches textMuted convention
-    syntaxKeyword: '#c084fc', // Violet-400 — ansiColors.magenta equivalent
+    syntaxKeyword: '#ffb000', // Amber — readable non-violet keyword accent
     syntaxFunction: '#60a5fa', // Blue-400 — ansiColors.blue equivalent
     syntaxVariable: '#e2e8f0', // Slate-200 — foreground (variable = fg)
     syntaxString: '#4ade80', // Green-400 — ansiColors.green equivalent
@@ -71,7 +71,7 @@ const DEFAULT_CHAT_THEMES: Record<ThemeName, ChatTheme> = {
     markdown: {
       codeBackground: '#1e293b', // Slate-800
       codeHeaderFg: '#64748b', // Slate-500
-      inlineCodeFg: '#f472b6', // Neon pink — contrast pop against cyan
+      inlineCodeFg: '#22d3ee', // Cyan — distinct but on-brand inline-code accent
       codeTextFg: '#e2e8f0', // Slate-200
       headingFg: {
         1: '#18faf9', // Cyan
@@ -81,7 +81,7 @@ const DEFAULT_CHAT_THEMES: Record<ThemeName, ChatTheme> = {
         5: '#18faf9',
         6: '#18faf9',
       },
-      listBulletFg: '#a78bfa', // Neon violet
+      listBulletFg: '#39ff14', // Neon green — semantic, non-violet list accent
       blockquoteBorderFg: '#1e293b', // Slate-800
       blockquoteTextFg: '#e2e8f0', // Slate-200
       dividerFg: '#1e293b', // Slate-800
@@ -102,8 +102,8 @@ const DEFAULT_CHAT_THEMES: Record<ThemeName, ChatTheme> = {
 
     // Neutral scale
     foreground: '#0f172a', // Slate-900 — near-black
-    background: 'transparent',
-    muted: '#64748b', // Slate-500
+    background: '#ffffff', // Explicit light canvas; never inherit the host terminal
+    muted: '#64748b', // Slate-500 — readable muted text on white
     border: '#cbd5e1', // Slate-300
     surface: '#f8fafc', // Slate-50
     surfaceHover: '#f1f5f9', // Slate-100
@@ -141,7 +141,7 @@ const DEFAULT_CHAT_THEMES: Record<ThemeName, ChatTheme> = {
     // Syntax highlighting tokens (FID-033a) — light-mode readable equivalents.
     // Mapping pattern adapted from opencode-dev generateSyntax (theme/index.ts:556).
     syntaxComment: '#64748b', // Slate-500 — muted
-    syntaxKeyword: '#7c3aed', // Violet-600 — readable magenta on white
+    syntaxKeyword: '#b45309', // Amber-700 — readable non-violet keyword accent
     syntaxFunction: '#2563eb', // Blue-600 — readable blue on white
     syntaxVariable: '#0f172a', // Slate-900 — foreground
     syntaxString: '#059669', // Emerald-600 — readable green on white
@@ -153,7 +153,7 @@ const DEFAULT_CHAT_THEMES: Record<ThemeName, ChatTheme> = {
     markdown: {
       codeBackground: '#f1f5f9', // Slate-100
       codeHeaderFg: '#64748b', // Slate-500
-      inlineCodeFg: '#be185d', // Pink-700 — readable on white
+      inlineCodeFg: '#0e7490', // Cyan-700 — readable on white
       codeTextFg: '#0f172a', // Slate-900
       headingFg: {
         1: '#0891b2', // Cyan-600
@@ -163,7 +163,7 @@ const DEFAULT_CHAT_THEMES: Record<ThemeName, ChatTheme> = {
         5: '#0891b2',
         6: '#0891b2',
       },
-      listBulletFg: '#7c3aed', // Violet-600
+      listBulletFg: '#047857', // Emerald-700 — readable semantic list accent
       blockquoteBorderFg: '#cbd5e1', // Slate-300
       blockquoteTextFg: '#334155', // Slate-700
       dividerFg: '#e2e8f0', // Slate-200

@@ -23,10 +23,10 @@ function makeComposioHandler<
     }
 
     // FID-029: `as ClientToolCall<T extends ClientToolName ? T : never>`
-    // is accepted pre-existing tech debt. See
-    // dev/fids/FID-2026-0719-029-as-cast-tech-debt.md. The conditional
-    // form is required to align exactly with the handler-function-type
-    // slot signature `ClientToolCall<T extends ClientToolName ? T : never>`;
+    // is accepted pre-existing tech debt (tracking FID-2026-0719-029
+    // archived; rationale inlined). The conditional form is required to
+    // align exactly with the handler-function-type slot signature
+    // `ClientToolCall<T extends ClientToolName ? T : never>`;
     // TypeScript treats `ClientToolCall<T>` and
     // `ClientToolCall<T extends ClientToolName ? T : never>` as distinct
     // nominal identities even when they resolve to the same concrete type.

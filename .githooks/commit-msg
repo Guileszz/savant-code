@@ -1,0 +1,36 @@
+#!/usr/bin/env bash
+# Commit-message hook — prevent unauthorized third-party contributor attribution.
+#
+# GitHub turns Co-authored-by trailers into contributor credit. This local guard
+# blocks the known unauthorized CommandCodeBot identity/domain before a commit
+# is created. It intentionally allows unrelated legitimate co-authors.
+#
+# Wired through the repository's core.hooksPath (.githooks). A local hook can be
+# bypassed with `git commit --no-verify`; CI/server-side policy is required for
+# enforcement across every clone.
+
+set -u
+
+MESSAGE_FILE="${1-}"
+if [ -z "$MESSAGE_FILE" ] || [ ! -f "$MESSAGE_FILE" ] || [ ! -r "$MESSAGE_FILE" ]; then
+  echo "❌ commit-msg: Git did not provide a readable commit-message file" >&2
+  exit 2
+fi
+
+grep -Eiq '^[[:space:]]*co-authored-by:[[:space:]].*(commandcodebot|commandcode[.]ai)' -- "$MESSAGE_FILE"
+grep_status=$?
+case "$grep_status" in
+  0)
+    echo "❌ commit-msg: unauthorized CommandCodeBot co-author attribution detected" >&2
+    echo "   Remove the CommandCodeBot/commandcode.ai Co-authored-by trailer before committing." >&2
+    echo "   This local guard can be bypassed with --no-verify only when explicitly authorized." >&2
+    exit 1
+    ;;
+  1)
+    exit 0
+    ;;
+  *)
+    echo "❌ commit-msg: unable to scan the commit-message file; refusing the commit" >&2
+    exit 2
+    ;;
+esac

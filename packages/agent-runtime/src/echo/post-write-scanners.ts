@@ -67,7 +67,7 @@ export function runPostWriteScanners(params: {
   state: EnforcementState
   mode: EnforcementMode
   tier: 'core_4' | 'all_15'
-  getWrittenFileContent: (path: string) => string | undefined
+  getWrittenFileContent?: (path: string) => string | undefined
 }): EnforcementResult {
   // Only run in strict mode
   if (params.tier === 'core_4') {
@@ -92,8 +92,20 @@ export function runPostWriteScanners(params: {
 
   // ── Scan each dirty file ────────────────────────────────────────────
   for (const filePath of params.state.dirtyFiles) {
-    const content = params.getWrittenFileContent(filePath)
-    if (!content) continue
+    const content = params.getWrittenFileContent?.(filePath)
+    if (content === undefined) {
+      const detail =
+        `Law 15: Post-write content unavailable for "${filePath}"; ` +
+        'strict scanning fails closed rather than skipping the file'
+      violations.push(detail)
+      warnings.push({
+        law: 15,
+        severity: 'warning',
+        message: detail,
+        file: filePath,
+      })
+      continue
+    }
 
     for (const [, scanner] of Object.entries(SCANNERS)) {
       // Reset lastIndex for global regexes

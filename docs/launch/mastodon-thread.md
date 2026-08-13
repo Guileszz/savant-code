@@ -5,8 +5,9 @@ Post 1/4 — intro
 ```text
 Launching Savant Code, a local-first AI coding CLI.
 
-The pitch: instead of generating code as fast as possible, a 9-agent ECHO loop
-audits, critiques, and rewrites every change before it reaches your codebase.
+The pitch: instead of generating code as fast as possible, a 10-agent ECHO
+loop audits, critiques, and rewrites every change before it reaches your
+codebase.
 
 Built with TypeScript/Bun. Apache-2.0.
 ```
@@ -14,17 +15,18 @@ Built with TypeScript/Bun. Apache-2.0.
 Post 2/4 — architecture
 
 ```text
-The ECHO Protocol is the single bootstrap file that governs all 9 agents:
+The ECHO Protocol is the single bootstrap file that governs all 10 agents:
 
+- Orchestrator: routes work
 - Detective: explores the codebase
-- Thinker: reasons about approach
 - Forge: implements
 - Verifier: audits
 - Recorder: tracks FIDs
+- Thinker: reasons about approach
 - Scout: gathers context
 - Researcher: web/docs lookup
 - Scribe: documentation
-- Orchestrator: routes work
+- Adversary: meta-verification
 
 Separation of duties is enforced: the agent that writes code cannot verify it.
 ```

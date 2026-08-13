@@ -10,6 +10,7 @@ const REAL_FETCH = globalThis.fetch
 const COMMAND_CODE_MODEL = 'commandcode/deepseek/deepseek-v4-pro'
 const COMMAND_CODE_CLAUDE_MODEL = 'commandcode/claude-sonnet-4.6'
 const TOKEN_HARBOR_MODEL = 'tokenharbor/anthropic/claude-opus-5'
+const NOUS_MODEL = 'nous/anthropic/claude-sonnet-4.6'
 const COMMAND_CODE_PROMPT = [
   {
     role: 'user' as const,
@@ -21,6 +22,7 @@ describe('getModelForRequest ChatGPT OAuth fallback behavior', () => {
   const mockGetValidChatGptOAuthCredentials = mock(() => Promise.resolve(null))
   let originalCommandCodeApiKey: string | undefined
   let originalTokenHarborApiKey: string | undefined
+  let originalNousApiKey: string | undefined
   let originalOpenRouterApiKey: string | undefined
   let originalOrMasterKey: string | undefined
   let originalInferenceApiKey: string | undefined
@@ -32,6 +34,8 @@ describe('getModelForRequest ChatGPT OAuth fallback behavior', () => {
     delete process.env.COMMAND_CODE_API_KEY
     originalTokenHarborApiKey = process.env.TOKENHARBOR_API_KEY
     delete process.env.TOKENHARBOR_API_KEY
+    originalNousApiKey = process.env.NOUS_API_KEY
+    delete process.env.NOUS_API_KEY
     originalOpenRouterApiKey = process.env.OPENROUTER_API_KEY
     originalOrMasterKey = process.env.OR_MASTER_KEY
     originalInferenceApiKey = process.env.INFERENCE_API_KEY
@@ -73,6 +77,11 @@ describe('getModelForRequest ChatGPT OAuth fallback behavior', () => {
       delete process.env.TOKENHARBOR_API_KEY
     } else {
       process.env.TOKENHARBOR_API_KEY = originalTokenHarborApiKey
+    }
+    if (originalNousApiKey === undefined) {
+      delete process.env.NOUS_API_KEY
+    } else {
+      process.env.NOUS_API_KEY = originalNousApiKey
     }
     if (originalOpenRouterApiKey === undefined) {
       delete process.env.OPENROUTER_API_KEY
@@ -180,6 +189,54 @@ describe('getModelForRequest ChatGPT OAuth fallback behavior', () => {
       'Bearer tokenharbor-test-key',
     )
     expect(JSON.parse(String(init?.body)).model).toBe('anthropic/claude-opus-5')
+  })
+
+  test('requires the Nous Research API key', async () => {
+    const { getModelForRequest } = await importFresh()
+
+    await expect(
+      getModelForRequest({ apiKey: 'test-key', model: NOUS_MODEL }),
+    ).rejects.toThrow(
+      'Nous Research API key not set. Set NOUS_API_KEY environment variable or run /provider nous.',
+    )
+  })
+
+  test('routes Nous models with stripped nested IDs and no OpenRouter headers', async () => {
+    process.env.NOUS_API_KEY = 'nous-test-key'
+    const fetchMock = mock(() =>
+      Promise.resolve(
+        new Response('data: [DONE]\\n\\n', {
+          status: 200,
+          headers: { 'content-type': 'text/event-stream' },
+        }),
+      ),
+    )
+    // @ts-expect-error - test fetch has the same runtime contract
+    globalThis.fetch = fetchMock
+
+    const { getModelForRequest } = await importFresh()
+    const result = await getModelForRequest({
+      apiKey: 'test-key',
+      model: NOUS_MODEL,
+    })
+    await (result.model as LanguageModelV2).doStream({
+      prompt: COMMAND_CODE_PROMPT,
+    })
+
+    const [input, init] = fetchMock.mock.calls[0] as unknown as [
+      RequestInfo | URL,
+      RequestInit | undefined,
+    ]
+    const headers = new Headers(init?.headers)
+    expect(String(input)).toBe(
+      'https://inference-api.nousresearch.com/v1/chat/completions',
+    )
+    expect(headers.get('authorization')).toBe('Bearer nous-test-key')
+    expect(headers.get('HTTP-Referer')).toBeNull()
+    expect(headers.get('X-OpenRouter-Title')).toBeNull()
+    expect(JSON.parse(String(init?.body)).model).toBe(
+      'anthropic/claude-sonnet-4.6',
+    )
   })
 
   test('requires the CommandCode API key', async () => {
@@ -306,6 +363,58 @@ describe('getModelForRequest ChatGPT OAuth fallback behavior', () => {
     )
     // The `openrouter/` prefix is part of the real slug — must NOT be stripped.
     expect(JSON.parse(String(init?.body)).model).toBe('openrouter/free')
+  })
+
+  test('bare-slug Nous models require the active Nous key and omit OpenRouter headers', async () => {
+    process.env.DIRECT_PROVIDER = 'nous'
+    process.env.INFERENCE_BASE_URL = 'https://inference-api.nousresearch.com/v1'
+    process.env.OPENROUTER_API_KEY = 'unrelated-openrouter-key'
+
+    const { getModelForRequest } = await importFresh()
+
+    await expect(
+      getModelForRequest({
+        apiKey: 'caller-stub-key',
+        model: 'anthropic/claude-sonnet-4.6',
+      }),
+    ).rejects.toThrow(
+      'Nous Research API key not set. Set NOUS_API_KEY environment variable or run /provider nous.',
+    )
+
+    process.env.NOUS_API_KEY = 'nous-bare-slug-key'
+    const fetchMock = mock(() =>
+      Promise.resolve(
+        new Response('data: [DONE]\\n\\n', {
+          status: 200,
+          headers: { 'content-type': 'text/event-stream' },
+        }),
+      ),
+    )
+    // @ts-expect-error - test fetch has the same runtime contract
+    globalThis.fetch = fetchMock
+
+    const result = await getModelForRequest({
+      apiKey: 'caller-stub-key',
+      model: 'anthropic/claude-sonnet-4.6',
+    })
+    await (result.model as LanguageModelV2).doStream({
+      prompt: COMMAND_CODE_PROMPT,
+    })
+
+    const [input, init] = fetchMock.mock.calls[0] as unknown as [
+      RequestInfo | URL,
+      RequestInit | undefined,
+    ]
+    const headers = new Headers(init?.headers)
+    expect(String(input)).toBe(
+      'https://inference-api.nousresearch.com/v1/chat/completions',
+    )
+    expect(headers.get('authorization')).toBe('Bearer nous-bare-slug-key')
+    expect(headers.get('HTTP-Referer')).toBeNull()
+    expect(headers.get('X-OpenRouter-Title')).toBeNull()
+    expect(JSON.parse(String(init?.body)).model).toBe(
+      'anthropic/claude-sonnet-4.6',
+    )
   })
 
   test('bare-slug models use the ACTIVE provider key (FID-2026-0809-001 decision 10)', async () => {

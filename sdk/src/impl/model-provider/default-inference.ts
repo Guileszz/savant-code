@@ -36,7 +36,7 @@ import type { LanguageModel } from 'ai'
 export async function createDefaultInferenceModel(
   apiKey: string,
   model: string,
-  options?: { preferApiKey?: boolean },
+  options?: { preferApiKey?: boolean; providerId?: string },
 ): Promise<LanguageModel> {
   const openrouterUsage: OpenRouterUsageAccounting = {
     cost: null,
@@ -58,8 +58,11 @@ export async function createDefaultInferenceModel(
     ? apiKey
     : (resolvedOpenRouterKey ?? getInferenceApiKeyFromEnv() ?? apiKey)
 
+  const isOpenRouterCompatible =
+    options?.providerId === undefined || options.providerId === 'openrouter'
+
   return new OpenAICompatibleChatLanguageModel(model, {
-    provider: 'savant-code',
+    provider: options?.providerId ?? 'savant-code',
     url: ({ path: endpoint }) => {
       const baseUrl = inferenceBaseUrl ?? getWebsiteUrl()
       // Ensure the base URL path is preserved: /api/v1 + /chat/completions
@@ -71,10 +74,16 @@ export async function createDefaultInferenceModel(
     headers: () => ({
       Authorization: `Bearer ${authorizationKey}`,
       'user-agent': `ai-sdk/openai-compatible/${VERSION}/savant-code`,
-      'HTTP-Referer': getWebsiteUrl(),
-      'X-OpenRouter-Title': 'SavantCode',
-      'X-OpenRouter-Categories': 'cli-agent,cloud-agent,programming-app',
-      ...(openrouterApiKey && { [BYOK_OPENROUTER_HEADER]: openrouterApiKey }),
+      ...(isOpenRouterCompatible
+        ? {
+            'HTTP-Referer': getWebsiteUrl(),
+            'X-OpenRouter-Title': 'SavantCode',
+            'X-OpenRouter-Categories': 'cli-agent,cloud-agent,programming-app',
+            ...(openrouterApiKey && {
+              [BYOK_OPENROUTER_HEADER]: openrouterApiKey,
+            }),
+          }
+        : {}),
     }),
     metadataExtractor: {
       extractMetadata: async ({
@@ -126,6 +135,6 @@ export async function createDefaultInferenceModel(
     // SDK only ever invokes fetch as a plain function.
     fetch: fetchWithRetryableNetworkErrors as typeof globalThis.fetch,
     includeUsage: undefined,
-    supportsStructuredOutputs: true,
+    supportsStructuredOutputs: isOpenRouterCompatible,
   })
 }

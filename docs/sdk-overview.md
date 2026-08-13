@@ -19,9 +19,9 @@ system, skills and MCP loading, and the native-asset plumbing (ripgrep, tree-sit
 | Field | Value | Notes |
 |-------|-------|-------|
 | Name | `@savant-code/sdk` | |
-| Version | `0.0.21` | Mirrors the monorepo release version |
+| Version | `0.0.23` | Pending unreleased working-tree target; mirrors the monorepo version |
 | Visibility | `private: false` | Ready for npm publication structurally |
-| **Published to npm** | **Never** | Registry 404 confirmed by third-party audit; intentionally excluded from the `0.0.21` release (see `dev/session-summaries/2026-08-08-1500-public-release-complete-handoff.md`) |
+| **Published to npm** | **Never** | Registry 404 confirmed by third-party audit; intentionally excluded from the published `0.0.22` release (see `dev/session-summaries/2026-08-08-1500-public-release-complete-handoff.md`) |
 | Runtime targets | Node >= 18 (primary), Bun | Dual ESM/CJS output; verified to load in plain Node |
 | License | Apache-2.0 | |
 | Build artifacts | `dist/index.mjs`, `dist/index.cjs`, `dist/index.d.ts`, `dist/wasm/*`, `dist/vendor/ripgrep/*` | |
@@ -265,7 +265,7 @@ write-gated with LIMIT injection and SQL redaction.
 
 The SDK is where inference happens. `getModelForRequest()` dispatches on model-id prefix
 (`tokenrouter/`, `tokenharbor/`, `nvidia/`, `opencode-go/`, `openrouter/`, `commandcode/`,
-`cloudflare/`, bare slugs). The default path is the generic OpenAI-compatible adapter targeting
+`nous/`, `cloudflare/`, bare slugs). The default path is the generic OpenAI-compatible adapter targeting
 `INFERENCE_BASE_URL`. Full detail and the provider-adding runbook live in
 `docs/design/Adding New Providers.md` — that refactor is engine work inside this package.
 
@@ -284,7 +284,7 @@ call short-circuits (FID-2026-0806-009).
 | `INFERENCE_BASE_URL` | Direct-mode OpenAI-compatible base URL |
 | `INFERENCE_API_KEY` | SDK-specific inference key |
 | `OR_MASTER_KEY`, `OPENROUTER_API_KEY` | OpenRouter credentials (master-key exchange / regular key) |
-| `TOKENROUTER_API_KEY`, `TOKENHARBOR_API_KEY`, `NVIDIA_API_KEY`, `OPENCODE_GO_API_KEY`, `COMMAND_CODE_API_KEY` | Gateway provider keys |
+| `TOKENROUTER_API_KEY`, `TOKENHARBOR_API_KEY`, `NVIDIA_API_KEY`, `OPENCODE_GO_API_KEY`, `COMMAND_CODE_API_KEY`, `NOUS_API_KEY` | Gateway provider keys; Nous uses the direct OpenAI-compatible API and does not imply Portal OAuth |
 | `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID` | Cloudflare Workers AI |
 | `SAVANT_CODE_BYOK_OPENROUTER` | BYOK OpenRouter header override (`x-openrouter-api-key`) |
 | `NEXT_PUBLIC_SAVANT_CODE_APP_URL` / `SAVANT_CODE_APP_URL` | Runtime backend URL override (deploy-time; Convex/Next hosts) |

@@ -1,6 +1,6 @@
 {
   "name": "savant-free",
-  "version": "0.0.22",
+  "version": "0.0.23",
   "description": "The world's strongest free coding agent",
   "license": "MIT",
   "bin": {
@@ -14,7 +14,8 @@
     "index.js",
     "launcher.js",
     "http.js",
-    "README.md"
+    "README.md",
+    "savant-design-systems"
   ],
   "os": [
     "darwin",

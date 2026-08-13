@@ -17,12 +17,26 @@ describe('writeFileAtomic', () => {
     fs.rmSync(tempDir, { recursive: true, force: true })
   })
 
-  test('writes a new file', () => {
+  test('writes a new file and reports a durability result', () => {
     const target = path.join(tempDir, 'out.json')
 
-    writeFileAtomic(target, '{"a":1}')
+    const result = writeFileAtomic(target, '{"a":1}')
 
     expect(fs.readFileSync(target, 'utf8')).toBe('{"a":1}')
+    expect(['verified', 'unverified']).toContain(result.durability)
+  })
+
+  test('reports durability downgrade through the callback at most once', () => {
+    const target = path.join(tempDir, 'out.json')
+    let notifications = 0
+
+    const result = writeFileAtomic(target, 'data', {
+      onDurabilityUnverified: () => {
+        notifications += 1
+      },
+    })
+
+    expect(notifications).toBe(result.durability === 'unverified' ? 1 : 0)
   })
 
   test('replaces an existing file', () => {
@@ -77,12 +91,19 @@ describe('writeFileAtomicAsync', () => {
     fs.rmSync(tempDir, { recursive: true, force: true })
   })
 
-  test('writes a new file', async () => {
+  test('writes a new file and exposes durability status', async () => {
     const target = path.join(tempDir, 'out.json')
+    let notifications = 0
 
-    await writeFileAtomicAsync(target, '{"a":1}')
+    const result = await writeFileAtomicAsync(target, '{"a":1}', {
+      onDurabilityUnverified: () => {
+        notifications += 1
+      },
+    })
 
     expect(fs.readFileSync(target, 'utf8')).toBe('{"a":1}')
+    expect(result.durability).toBe('unverified')
+    expect(notifications).toBe(1)
   })
 
   test('replaces an existing file', async () => {

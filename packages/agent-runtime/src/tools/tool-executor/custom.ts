@@ -1,16 +1,25 @@
 import { generateCompactId } from '@savant-code/common/util/string'
 import { cloneDeep } from 'lodash'
 
+import { resolveExecutionPolicy } from './execution-policy'
+import { checkSandboxPolicy } from './sandbox-gate'
+import { isTrustedCustomToolDefinitions } from './trusted-custom-tool-definitions'
+import { getOrCreateEnforcement } from '../../echo/enforcement'
+import {
+  buildComplianceWarningChunks,
+  formatBlockingError,
+} from '../../echo/violation-handler'
 import { getMCPToolData } from '../../mcp'
 import { MCP_TOOL_SEPARATOR } from '../../mcp-constants'
 import { formatValueForError } from '../../util/format-value'
 import { parseRawCustomToolCall } from '../tool-call-parse'
 
-import type { ExecuteToolCallParams } from './types'
 import type { CustomToolCall, ToolCallError } from '../tool-call-parse'
+import type { ExecuteToolCallParams } from './types'
 import type { JSONValue } from '@savant-code/common/types/json'
 import type { ToolResultOutput } from '@savant-code/common/types/messages/content-part'
 import type { ToolMessage } from '@savant-code/common/types/messages/savant-code-message'
+import type { CustomToolDefinitions } from '@savant-code/common/util/file'
 
 /** Strips the leading MCP server segment from a prefixed tool name. */
 function resolveMcpToolName(toolName: string): string {
@@ -27,8 +36,6 @@ export async function executeCustomToolCall(
     input,
     autoInsertEndStepParam = false,
     excludeToolFromMessageHistory = false,
-    fromHandleSteps = false,
-
     agentState,
     agentTemplate,
     fileContext,
@@ -43,49 +50,66 @@ export async function executeCustomToolCall(
     toolResultsToAddToMessageHistory,
     userInputId,
   } = params
-  const toolCall: CustomToolCall | ToolCallError = parseRawCustomToolCall({
-    // FID-2026-0802-005 H8: prefer the step-built custom tool data passed down
-    // from loopAgentSteps (built once per step); fall back to the previous
-    // per-call getMCPToolData rebuild (cloneDeep + potential MCP listTools)
-    // only when the caller did not provide it.
-    customToolDefs:
-      params.customToolDefinitions ??
-      (await getMCPToolData({
-        ...params,
-        toolNames: agentTemplate.toolNames,
-        mcpServers: agentTemplate.mcpServers,
-        writeTo: cloneDeep(fileContext.customToolDefinitions),
-      })),
-    rawToolCall: {
-      toolName,
-      toolCallId: toolCallId ?? generateCompactId(),
-      input: input as JSONValue,
-    },
-    autoInsertEndStepParam,
-  })
+  const toolStartedAt = Date.now()
+  let toolFinished = false
+  const recordToolEvent = (
+    event: 'tool_started' | 'tool_finished',
+    status?: 'completed' | 'failed' | 'cancelled',
+  ): void => {
+    try {
+      params.traceWriter?.recordEvent?.({
+        event,
+        runId: params.runId,
+        agentId: agentState.agentId,
+        agentType: agentTemplate.id,
+        phase: 'tool',
+        status,
+        toolName: toolName.slice(0, 80),
+        durationMs:
+          event === 'tool_finished' ? Date.now() - toolStartedAt : undefined,
+      })
+    } catch {
+      // Runtime tracing is observational and must never affect execution.
+    }
+  }
+  const finishToolEvent = (
+    status: 'completed' | 'failed' | 'cancelled',
+  ): void => {
+    if (toolFinished) return
+    toolFinished = true
+    recordToolEvent('tool_finished', status)
+  }
+  recordToolEvent('tool_started')
 
-  // Dev override: bypass agent tool restrictions for custom tools when devMode is active
-  const isDevOverride = fileContext.devMode === true
+  const trustedDefinitions: CustomToolDefinitions =
+    isTrustedCustomToolDefinitions(params.customToolDefinitions)
+      ? params.customToolDefinitions
+      : await getMCPToolData({
+          toolNames: agentTemplate.toolNames,
+          mcpServers: agentTemplate.mcpServers,
+          writeTo: cloneDeep(fileContext.customToolDefinitions),
+          requestMcpToolData: params.requestMcpToolData,
+          logger: params.logger,
+        })
 
-  // Filter out restricted tools - emit error instead of tool call/result
-  // This prevents the CLI from showing tool calls that the agent doesn't have permission to use
-  if (
-    !isDevOverride &&
-    toolCall.toolName &&
-    !agentTemplate.toolNames.includes(toolCall.toolName) &&
-    !fromHandleSteps &&
-    !(
-      toolCall.toolName.includes(MCP_TOOL_SEPARATOR) &&
-      toolCall.toolName.split(MCP_TOOL_SEPARATOR)[0] in agentTemplate.mcpServers
-    )
-  ) {
-    // Emit an error event instead of tool call/result pair
-    // The stream parser will convert this to a user message for proper API compliance
-    onResponseChunk({
-      type: 'error',
-      message: `Tool \`${toolName}\` is not currently available. Make sure to only use tools listed in the system instructions.`,
+  let toolCall: CustomToolCall | ToolCallError
+  try {
+    toolCall = parseRawCustomToolCall({
+      // FID-2026-0802-005 H8: use the step-built definitions only when they
+      // carry the runtime trust marker. Untrusted caller-supplied definitions
+      // are rebuilt from the host file context and discovered MCP tools so a
+      // caller cannot downgrade a tool's effect or permission metadata.
+      customToolDefs: trustedDefinitions,
+      rawToolCall: {
+        toolName,
+        toolCallId: toolCallId ?? generateCompactId(),
+        input: input as JSONValue,
+      },
+      autoInsertEndStepParam,
     })
-    return previousToolCallFinished
+  } catch (error) {
+    finishToolEvent(params.signal.aborted ? 'cancelled' : 'failed')
+    throw error
   }
 
   if ('error' in toolCall) {
@@ -98,6 +122,94 @@ export async function executeCustomToolCall(
       { toolCall, error: toolCall.error },
       `${toolName} error: ${toolCall.error}`,
     )
+    finishToolEvent('failed')
+    return previousToolCallFinished
+  }
+
+  const executionPolicy = resolveExecutionPolicy({
+    fileContext,
+    agentState,
+  })
+
+  // Custom tools participate in the same protocol, sandbox, and capability
+  // gates as native tools. The definition set used here is runtime-trusted:
+  // it was either built for this step or rebuilt from host context plus
+  // discovered MCP tools. Caller-supplied metadata cannot downgrade it.
+  const declaredSafety = trustedDefinitions[toolCall.toolName]
+  const declaredEffect = declaredSafety?.effect ?? 'mixed'
+  if (!declaredSafety?.effect || !declaredSafety.permission) {
+    onResponseChunk({
+      type: 'error',
+      message: `Tool \`${toolName}\` is missing an explicit host safety contract.`,
+    })
+    finishToolEvent('failed')
+    return previousToolCallFinished
+  }
+  if (!['read', 'network'].includes(declaredEffect)) {
+    onResponseChunk({
+      type: 'error',
+      message: `Tool \`${toolName}\` declares unsupported local side effects. Custom extension tools must declare read or network effects until an audited write adapter exists.`,
+    })
+    finishToolEvent('failed')
+    return previousToolCallFinished
+  }
+
+  const sandboxRejected = checkSandboxPolicy({
+    isDevOverride: executionPolicy.allowSandboxOverride,
+    toolName,
+    toolCallToolName: toolCall.toolName,
+    toolCallInput: toolCall.input,
+    projectRoot: fileContext.projectRoot,
+    permissionMode: fileContext.permissionMode,
+    safetyOverride:
+      declaredSafety?.effect && declaredSafety.permission
+        ? {
+            effect: declaredSafety.effect,
+            permission: declaredSafety.permission,
+            reason:
+              declaredSafety.description ??
+              'Host-declared extension-tool policy.',
+          }
+        : undefined,
+    logger,
+    onResponseChunk,
+  })
+  if (sandboxRejected) {
+    finishToolEvent('failed')
+    return previousToolCallFinished
+  }
+
+  const enforcement = getOrCreateEnforcement(agentState)
+  const enforceResult = enforcement.beforeToolCall({
+    toolName,
+    input: toolCall.input as Record<string, unknown>,
+    agentId: agentState.agentId,
+  })
+  for (const chunk of buildComplianceWarningChunks(enforceResult.warnings)) {
+    onResponseChunk(chunk)
+  }
+  if (enforceResult.blocked) {
+    onResponseChunk({
+      type: 'error',
+      message: formatBlockingError(enforceResult.reason ?? 'ECHO violation'),
+    })
+    finishToolEvent('failed')
+    return previousToolCallFinished
+  }
+
+  // Filter out restricted tools - emit error instead of tool call/result.
+  // This prevents the CLI from showing calls that the agent cannot use.
+  if (
+    !executionPolicy.allowCapabilityOverride &&
+    !agentTemplate.toolNames.includes(toolCall.toolName)
+  ) {
+    // Emit an error event instead of tool call/result pair
+    // The stream parser will convert this to a user message for proper API compliance
+    onResponseChunk({
+      type: 'error',
+      message: `Tool \`${toolName}\` is not currently available. Make sure to only use tools listed in the system instructions.`,
+    })
+    finishToolEvent('failed')
     return previousToolCallFinished
   }
 
@@ -118,9 +230,10 @@ export async function executeCustomToolCall(
     toolCallsToAddToMessageHistory.push(toolCall)
   }
 
-  return previousToolCallFinished
+  return await previousToolCallFinished
     .then(async () => {
       if (params.signal.aborted) {
+        recordToolEvent('tool_finished', 'cancelled')
         return null
       }
 
@@ -165,6 +278,22 @@ export async function executeCustomToolCall(
           toolResultsToAddToMessageHistory.push(toolResult)
         }
 
+        enforcement.afterToolCall({
+          toolName,
+          input: toolCall.input as Record<string, unknown>,
+          result: {
+            text:
+              typeof toolResult.content === 'string'
+                ? toolResult.content
+                : undefined,
+          },
+          // Custom tools are explicitly restricted to non-local read/network
+          // effects above; they cannot claim a local write lifecycle without a
+          // dedicated audited snapshot adapter.
+          writeSucceeded: false,
+        })
+
+        finishToolEvent('completed')
         return
       },
       async (error) => {
@@ -183,6 +312,11 @@ export async function executeCustomToolCall(
           { toolName, errorMessage },
           `Tool \`${toolName}\` failed: ${errorMessage}`,
         )
+        finishToolEvent('failed')
       },
     )
+    .catch((error) => {
+      finishToolEvent(params.signal.aborted ? 'cancelled' : 'failed')
+      throw error
+    })
 }

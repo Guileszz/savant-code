@@ -5,7 +5,7 @@
 The full single-agent ECHO protocol is maintained at:
 
 ```text
-dev/nova/specs/echo-v0.1.2-single-agent.md
+dev/echo-v0.1.2-single-agent.md
 ```
 
 Its machine-readable configuration is `single_agent.protocol` in
@@ -13,10 +13,10 @@ Its machine-readable configuration is `single_agent.protocol` in
 Read that file completely before any work session. Do not use `ECHO.md` (Savant-Code harness protocol) for single-agent
 governance.
 
-See `FREEREADME.md` for the full session directive.
-
 ## Signing Policy
 
-Agents sign every authored/modified document (FIDs, session summaries, CHANGELOG entries, knowledge files) as
-**`Savant`** only — never with any product/harness/assistant name. See "Document Signing &
-Attribution" in `dev/nova/specs/echo-v0.1.2-single-agent.md`.
+**No signatures. No author attribution. No agent names in documents.**
+
+FIDs, session summaries, CHANGELOG entries, knowledge files, and other repository artifacts must not include
+`Author:`, `Fixed By:`, `Verified By:`, `Signed by:`, or any similar agent-attribution field. The document speaks for
+itself.

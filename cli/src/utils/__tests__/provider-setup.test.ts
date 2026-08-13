@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
 
 import { applyPersistedDirectProviderSettings } from '../ollama-onboarding'
 import {
+  activateConfiguredProvider,
   applyPersistedProviderApiKeys,
   configureDefaultDirectProvider,
   getConfiguredProviderNames,
@@ -18,10 +19,12 @@ import { saveSettings } from '../settings'
 
 const PROVIDER_ENV_VARS = [
   'OPENROUTER_API_KEY',
+  'TOKENROUTER_API_KEY',
   'OPENCODE_GO_API_KEY',
   'TOKENHARBOR_API_KEY',
   'NVIDIA_API_KEY',
   'COMMAND_CODE_API_KEY',
+  'NOUS_API_KEY',
   'CLOUDFLARE_API_TOKEN',
   'DIRECT_PROVIDER',
   'INFERENCE_BASE_URL',
@@ -69,6 +72,51 @@ describe('provider setup', () => {
     )
     expect(credentials.providerApiKeys.OPENCODE_GO_API_KEY).not.toContain('  ')
     expect(getConfiguredProviderNames()).toContain('opencode-go')
+  })
+
+  test('activates Nous from an existing shell key without requiring setup input', () => {
+    process.env.NOUS_API_KEY = 'env-nous-key'
+
+    expect(activateConfiguredProvider('nous')).toBe(true)
+    expect(process.env.DIRECT_PROVIDER).toBe('nous')
+    expect(process.env.INFERENCE_BASE_URL).toBe(
+      'https://inference-api.nousresearch.com/v1',
+    )
+    expect(
+      JSON.parse(fs.readFileSync(path.join(tempDir, 'settings.json'), 'utf8'))
+        .activeProvider,
+    ).toBe('nous')
+    expect(fs.existsSync(path.join(tempDir, 'credentials.json'))).toBe(false)
+  })
+
+  test('leaves an explicit route untouched when the selected provider is unconfigured', () => {
+    process.env.DIRECT_PROVIDER = 'ollama'
+    process.env.INFERENCE_BASE_URL = 'https://custom.example/v1'
+
+    expect(activateConfiguredProvider('nous')).toBe(false)
+    expect(process.env.DIRECT_PROVIDER).toBe('ollama')
+    expect(process.env.INFERENCE_BASE_URL).toBe('https://custom.example/v1')
+  })
+
+  test('persisted active provider wins over a different configured environment key at startup', () => {
+    saveSettings({ activeProvider: 'tokenharbor' })
+    process.env.NOUS_API_KEY = 'env-nous-key'
+
+    configureDefaultDirectProvider()
+
+    expect(process.env.DIRECT_PROVIDER).toBe('tokenharbor')
+    expect(process.env.INFERENCE_BASE_URL).toBe('https://tokenharbor.ai/v1')
+  })
+
+  test('saves Nous credentials for direct-provider mode', () => {
+    saveProviderApiKey('nous', '  test-nous-key  ')
+
+    expect(process.env.NOUS_API_KEY).toBe('test-nous-key')
+    expect(process.env.DIRECT_PROVIDER).toBe('nous')
+    expect(process.env.INFERENCE_BASE_URL).toBe(
+      'https://inference-api.nousresearch.com/v1',
+    )
+    expect(getConfiguredProviderNames()).toContain('nous')
   })
 
   test('saves TokenHarbor credentials for direct-provider mode', () => {
@@ -276,6 +324,11 @@ describe('provider setup', () => {
       provider: 'tokenharbor',
       envVar: 'TOKENHARBOR_API_KEY',
       baseUrl: 'https://tokenharbor.ai/v1',
+    })
+    expect(getProviderSetupInfo('Nous')).toMatchObject({
+      provider: 'nous',
+      envVar: 'NOUS_API_KEY',
+      baseUrl: 'https://inference-api.nousresearch.com/v1',
     })
     expect(getProviderSetupInfo('unknown')).toBeUndefined()
   })

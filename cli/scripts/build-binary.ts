@@ -472,6 +472,26 @@ async function main() {
   }
   logAlways(`Copied graph export audio assets: ${siblingGraphAudio}`)
 
+  // Ship the loadable design-system skill beside the binary. Resource files are
+  // resolved executable-adjacent at runtime so packaged installs do not depend
+  // on the source tree or caller cwd.
+  const designSystemsSource = join(
+    repoRoot,
+    '.agents',
+    'skills',
+    'savant-design-systems',
+  )
+  const designSystemsDestination = join(binDir, 'savant-design-systems')
+  if (!existsSync(join(designSystemsSource, 'manifest.json'))) {
+    throw new Error(
+      `Missing generated design-system skill: ${designSystemsSource}`,
+    )
+  }
+  rmSync(designSystemsDestination, { recursive: true, force: true })
+  mkdirSync(designSystemsDestination, { recursive: true })
+  cpDirectory(designSystemsSource, designSystemsDestination)
+  logAlways(`Copied design-system skill: ${designSystemsDestination}`)
+
   // Ship the runtime environment as a sibling JSON file. This is more
   // reliable than `--define` because workspace packages are pre-built to
   // dist and minified, so compile-time replacements can miss references.
@@ -511,6 +531,19 @@ if (import.meta.main) {
  * node_modules layout, same as findWebTreeSitterWasm. The graph export reads
  * it at runtime to run the export-time ELK layout (FID-2026-0806-017).
  */
+function cpDirectory(source: string, destination: string): void {
+  mkdirSync(destination, { recursive: true })
+  for (const entry of readdirSync(source, { withFileTypes: true })) {
+    const sourcePath = join(source, entry.name)
+    const destinationPath = join(destination, entry.name)
+    if (entry.isDirectory()) {
+      cpDirectory(sourcePath, destinationPath)
+    } else {
+      copyFileSync(sourcePath, destinationPath)
+    }
+  }
+}
+
 function findElkWorkerBundle(): string {
   const candidates = [
     join(cliRoot, 'node_modules', 'elkjs', 'lib', 'elk-worker.min.js'),

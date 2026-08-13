@@ -115,7 +115,7 @@ describe('registry gating matrix (FID-007)', () => {
     })
     expect(guidance).toContain('/provider')
     expect(findCommand('provider')).toBeDefined()
-    expect(findCommand('model')).toBeDefined()
+    expect(findCommand('model')?.name).toBe('model')
   })
 
   it('D2: findCommand returns a stable /dev definition identity', () => {

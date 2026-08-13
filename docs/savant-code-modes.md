@@ -217,7 +217,7 @@ future metering), that's fine. If you want to drop it entirely, the chain is sho
 | `agents/base2/{base2,base2-lite,base2-max,base2-plan,base2-fast,base2-free}.ts` | If the new mode names map to distinct agent IDs, edit the wrapper files. `agents/base2/base2.ts` `createBase2(mode, options?)` is the universal seam — most logic lives here. |
 | `common/src/constants/model-config.ts` | `costModes` const array; shrink or rename if you change the union. |
 | `sdk/src/run.ts` (~line 150) | `costMode: costMode ?? 'normal'` — drop or rename the field on `RunOptions`. The SDK has no enforcement, so the field is purely a wire label. |
-| `agents/browser-use/browser-use.test.ts` (sav-26-040 reference) | Other tests/snapshots need a sweep if you rename the `AgentDefinition` IDs. |
+| `agents/browser-use/manual-e2e.ts` (sav-26-040 reference) | Other tests/snapshots need a sweep if you rename the `AgentDefinition` IDs. |
 
 ---
 

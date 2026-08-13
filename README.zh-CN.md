@@ -8,11 +8,20 @@
 
 基于 TypeScript/Bun 构建，受 ECHO 协议治理，并针对本地优先的 Ollama 使用场景设计。
 
-[![TypeScript](https://img.shields.io/badge/TypeScript-5.5-%23000000?style=flat-square&logo=typescript&logoColor=%2300fbff)](https://www.typescriptlang.org/)[![Bun](https://img.shields.io/badge/Bun-1.3.14-%23000000?style=flat-square&logo=bun&logoColor=%2300fbff)](https://bun.sh/)[![React](https://img.shields.io/badge/React-19-%23000000?style=flat-square&logo=react&logoColor=%2300fbff)](https://react.dev/)[![OpenTUI](https://img.shields.io/badge/OpenTUI-0.2.2-%23000000?style=flat-square&logo=opentui&logoColor=%2300fbff)](https://github.com/anomalyco/opentui)[![ECHO](https://img.shields.io/badge/ECHO-v0.2.0-%23000000?style=flat-square&logo=github&logoColor=%2300fbff)](ECHO.md)[![License](https://img.shields.io/badge/License-Apache_2.0-%23000000?style=flat-square&logo=apache&logoColor=%2300fbff)](LICENSE)[![Release](https://img.shields.io/badge/Release-v0.0.21-%23000000?style=flat-square&logo=semver&logoColor=%2300fbff)](CHANGELOG.md)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.5-%23000000?style=flat-square&logo=typescript&logoColor=%2300fbff)](https://www.typescriptlang.org/)[![Bun](https://img.shields.io/badge/Bun-1.3.14-%23000000?style=flat-square&logo=bun&logoColor=%2300fbff)](https://bun.sh/)[![React](https://img.shields.io/badge/React-19-%23000000?style=flat-square&logo=react&logoColor=%2300fbff)](https://react.dev/)[![OpenTUI](https://img.shields.io/badge/OpenTUI-0.2.2-%23000000?style=flat-square&logo=opentui&logoColor=%2300fbff)](https://github.com/anomalyco/opentui)[![ECHO](https://img.shields.io/badge/ECHO-v0.2.0-%23000000?style=flat-square&logo=github&logoColor=%2300fbff)](ECHO.md)[![License](https://img.shields.io/badge/License-Apache_2.0-%23000000?style=flat-square&logo=apache&logoColor=%2300fbff)](LICENSE)[![Release](https://img.shields.io/badge/Release-v0.0.23-pending-%23000000?style=flat-square&logo=semver&logoColor=%2300fbff)](CHANGELOG.md)
 
 </div>
 
-> **v0.0.21** — v0.0.20 之后的首次发布：格式化/测试门禁全面生效、ECHO 强制执行层、
+> **v0.0.23（待发布，未发布）** —— 优化与自动化计划的实施范围已完成，
+> 并由独立审计对 FID-2026-0809-003 至 010 全部签署通过。深度审计主计划
+> FID-2026-0811-015 至 021 的 ECHO 合规修复已在自动化级别 3 授权下完成、关闭并归档，
+> Nova 独立实施审计已返回 **PASS — implementation approved for closure**。此前未跟踪的 004–014
+> 归档样式文件仍被明确视为不受信任的工作树工件，保持不变，等待操作员单独处置。
+> 本版本覆盖 fail-closed 凭据/删除扫描、无 shell 发布边界、结构化可复现审计证据、
+> 显式开发环境信任、FID 依赖图校验和可度量质量门禁。尚未创建标签、推送、发布或部署。
+>
+> 此前的统一提供商注册表仍作为历史事实保留；本待发布构建增加漂移检测，但不改变提供商路由。
+> **v0.0.21** —— v0.0.20 之后的首次发布：格式化/测试门禁全面生效、ECHO 强制执行层、
 > 上下文窗口修正、确定性代码知识图谱，以及对抗式验证 —— ECHO 完美循环新增
 > **ADVERSARIAL** 阶段与只读的 **Adversary** 智能体（反驳 Verifier 结论、复核无证据
 > PASS、裁决优先），每条裁决绑定 `file:line` 证据规则（`NEEDS-REVIEW` 用于无法取证
@@ -68,6 +77,7 @@ ollama serve
 | TokenHarbor | `/provider tokenharbor` | `TOKENHARBOR_API_KEY` | `https://tokenharbor.ai/v1` 的 OpenAI 兼容网关 |
 | NVIDIA NIM | `/provider nvidia` | `NVIDIA_API_KEY` | NVIDIA 托管推理 |
 | CommandCode | `/provider commandcode` | `COMMAND_CODE_API_KEY` | OpenAI 兼容的托管推理 |
+| Nous Research | `/provider nous` | `NOUS_API_KEY` | OpenAI 兼容的直连推理；Portal OAuth 另行处理 |
 
 密钥持久化在 Windows 的 `C:\Users\<username>\.savant-code\credentials.json` 或 macOS/Linux 的
 `~/.savant-code/credentials.json`。环境变量优先于已保存的凭据。自动化时，在启动 Savant-Code 前设置一个提供商密钥：
@@ -80,6 +90,7 @@ $env:OPENROUTER_API_KEY = "your-key"
 # $env:TOKENHARBOR_API_KEY = "your-key"
 # $env:NVIDIA_API_KEY = "your-key"
 # $env:COMMAND_CODE_API_KEY = "your-key"
+# $env:NOUS_API_KEY = "your-key"
 savant-code
 ```
 
@@ -91,6 +102,7 @@ set OPENROUTER_API_KEY=your-key
 :: set TOKENHARBOR_API_KEY=your-key
 :: set NVIDIA_API_KEY=your-key
 :: set COMMAND_CODE_API_KEY=your-key
+:: set NOUS_API_KEY=your-key
 savant-code
 ```
 
@@ -102,6 +114,7 @@ export OPENROUTER_API_KEY="your-key"
 # export TOKENHARBOR_API_KEY="your-key"
 # export NVIDIA_API_KEY="your-key"
 # export COMMAND_CODE_API_KEY="your-key"
+# export NOUS_API_KEY="your-key"
 savant-code
 ```
 
@@ -123,7 +136,7 @@ OpenRouter 凭据优先级如下：
 3. `INFERENCE_API_KEY` —— 使用 SDK 专用推理密钥。
 
 高级 Cloudflare Workers AI 集成使用 `CLOUDFLARE_API_TOKEN` 与 `CLOUDFLARE_ACCOUNT_ID`。普通 CLI 用户应使用
-`/provider` 或上面的四个提供商专用密钥。请勿创建项目级 `.env` 文件，也不要手动编辑 `credentials.json`。
+`/provider` 或上面的提供商专用密钥（包括 Nous Research 的 `NOUS_API_KEY`）。请勿创建项目级 `.env` 文件，也不要手动编辑 `credentials.json`。
 
 ---
 
@@ -173,7 +186,13 @@ MCP 工具发现、模式切换（`HYBRID` / `SCAFFOLD` / `STRICT` / `ANALYZE`�
 - **`/init` 命令** —— 生成 `.agents/types/{agent-definition,tools,util-types}.ts` 以及一份入门
   `knowledge.md`。
 - **斜杠命令** —— `/new`、`/history`、`/bash`、`/goal`、`/loop`、`/feedback`、`/rewind`、
-  `/theme:toggle`、`/login`、`/logout`、`/exit`，以及各智能体专属命令。
+  `/theme:toggle`、`/design`、`/login`、`/logout`、`/exit`，以及各智能体专属命令。
+- **可加载设计系统库** —— 离线 `savant-design-systems` 技能包含 74 个约 2 MB 的预设，支持 `/design list`、
+  `/design use`、`/design create`、`/design edit`、`/design import`、草稿恢复与重置。只有当前设计契约会进入
+  agent 上下文；自定义系统经过校验、版本化保存，并在 EHEL 写入边界进行检查。详细架构、交互式创建/编辑、
+  安全边界、持久化、强制检查与打包证据见
+  [设计系统库指南](docs/design/design-system-library.md)。如需实时验证 CLI 可用性、智能体反馈与延迟，请运行
+  [设计系统实时测试提示](dev/test-prompts/design-system-live-ux-performance.md)。对于覆盖当前更新全部变更域的完整回归，请运行[v0.0.23综合实时测试提示](dev/test-prompts/v0.0.23-comprehensive-live-test.md)，结果写入`dev/scratchpad/v0.0.23-comprehensive-live-test-report.md`。这些提示及其实时结果均有独立的签核边界。实现已在工作树中关闭；独立的最终文档/实现审查仍在等待中。
 - **提供商设置** —— `/provider` 打开交互式下拉选择器，显示所有提供商及其 ✓/✗ 配置状态。选择提供商后可
   输入其 API 密钥（遮罩输入）。密钥存储在本地 `credentials.json`。
 - **遥测控制** —— `/telemetry status|enable|disable` 切换远程分析与错误上报。主 CLI 默认开启远程分析，但用户可以
@@ -237,7 +256,8 @@ MCP 工具发现、模式切换（`HYBRID` / `SCAFFOLD` / `STRICT` / `ANALYZE`�
   上下文长度。
 - **通用复制按钮** —— 在整个 TUI 中悬停即可复制代码块、工具输出与文件 diff。
 - **网关提供商** —— 通过 `@savant-code/llm-providers` 支持 TokenRouter、TokenHarbor、NVIDIA NIM、OpenCode Go、
-  CommandCode 与 Cloudflare Workers AI。
+  CommandCode、Nous Research 与 Cloudflare Workers AI。Nous Research 使用 OpenAI 兼容直连 API；Portal OAuth
+  是独立集成。
 - **默认模型** —— 通过 OpenRouter 使用 `openrouter/free`（可通过 `/model` 配置）。
 - **无头 / 非交互模式** —— `savant-code --print "<prompt>"` 无需 TUI 即可运行单个提示词，并将最终答案打印到
   stdout。退出码：`0` 成功、`1` 错误或超时、`2` 用法错误。当 stdin 被管道化或环境为 CI 时，CLI 自动进入无头模式并以

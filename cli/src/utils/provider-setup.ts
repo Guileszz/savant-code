@@ -12,6 +12,7 @@ import {
 } from './auth'
 import {
   getActiveProvider,
+  loadActiveProvider,
   saveActiveProvider,
   saveSavantCodeModelProviderPreference,
 } from './settings'
@@ -90,6 +91,32 @@ export function getMissingProviderSetup(): MissingProviderSetup | undefined {
   const info = getProviderSetupInfo(provider)
   if (!info || !process.env[info.envVar]?.trim()) return info
   return undefined
+}
+
+/**
+ * Activate a provider that is already configured through the environment or
+ * persisted provider-key store without asking the user to paste the key again.
+ * Returns true when a usable key was found and the provider selection was
+ * applied. Interactive selection is an explicit routing override; ordinary
+ * startup configuration continues to preserve explicit shell routing.
+ */
+export function activateConfiguredProvider(
+  provider: ProviderSetupName,
+): boolean {
+  const config = PROVIDER_SETUP_CONFIG[provider]
+  applyPersistedProviderApiKeys()
+  if (!process.env[config.envVar]?.trim()) return false
+
+  // This function is called only after an explicit interactive provider
+  // selection (/provider or the picker), so it intentionally replaces the
+  // current bootstrap/custom route with the selected provider. The selected
+  // provider's own shell key remains the credential source; stored keys are only
+  // used when the shell has no key.
+  process.env.DIRECT_PROVIDER = provider
+  process.env.INFERENCE_BASE_URL = config.baseUrl
+  saveSavantCodeModelProviderPreference(provider)
+  saveActiveProvider(provider)
+  return true
 }
 
 export function getProviderSetupGuidance(info: MissingProviderSetup): string {
@@ -183,9 +210,16 @@ export function configureDefaultDirectProvider(): void {
     return
   }
 
-  // The canonical active provider (Phase 4): persisted /provider selection,
-  // else the picker preference (legacy routing source), else the default.
-  const provider = getActiveProvider()
+  // A persisted /provider selection is explicit and wins over environment
+  // discovery. Otherwise, if exactly one hosted provider is configured in the
+  // environment, prefer it over the OpenRouter bootstrap default. This makes a
+  // `.env.local` with only `NOUS_API_KEY` self-select Nous without requiring a
+  // second setup step, while preserving an existing user selection.
+  const configuredProviders = getConfiguredProviderNames()
+  const configuredProvider =
+    configuredProviders.length === 1 ? configuredProviders[0] : undefined
+  const provider =
+    loadActiveProvider() ?? configuredProvider ?? getActiveProvider()
   const info = getProviderSetupInfo(provider)
   if (!info) return
 

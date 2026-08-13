@@ -23,10 +23,11 @@ import type { ProviderConfig } from '../types'
  * as its first argument so tests inject a fixture instead of the singleton).
  */
 describe('PROVIDER_REGISTRY (FID-2026-0809-001 Phase 1)', () => {
-  test('covers all eight current providers', () => {
+  test('covers all nine current providers', () => {
     expect(Object.keys(PROVIDER_REGISTRY).sort()).toEqual([
       'cloudflare',
       'commandcode',
+      'nous',
       'nvidia',
       'ollama',
       'opencode-go',
@@ -69,17 +70,24 @@ describe('PROVIDER_REGISTRY (FID-2026-0809-001 Phase 1)', () => {
     expect(deriveProviderOrder(PROVIDER_REGISTRY, 'tokenrouter')).toBe(1)
     expect(deriveProviderOrder(PROVIDER_REGISTRY, 'nvidia')).toBe(2)
     expect(deriveProviderOrder(PROVIDER_REGISTRY, 'opencode-go')).toBe(3)
-    for (const id of ['tokenharbor', 'commandcode', 'ollama', 'cloudflare']) {
+    for (const id of [
+      'tokenharbor',
+      'commandcode',
+      'nous',
+      'ollama',
+      'cloudflare',
+    ]) {
       expect(deriveProviderOrder(PROVIDER_REGISTRY, id)).toBe(4)
     }
     // Unknown providers sort last, matching the historical `default: 4`.
     expect(deriveProviderOrder(PROVIDER_REGISTRY, 'unknown')).toBe(4)
   })
 
-  test('setup config derives exactly the six current setup providers', () => {
+  test('setup config derives exactly the seven current setup providers', () => {
     const setup = deriveSetupConfig(PROVIDER_REGISTRY)
     expect(Object.keys(setup).sort()).toEqual([
       'commandcode',
+      'nous',
       'nvidia',
       'opencode-go',
       'openrouter',
@@ -95,6 +103,11 @@ describe('PROVIDER_REGISTRY (FID-2026-0809-001 Phase 1)', () => {
       label: 'TokenHarbor',
       envVar: 'TOKENHARBOR_API_KEY',
       baseUrl: 'https://tokenharbor.ai/v1',
+    })
+    expect(setup.nous).toEqual({
+      label: 'Nous Research',
+      envVar: 'NOUS_API_KEY',
+      baseUrl: 'https://inference-api.nousresearch.com/v1',
     })
     expect(setup['opencode-go']).toEqual({
       label: 'OpenCode Go',

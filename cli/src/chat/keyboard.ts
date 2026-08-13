@@ -1,3 +1,4 @@
+import { getSelectedSlashCommand } from './slash-selection'
 import { areCreditsRestored } from '../components/out-of-credits-banner'
 import { WEBSITE_URL } from '../login/constants'
 import { getProjectRoot } from '../project-files'
@@ -184,13 +185,13 @@ export function buildChatKeyboardHandlers(
     onSlashMenuDown: () => setSlashSelectedIndex((prev) => prev + 1),
     onSlashMenuUp: () => setSlashSelectedIndex((prev) => prev - 1),
     onSlashMenuSelect: async () => {
-      await executeSlashCommand(
-        slashMatches[slashSelectedIndex] || slashMatches[0],
-      )
+      const selected = getSelectedSlashCommand(slashMatches, slashSelectedIndex)
+      if (!selected) return
+      await executeSlashCommand(selected)
     },
     onSlashMenuComplete: () => {
       // Complete the word without executing - same as clicking on the item
-      const selected = slashMatches[slashSelectedIndex] || slashMatches[0]
+      const selected = getSelectedSlashCommand(slashMatches, slashSelectedIndex)
       if (!selected || slashContext.startIndex < 0) return
 
       // If the command has insertText, insert it instead of the command

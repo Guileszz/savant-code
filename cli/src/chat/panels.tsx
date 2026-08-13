@@ -2,6 +2,8 @@ import { ChatSidebar } from './sidebar'
 import {
   BOTTOM_BOX_STYLE,
   CHAT_ROOT_STYLE,
+  createChatScrollbarOptions,
+  createChatSurfaceStyle,
   HEADER_BOX_STYLE,
   SCROLLBOX_STYLE,
 } from './styles'
@@ -144,8 +146,8 @@ export function ChatLayout(props: ChatLayoutProps) {
       <box
         focusable={false}
         style={{
+          ...createChatSurfaceStyle(theme.background),
           flexDirection: 'column',
-          flexGrow: 1,
           gap: 0,
           borderStyle: 'single',
           borderColor: theme.border,
@@ -167,7 +169,7 @@ export function ChatLayout(props: ChatLayoutProps) {
           scrollbarOptions={{ visible: false }}
           verticalScrollbarOptions={{
             visible: !isStreaming && !isWaitingForResponse && hasOverflow,
-            trackOptions: { width: 1 },
+            ...createChatScrollbarOptions(theme.background, theme.primary),
           }}
           {...appliedScrollboxProps}
           style={SCROLLBOX_STYLE}
@@ -265,6 +267,7 @@ export function ChatLayout(props: ChatLayoutProps) {
                   onSelectIndex={onModelPickerSelectIndex}
                   onSelect={onModelPickerSelect}
                   onClose={onCloseModelPicker}
+                  terminalHeight={terminalHeight}
                 />
               )}
               {providerPickerOpen && (
@@ -274,6 +277,7 @@ export function ChatLayout(props: ChatLayoutProps) {
                   onSelectIndex={onProviderPickerSelectIndex}
                   onSelect={onProviderPickerSelect}
                   onClose={onCloseProviderPicker}
+                  terminalHeight={terminalHeight}
                 />
               )}
               {rewindPickerOpen && (

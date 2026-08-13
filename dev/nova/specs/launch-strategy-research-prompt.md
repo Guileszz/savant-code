@@ -3,7 +3,7 @@
 ## Context
 
 I'm launching an open-source, free-tier AI coding agent CLI called "Savant Code" (Apache-2.0 licensed). It's a
-TypeScript monorepo with an ECHO Protocol governance system that enforces code quality through a 9-agent roster. Key
+TypeScript monorepo with an ECHO Protocol governance system that enforces code quality through a 10-agent roster. Key
 differentiator: the agent self-audits through a perfection loop before shipping code. It runs via BYOK (Bring Your Own
 Key) or local Ollama models. The ad infrastructure is wired but not yet active.
 

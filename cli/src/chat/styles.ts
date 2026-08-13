@@ -17,6 +17,35 @@ export const CHAT_ROOT_STYLE = {
   flexGrow: 1,
 } as const
 
+/** Shared base surface for the chat and sidebar; nested wrappers intentionally inherit it. */
+export const createChatSurfaceStyle = (backgroundColor: string) => ({
+  flexGrow: 1,
+  backgroundColor,
+})
+
+/** Shared sidebar geometry and base surface contract. */
+export const createSidebarSurfaceStyle = (backgroundColor: string) => ({
+  flexDirection: 'column' as const,
+  width: 40,
+  height: '100%' as const,
+  flexGrow: 1,
+  flexShrink: 0,
+  shouldFill: true,
+  backgroundColor,
+})
+
+/** Theme-driven OpenTUI scrollbar colors for the existing chat transcript. */
+export const createChatScrollbarOptions = (
+  trackColor: string,
+  thumbColor: string,
+) => ({
+  trackOptions: {
+    width: 1,
+    backgroundColor: trackColor,
+    foregroundColor: thumbColor,
+  },
+})
+
 export const HEADER_BOX_STYLE = { flexDirection: 'column' } as const
 
 export const SCROLLBOX_STYLE = {

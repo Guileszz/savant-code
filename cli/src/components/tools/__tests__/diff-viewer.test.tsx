@@ -2,9 +2,8 @@ import { describe, expect, test } from 'bun:test'
 import React from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 
-import { initializeThemeStore } from '../../../hooks/use-theme'
+import { initializeThemeStore, useThemeStore } from '../../../hooks/use-theme'
 import { blendHex, NEON_GREEN, NEON_RED } from '../../../utils/diff-stats'
-import { chatThemes } from '../../../utils/theme-system'
 import { CopyableBlock } from '../../blocks/copyable-block'
 import { DiffStatsBar, DiffViewer } from '../diff-viewer'
 
@@ -16,8 +15,9 @@ describe('DiffViewer (FID-2026-0804-010)', () => {
 
     const markup = renderToStaticMarkup(<DiffViewer diffText={diff} />)
 
-    const greenBg = blendHex(NEON_GREEN, chatThemes.dark.background, 0.5)
-    const redBg = blendHex(NEON_RED, chatThemes.dark.background, 0.5)
+    const activeBackground = useThemeStore.getState().theme.background
+    const greenBg = blendHex(NEON_GREEN, activeBackground, 0.5)
+    const redBg = blendHex(NEON_RED, activeBackground, 0.5)
 
     expect(markup).toContain(greenBg)
     expect(markup).toContain(redBg)
@@ -30,8 +30,9 @@ describe('DiffViewer (FID-2026-0804-010)', () => {
     const diff = 'diff --git a/f b/f\n@@ -1 +1 @@\n context\n'
     const markup = renderToStaticMarkup(<DiffViewer diffText={diff} />)
 
-    const greenBg = blendHex(NEON_GREEN, chatThemes.dark.background, 0.5)
-    const redBg = blendHex(NEON_RED, chatThemes.dark.background, 0.5)
+    const activeBackground = useThemeStore.getState().theme.background
+    const greenBg = blendHex(NEON_GREEN, activeBackground, 0.5)
+    const redBg = blendHex(NEON_RED, activeBackground, 0.5)
 
     expect(markup).not.toContain(greenBg)
     expect(markup).not.toContain(redBg)

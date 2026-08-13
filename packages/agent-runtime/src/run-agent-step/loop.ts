@@ -1,17 +1,18 @@
 import { isAbortError, getErrorObject } from '@savant-code/common/util/error'
 import { userMessage } from '@savant-code/common/util/messages'
 
-import { ContextCompactor } from '../context-compactor'
+import { getOrCreateEnforcement } from '../echo/enforcement'
+import { appendGroundingRefresh } from '../echo/grounding'
 import { clearProgrammaticRunState } from '../run-programmatic-step'
 import { buildLoopErrorOutput } from './error-output'
 import { createLoopContext } from './loop-context'
 import { runLoopIteration, type LoopIterationState } from './loop-iteration'
-import { runAgentStep } from './step'
 import { resetThinkerConvergenceState } from '../tools/thinker-convergence-gate'
 import { cleanupThoughtSession } from '../tools/thought-session-store'
 import { getAgentOutput } from '../util/agent-output'
 import { withSystemTags, expireMessages } from '../util/messages'
-import { recordPostCompact } from '../util/token-telemetry'
+import { retryAfterReactiveCompact } from './loop/reactive-compact'
+import { recordRuntimeEvent } from './loop/runtime-events'
 
 import type { LoopAgentStepsParams, LoopAgentStepsResult } from './types'
 
@@ -51,6 +52,39 @@ export async function loopAgentSteps(
     parentSystemPrompt,
   })
   if (!setupResult.ok) {
+    recordRuntimeEvent(
+      {
+        event: 'run_started',
+        runId: undefined,
+        agentId: setupResult.agentState.agentId,
+        agentType,
+        phase: 'setup',
+        messageCount: setupResult.agentState.messageHistory.length,
+      },
+      params.traceWriter,
+    )
+    recordRuntimeEvent(
+      {
+        event: 'terminal',
+        runId: undefined,
+        agentId: setupResult.agentState.agentId,
+        agentType,
+        phase: 'setup',
+        status: 'cancelled',
+        reason: 'setup_cancelled',
+      },
+      params.traceWriter,
+    )
+    recordRuntimeEvent(
+      {
+        event: 'cleanup_finished',
+        runId: undefined,
+        agentId: setupResult.agentState.agentId,
+        agentType,
+        phase: 'cleanup',
+      },
+      params.traceWriter,
+    )
     return {
       agentState: setupResult.agentState,
       output: {
@@ -70,6 +104,27 @@ export async function loopAgentSteps(
     contextCompactor,
   } = setupResult.ctx
 
+  recordRuntimeEvent(
+    {
+      event: 'run_started',
+      runId,
+      agentId: initialAgentState.agentId,
+      agentType,
+      phase: 'setup',
+      messageCount: initialAgentState.messageHistory.length,
+    },
+    params.traceWriter,
+  )
+
+  // FID-2026-0810-002 Change 4: create the enforcement instance EAGERLY at
+  // loop start (main agent) so `protocolRead` state exists before the first
+  // step — a text-only first turn can no longer bypass the session-init gate
+  // by never triggering lazy construction. Subagents are pre-seeded via the
+  // factory (parentId) and skip eager creation here.
+  if (!initialAgentState.parentId) {
+    getOrCreateEnforcement(initialAgentState)
+  }
+
   const state: LoopIterationState = {
     agentState: initialAgentState,
     shouldEndTurn: false,
@@ -83,24 +138,68 @@ export async function loopAgentSteps(
 
   try {
     while (true) {
-      const iteration = await runLoopIteration({
-        loopParams: params,
-        state,
-        ctx: {
-          agentTemplate,
-          system,
-          tools,
+      const stepStartedAt = Date.now()
+      recordRuntimeEvent(
+        {
+          event: 'step_started',
           runId,
-          toolsForTokenCount,
-          contextCompactor,
-          additionalToolDefinitionsWithCache,
-          getCachedAdditionalToolDefinitions,
-          localAgentTemplates,
-          logger,
-          signal,
-          initialAgentState,
+          agentId: initialAgentState.agentId,
+          agentType,
+          phase: 'step',
+          step: state.totalSteps + 1,
         },
-      })
+        params.traceWriter,
+      )
+      let iteration: Awaited<ReturnType<typeof runLoopIteration>>
+      try {
+        iteration = await runLoopIteration({
+          loopParams: params,
+          state,
+          ctx: {
+            agentTemplate,
+            system,
+            tools,
+            runId,
+            toolsForTokenCount,
+            contextCompactor,
+            additionalToolDefinitionsWithCache,
+            getCachedAdditionalToolDefinitions,
+            localAgentTemplates,
+            logger,
+            signal,
+            initialAgentState,
+          },
+        })
+      } catch (error) {
+        recordRuntimeEvent(
+          {
+            event: 'step_finished',
+            runId,
+            agentId: initialAgentState.agentId,
+            agentType,
+            phase: 'step',
+            step: state.totalSteps,
+            status: 'failed',
+            durationMs: Date.now() - stepStartedAt,
+            reason: error instanceof Error ? error.name : 'unknown_error',
+          },
+          params.traceWriter,
+        )
+        throw error
+      }
+      recordRuntimeEvent(
+        {
+          event: 'step_finished',
+          runId,
+          agentId: initialAgentState.agentId,
+          agentType,
+          phase: 'step',
+          step: state.totalSteps,
+          status: 'completed',
+          durationMs: Date.now() - stepStartedAt,
+        },
+        params.traceWriter,
+      )
       if (!iteration.shouldContinue) {
         break
       }
@@ -113,6 +212,11 @@ export async function loopAgentSteps(
       )
     }
 
+    if (!initialAgentState.parentId) {
+      const completionRefresh =
+        getOrCreateEnforcement(initialAgentState).recordLogicalUserTurn()
+      appendGroundingRefresh(initialAgentState, completionRefresh.refreshText)
+    }
     await finishAgentRun({
       ...params,
       runId,
@@ -121,6 +225,18 @@ export async function loopAgentSteps(
       directCredits: initialAgentState.directCreditsUsed,
       totalCredits: initialAgentState.creditsUsed,
     })
+    recordRuntimeEvent(
+      {
+        event: 'terminal',
+        runId,
+        agentId: initialAgentState.agentId,
+        agentType,
+        status: 'completed',
+        phase: 'step',
+        step: state.totalSteps,
+      },
+      params.traceWriter,
+    )
 
     return {
       agentState: initialAgentState,
@@ -164,6 +280,18 @@ export async function loopAgentSteps(
         directCredits: initialAgentState.directCreditsUsed,
         totalCredits: initialAgentState.creditsUsed,
       })
+      recordRuntimeEvent(
+        {
+          event: 'terminal',
+          runId,
+          agentId: initialAgentState.agentId,
+          agentType,
+          status: 'cancelled',
+          phase: 'step',
+          step: state.totalSteps,
+        },
+        params.traceWriter,
+      )
 
       return {
         agentState: initialAgentState,
@@ -176,93 +304,29 @@ export async function loopAgentSteps(
 
     // FID-2026-0725-085 Layer 4: Reactive compact — catch prompt-too-long errors,
     // aggressively truncate, and retry once before surfacing the error.
-    if (ContextCompactor.isPromptTooLongError(error) && !signal.aborted) {
-      logger.warn(
-        { error: getErrorObject(error) },
-        'Layer 4 reactive compact: prompt-too-long detected, attempting emergency truncation',
-      )
-      const reactiveResult = contextCompactor.reactiveCompact(
-        initialAgentState.messageHistory,
-      )
-      if (reactiveResult.truncated) {
-        const beforeCount = initialAgentState.messageHistory.length
-        initialAgentState.messageHistory = reactiveResult.messages
-        logger.warn(
-          {
-            messagesRemoved: beforeCount - reactiveResult.messages.length,
-            tokensSaved: reactiveResult.tokensSaved,
-          },
-          `Layer 4 reactive compact: truncated ${beforeCount - reactiveResult.messages.length} messages, saved ~${reactiveResult.tokensSaved.toLocaleString()} tokens. Retrying API call once.`,
-        )
-        // P4c (FID-2026-0806-003): PostCompact event (Axon pattern) with the
-        // ratio metrics; feeds analytics + the CLI status surface. Non-blocking.
-        try {
-          recordPostCompact(
-            {
-              originalTokens: initialAgentState.contextTokenCount,
-              compressedTokens: Math.max(
-                0,
-                initialAgentState.contextTokenCount -
-                  reactiveResult.tokensSaved,
-              ),
-              compressionRatio:
-                initialAgentState.contextTokenCount > 0
-                  ? Math.min(
-                      1,
-                      reactiveResult.tokensSaved /
-                        initialAgentState.contextTokenCount,
-                    )
-                  : 0,
-              summaryPreview: `Reactive compact: ${beforeCount - reactiveResult.messages.length} messages removed (~${reactiveResult.tokensSaved.toLocaleString()} tokens)`,
-              sessionId: runId,
-            },
-            logger,
-          )
-        } catch {
-          // best-effort
-        }
-        // Retry the API call once after reactive compaction
-        try {
-          const retryResult = await runAgentStep({
-            ...params,
-            agentState: initialAgentState,
-            agentTemplate,
-            n: undefined,
-            prompt: state.currentPrompt,
-            runId,
-            spawnParams: state.currentParams,
-            system,
-            tools,
-            additionalToolDefinitions: additionalToolDefinitionsWithCache,
-            customToolDefinitions: getCachedAdditionalToolDefinitions(),
-          })
-          // Retry succeeded — use the result
-          Object.assign(initialAgentState, retryResult.agentState)
-          contextCompactor.recordCompactionResult(
-            true,
-            initialAgentState.contextTokenCount,
-          )
-          await finishAgentRun({
-            ...params,
-            runId,
-            status: 'completed',
-            totalSteps: state.totalSteps,
-            directCredits: initialAgentState.directCreditsUsed,
-            totalCredits: initialAgentState.creditsUsed,
-          })
-          return {
-            agentState: initialAgentState,
-            output: getAgentOutput(initialAgentState, agentTemplate),
-          }
-        } catch (retryError) {
-          // Retry also failed — log and fall through to standard error handling
-          contextCompactor.recordCompactionResult(false)
-          logger.error(
-            { retryError: getErrorObject(retryError) },
-            'Layer 4 reactive compact: retry also failed',
-          )
-        }
-      }
+    const reactiveRetry = await retryAfterReactiveCompact({
+      loopParams: params,
+      error,
+      deps: {
+        contextCompactor,
+        initialAgentState,
+        runId,
+        logger,
+        signal,
+        traceWriter: params.traceWriter,
+        finishAgentRun,
+        agentTemplate,
+        system,
+        tools,
+        additionalToolDefinitionsWithCache,
+        getCachedAdditionalToolDefinitions,
+        totalSteps: state.totalSteps,
+        currentPrompt: state.currentPrompt,
+        currentParams: state.currentParams,
+      },
+    })
+    if (reactiveRetry) {
+      return reactiveRetry
     }
 
     logger.error(
@@ -285,6 +349,11 @@ export async function loopAgentSteps(
       signal,
     })
 
+    if (status !== 'cancelled' && !initialAgentState.parentId) {
+      const completionRefresh =
+        getOrCreateEnforcement(initialAgentState).recordLogicalUserTurn()
+      appendGroundingRefresh(initialAgentState, completionRefresh.refreshText)
+    }
     await finishAgentRun({
       ...params,
       runId,
@@ -294,6 +363,19 @@ export async function loopAgentSteps(
       totalCredits: initialAgentState.creditsUsed,
       errorMessage,
     })
+    recordRuntimeEvent(
+      {
+        event: 'terminal',
+        runId,
+        agentId: initialAgentState.agentId,
+        agentType,
+        status: status === 'cancelled' ? 'cancelled' : 'failed',
+        phase: 'step',
+        step: state.totalSteps,
+        reason: errorMessage,
+      },
+      params.traceWriter,
+    )
 
     // Payment required errors (402) should propagate
     if (statusCode === 402) {
@@ -314,5 +396,16 @@ export async function loopAgentSteps(
     // in-flight session cancelled.
     cleanupThoughtSession(runId)
     resetThinkerConvergenceState(runId)
+    recordRuntimeEvent(
+      {
+        event: 'cleanup_finished',
+        runId,
+        agentId: initialAgentState.agentId,
+        agentType,
+        phase: 'cleanup',
+        step: state.totalSteps,
+      },
+      params.traceWriter,
+    )
   }
 }

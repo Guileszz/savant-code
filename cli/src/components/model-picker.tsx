@@ -4,14 +4,13 @@ import { PROVIDER_REGISTRY } from '@savant-code/common/providers/registry'
 import { useCallback, useEffect, useMemo, useRef } from 'react'
 
 import { Button } from './button'
+import { getPickerViewport, normalizeSelectableIndex } from './picker-viewport'
 import { useTerminalDimensions } from '../hooks/use-terminal-dimensions'
 import { useTheme } from '../hooks/use-theme'
 import { Badge } from './savant-ui/data-display/badge'
 
 import type { OpenRouterModel } from '../utils/openrouter-models'
 import type { KeyEvent, ScrollBoxRenderable } from '@opentui/core'
-
-const MAX_VISIBLE = 12
 
 interface ModelPickerProps {
   models: OpenRouterModel[]
@@ -21,6 +20,7 @@ interface ModelPickerProps {
   onSelectIndex: (index: number) => void
   onSelect: (model: OpenRouterModel) => void
   onClose: () => void
+  terminalHeight: number
 }
 
 type ModelProvider = NonNullable<OpenRouterModel['provider']>
@@ -100,6 +100,7 @@ export const ModelPicker: React.FC<ModelPickerProps> = ({
   onSelectIndex,
   onSelect,
   onClose,
+  terminalHeight,
 }) => {
   const theme = useTheme()
   const { terminalWidth } = useTerminalDimensions()
@@ -117,29 +118,35 @@ export const ModelPicker: React.FC<ModelPickerProps> = ({
     [filteredModels],
   )
 
-  // Keep the selected index valid as the filter narrows the list.
+  const effectiveSelectedIndex = useMemo(
+    () =>
+      normalizeSelectableIndex(
+        selectedIndex,
+        items.length,
+        (index) => items[index]?.type === 'model',
+      ),
+    [items, selectedIndex],
+  )
+
+  // Keep selection on a real model as the filter changes; headers are display
+  // rows and must never become the active/committable item.
   useEffect(() => {
-    if (selectedIndex > items.length - 1) {
-      onSelectIndex(Math.max(0, items.length - 1))
+    if (effectiveSelectedIndex !== selectedIndex) {
+      onSelectIndex(effectiveSelectedIndex)
     }
-  }, [items.length, selectedIndex, onSelectIndex])
+  }, [effectiveSelectedIndex, onSelectIndex, selectedIndex])
 
   const scrollRef = useRef<ScrollBoxRenderable | null>(null)
-  const needsScroll = items.length > MAX_VISIBLE
-  const viewportHeight = needsScroll ? MAX_VISIBLE : Math.max(items.length, 1)
-  const start = needsScroll
-    ? Math.min(
-        Math.max(selectedIndex - Math.floor((MAX_VISIBLE - 1) / 2), 0),
-        Math.max(items.length - MAX_VISIBLE, 0),
-      )
-    : 0
-  const visible = items.slice(start, start + viewportHeight)
-
+  const viewport = useMemo(
+    () =>
+      getPickerViewport(terminalHeight, items.length, effectiveSelectedIndex),
+    [terminalHeight, items.length, effectiveSelectedIndex],
+  )
   useEffect(() => {
     const sb = scrollRef.current
     if (!sb) return
-    sb.scrollTop = start
-  }, [start])
+    sb.scrollTop = viewport.start
+  }, [viewport.start])
 
   const findNextModelIndex = useCallback(
     (from: number, direction: 1 | -1): number => {
@@ -182,12 +189,12 @@ export const ModelPicker: React.FC<ModelPickerProps> = ({
         }
         if (name === 'up' || (name === 'tab' && key.shift)) {
           prevent()
-          onSelectIndex(findNextModelIndex(selectedIndex, -1))
+          onSelectIndex(findNextModelIndex(effectiveSelectedIndex, -1))
           return
         }
         if (name === 'down' || (name === 'tab' && !key.shift)) {
           prevent()
-          onSelectIndex(findNextModelIndex(selectedIndex, 1))
+          onSelectIndex(findNextModelIndex(effectiveSelectedIndex, 1))
           return
         }
         if (name === 'backspace') {
@@ -197,7 +204,7 @@ export const ModelPicker: React.FC<ModelPickerProps> = ({
         }
         if (name === 'return' || name === 'enter' || name === 'space') {
           prevent()
-          commit(selectedIndex)
+          commit(effectiveSelectedIndex)
           return
         }
         // Printable characters build the filter query. OpenTUI routes keys
@@ -217,7 +224,7 @@ export const ModelPicker: React.FC<ModelPickerProps> = ({
         }
       },
       [
-        selectedIndex,
+        effectiveSelectedIndex,
         commit,
         findNextModelIndex,
         onClose,
@@ -246,19 +253,19 @@ export const ModelPicker: React.FC<ModelPickerProps> = ({
     >
       <text style={{ fg: theme.muted, wrapMode: 'none' }}>
         {query
-          ? `Filter: "${query}"  ·  ${filteredModels.length} match${filteredModels.length === 1 ? '' : 'es'}`
-          : `Select a model (↑/↓, Enter, Esc)  ·  ${filteredModels.length} models`}
+          ? `Filter: "${query}"  ·  ${filteredModels.length} match${filteredModels.length === 1 ? '' : 'es'}${viewport.needsScroll ? ` · showing ${viewport.start + 1}-${viewport.end}` : ''}`
+          : `Select a model (↑/↓, Enter, Esc)  ·  ${filteredModels.length} models${viewport.needsScroll ? ` · showing ${viewport.start + 1}-${viewport.end}` : ''}`}
       </text>
       <scrollbox
         ref={scrollRef}
         scrollX={false}
         scrollbarOptions={{ visible: false }}
         verticalScrollbarOptions={{
-          visible: needsScroll,
+          visible: viewport.needsScroll,
           trackOptions: { width: 1 },
         }}
         style={{
-          height: viewportHeight + 1,
+          height: viewport.visibleRows + 1,
           flexShrink: 0,
           rootOptions: {
             flexDirection: 'row',
@@ -286,9 +293,8 @@ export const ModelPicker: React.FC<ModelPickerProps> = ({
             </text>
           </box>
         )}
-        {visible.map((item, idx) => {
-          const absoluteIndex = start + idx
-          const isSelected = absoluteIndex === selectedIndex
+        {items.map((item, absoluteIndex) => {
+          const isSelected = absoluteIndex === effectiveSelectedIndex
 
           if (item.type === 'header') {
             return (
@@ -297,7 +303,7 @@ export const ModelPicker: React.FC<ModelPickerProps> = ({
                 style={{
                   width: '100%',
                   paddingLeft: 1,
-                  paddingTop: 1,
+                  paddingTop: 0,
                   paddingBottom: 0,
                   backgroundColor: theme.surface,
                 }}

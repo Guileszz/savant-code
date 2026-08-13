@@ -141,10 +141,20 @@ export async function formatPrompt(
     [PLACEHOLDER.SYSTEM_INFO_PROMPT]: () => getSystemInfoPrompt(fileContext),
     [PLACEHOLDER.USER_CWD]: () => fileContext.cwd,
     [PLACEHOLDER.USER_INPUT_PROMPT]: () => escapeString(lastUserInput ?? ''),
+    [PLACEHOLDER.DESIGN_SYSTEM_CONTEXT]: () =>
+      fileContext.designSystemContext ?? '',
     [PLACEHOLDER.INITIAL_AGENT_PROMPT]: () =>
       escapeString(intitialAgentPrompt ?? ''),
     [PLACEHOLDER.MODEL_INFO]: () =>
       modelInfoText ?? formatFallbackModelInfo(agentTemplate?.model),
+    [PLACEHOLDER.PROTOCOL_FILE]: () => {
+      if (agentState.protocolVariant && !agentState.protocolFile) {
+        throw new Error(
+          `Boot contract for ${agentState.protocolVariant} is missing its resolved protocol file`,
+        )
+      }
+      return agentState.protocolFile ?? 'ECHO.md'
+    },
     [PLACEHOLDER.KNOWLEDGE_FILES_CONTENTS]: () =>
       Object.entries({
         ...Object.fromEntries(
@@ -294,6 +304,13 @@ export async function getAgentPrompt<T extends StringField>(
     if (cavemanBlock) {
       addendum += `\n\n${cavemanBlock}`
     }
+  }
+
+  if (
+    promptType.type === 'systemPrompt' &&
+    params.fileContext.designSystemContext
+  ) {
+    addendum += `\n\n${params.fileContext.designSystemContext}`
   }
 
   const combinedPrompt = (prompt + addendum).trim()

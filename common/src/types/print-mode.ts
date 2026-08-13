@@ -160,7 +160,7 @@ export type PrintModeActivity = z.infer<typeof printModeActivitySchema>
 export const printModeComplianceWarningSchema = z.object({
   type: z.literal('compliance_warning'),
   law: z.union([
-    z.enum(['law1', 'law3', 'verifier_criteria', 'fid']),
+    z.enum(['law1', 'law3', 'verifier_criteria', 'fid', 'design_contract']),
     z.string().regex(/^law\d+$/, 'law must be lawN (e.g. law7/law8)'),
   ]),
   severity: z.enum(['info', 'warning', 'critical']),
@@ -171,7 +171,10 @@ export const printModeComplianceWarningSchema = z.object({
 })
 export type PrintModeComplianceWarning = z.infer<
   typeof printModeComplianceWarningSchema
-> & { law: ComplianceWarningLaw; severity: ComplianceSeverity }
+> & {
+  law: ComplianceWarningLaw | 'design_contract'
+  severity: ComplianceSeverity
+}
 
 export const printModeEventSchema = z.discriminatedUnion('type', [
   printModeDownloadStatusSchema,

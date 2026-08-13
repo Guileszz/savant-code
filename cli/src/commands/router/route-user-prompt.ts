@@ -28,6 +28,7 @@ import {
   type RouterParams,
   type CommandResult,
 } from '../command-registry'
+import { handleDesignCreateIntent } from '../design'
 import {
   buildInterviewPrompt,
   buildPlanPrompt,
@@ -266,6 +267,13 @@ export async function routeUserPrompt(
     saveToHistory(trimmed)
     setInputValue({ text: '', cursorPosition: 0, lastEditDueToNav: false })
     setInputMode('default')
+    return
+  }
+
+  // Supported imperative design intent offers the same confirmed wizard as
+  // /design create. Ordinary design discussion remains a normal prompt.
+  if (await handleDesignCreateIntent(params)) {
+    saveToHistory(trimmed)
     return
   }
 

@@ -9,6 +9,7 @@ import type { AgentDefinition } from '@savant-code/common/templates/initial-agen
 import type { PublishedClientToolName } from '@savant-code/common/tools/list'
 import type { Logger } from '@savant-code/common/types/contracts/logger'
 import type { TraceWriter } from '@savant-code/common/types/contracts/trace'
+import type { DesignContract } from '@savant-code/common/types/design-system'
 import type { SavantCodeFileSystem } from '@savant-code/common/types/filesystem'
 import type { JSONValue } from '@savant-code/common/types/json'
 import type {
@@ -21,6 +22,7 @@ import type { PrintModeEvent } from '@savant-code/common/types/print-mode'
 import type { SessionState } from '@savant-code/common/types/session-state'
 import type { Source } from '@savant-code/common/types/source'
 import type { SavantCodeSpawn } from '@savant-code/common/types/spawn'
+import type { ProtocolVariant } from '@savant-code/common/util/boot-contract'
 
 /**
  * Wraps content for user messages, ensuring text is wrapped in <user_message> tags.
@@ -144,8 +146,12 @@ export type RunOptions = {
    *  (created or modified). Useful for tracking file changes, syncing to
    *  databases, or triggering side effects. */
   onFileWritten?: OnFileWrittenCallback
+  /** Explicit governance contract selected at boot. */
+  protocolVariant?: ProtocolVariant
   /** Dev override flag — bypasses all FSM tool gating and agent tool restrictions. */
   devMode?: boolean
+  /** Active visual design contract for prompt grounding and write enforcement. */
+  designContract?: DesignContract
   /** Optional sandbox permission mode. */
   permissionMode?:
     | 'safe'

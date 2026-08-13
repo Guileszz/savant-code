@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useShallow } from 'zustand/react/shallow'
 
 import { Chat } from './chat'
+import { AppShell } from './components/app-shell'
 import { ChatHistoryScreen } from './components/chat-history-screen'
 import { LoginModal } from './components/login-modal'
 import { ProjectPickerScreen } from './components/project-picker-screen'
@@ -13,6 +14,7 @@ import { useAuthQuery } from './hooks/use-auth-query'
 import { useAuthState } from './hooks/use-auth-state'
 import { useSavantFreeSession } from './hooks/use-savant-free-session'
 import { useTerminalFocus } from './hooks/use-terminal-focus'
+import { useTheme } from './hooks/use-theme'
 import { getProjectRoot, startNewChat } from './project-files'
 import { useChatHistoryStore } from './state/chat-history-store'
 import { useChatStore } from './state/chat-store'
@@ -55,6 +57,7 @@ export const App = ({
   showProjectPicker,
   onProjectChange,
 }: AppProps) => {
+  const theme = useTheme()
   const inputRef = useRef<MultilineInputHandle | null>(null)
   const {
     setInputFocused,
@@ -74,21 +77,16 @@ export const App = ({
     })),
   )
 
-  // Wrap in useCallback to prevent re-subscribing on every render
   const handleSupportDetected = useCallback(() => {
     setIsFocusSupported(true)
   }, [setIsFocusSupported])
 
-  // Enable terminal focus detection to stop cursor blinking when window loses focus
-  // Cursor starts visible but not blinking; blinking enabled once terminal support confirmed
   useTerminalFocus({
     onFocusChange: setInputFocused,
     onSupportDetected: handleSupportDetected,
   })
 
-  // Get auth query for network status tracking
   const authQuery = useAuthQuery()
-
   const {
     isAuthenticated,
     setIsAuthenticated,
@@ -129,9 +127,7 @@ export const App = ({
 
   useEffect(() => {
     if (!showGitRootBanner) {
-      if (activeTopBanner === 'gitRoot') {
-        closeTopBanner()
-      }
+      if (activeTopBanner === 'gitRoot') closeTopBanner()
       return
     }
     if (!gitRootBannerDismissed && activeTopBanner === null) {
@@ -146,25 +142,16 @@ export const App = ({
   ])
 
   const handleSwitchToGitRoot = useCallback(() => {
-    if (gitRoot) {
-      onProjectChange(gitRoot)
-    }
+    if (gitRoot) onProjectChange(gitRoot)
   }, [gitRoot, onProjectChange])
 
-  // Chat history state from store
   const { showChatHistory, closeChatHistory } = useChatHistoryStore()
-
-  // State to track which chat to resume (set when user selects from history)
   const [resumeChatId, setResumeChatId] = useState<string | null>(null)
 
   const handleResumeChat = useCallback(
     (chatId: string) => {
-      // Abort any in-flight run BEFORE resetting the store and switching
-      // chats: an orphaned run would keep checkpointing, and its writes could
-      // land in the resumed chat's directory, overwriting that transcript.
       abortActiveRun()
       closeChatHistory()
-      // Reset chat store to clear previous messages before loading the selected chat
       resetChatStore()
       setResumeChatId(chatId)
     },
@@ -175,17 +162,13 @@ export const App = ({
     abortActiveRun()
     closeChatHistory()
     resetChatStore()
-    // Rotate the chat id so the new conversation saves to its own directory
-    // instead of overwriting the current (possibly resumed) chat's history
     startNewChat()
     setResumeChatId(null)
   }, [closeChatHistory, resetChatStore])
 
-  // Determine effective continueChat values
   const effectiveContinueChat = continueChat || resumeChatId !== null
   const effectiveContinueChatId = resumeChatId ?? continueChatId
 
-  // Derive auth reachability + retrying state from authQuery error
   const authError = authQuery.error
   const authErrorStatusCode = authError
     ? getErrorStatusCode(authError)
@@ -194,73 +177,65 @@ export const App = ({
   let authStatus: AuthStatus = 'ok'
   if (authQuery.isError && authErrorStatusCode !== undefined) {
     if (isRetryableStatusCode(authErrorStatusCode)) {
-      // Retryable errors (408 timeout, 429 rate limit, 5xx server errors)
       authStatus = 'retrying'
     } else if (authErrorStatusCode >= 500) {
-      // Non-retryable server errors (unlikely but possible future codes)
       authStatus = 'unreachable'
     }
-    // 4xx client errors (401, 403, etc.) keep 'ok' - network is fine, just auth failed
   }
 
-  // Render project picker FIRST when at home directory or outside a project.
-  // This deliberately precedes the login/auth and free-session gates so the
-  // user always gets to pick a working directory before anything else — auth
-  // failures or a banned savant-free session would otherwise replace the
-  // picker mid-flash and look like being kicked out of the app.
   if (showProjectPicker) {
     return (
-      <ProjectPickerScreen
-        onSelectProject={onProjectChange}
-        initialPath={projectRoot}
-      />
+      <AppShell backgroundColor={theme.background}>
+        <ProjectPickerScreen
+          onSelectProject={onProjectChange}
+          initialPath={projectRoot}
+        />
+      </AppShell>
     )
   }
 
-  // Render login modal when not authenticated AND auth service is reachable
-  // Don't show login modal during network outages OR while retrying
   if (
     requireAuth !== null &&
     isAuthenticated === false &&
     authStatus === 'ok'
   ) {
     return (
-      <LoginModal
-        onLoginSuccess={handleLoginSuccess}
-        hasInvalidCredentials={hasInvalidCredentials}
-      />
+      <AppShell backgroundColor={theme.background}>
+        <LoginModal
+          onLoginSuccess={handleLoginSuccess}
+          hasInvalidCredentials={hasInvalidCredentials}
+        />
+      </AppShell>
     )
   }
 
-  // Use key to force remount when resuming a different chat from history
   const chatKey = resumeChatId ?? 'current'
 
   return (
     <>
-      {/* FID-2026-0720-033d Phase D Step 4: ToastContainer mounted at the app
-          root so toasts are visible across all screens (login, landing, chat).
-          Law 4: ToastContainer is the production consumer of useToastStore. */}
-      <AuthedSurface
-        chatKey={chatKey}
-        initialPrompt={initialPrompt}
-        agentId={agentId}
-        fileTree={fileTree}
-        inputRef={inputRef}
-        setIsAuthenticated={setIsAuthenticated}
-        setUser={setUser}
-        logoutMutation={logoutMutation}
-        continueChat={effectiveContinueChat}
-        continueChatId={effectiveContinueChatId}
-        authStatus={authStatus}
-        initialMode={initialMode}
-        initialPermissionMode={initialPermissionMode}
-        gitRoot={gitRoot}
-        onSwitchToGitRoot={handleSwitchToGitRoot}
-        showChatHistory={showChatHistory}
-        onSelectChat={handleResumeChat}
-        onCancelChatHistory={closeChatHistory}
-        onNewChat={handleNewChat}
-      />
+      <AppShell backgroundColor={theme.background}>
+        <AuthedSurface
+          chatKey={chatKey}
+          initialPrompt={initialPrompt}
+          agentId={agentId}
+          fileTree={fileTree}
+          inputRef={inputRef}
+          setIsAuthenticated={setIsAuthenticated}
+          setUser={setUser}
+          logoutMutation={logoutMutation}
+          continueChat={effectiveContinueChat}
+          continueChatId={effectiveContinueChatId}
+          authStatus={authStatus}
+          initialMode={initialMode}
+          initialPermissionMode={initialPermissionMode}
+          gitRoot={gitRoot}
+          onSwitchToGitRoot={handleSwitchToGitRoot}
+          showChatHistory={showChatHistory}
+          onSelectChat={handleResumeChat}
+          onCancelChatHistory={closeChatHistory}
+          onNewChat={handleNewChat}
+        />
+      </AppShell>
       <ToastContainer />
     </>
   )
@@ -288,11 +263,6 @@ interface AuthedSurfaceProps {
   onNewChat: () => void
 }
 
-/**
- * Rendered only after auth is confirmed. Owns the savant-free session gate
- * so `useSavantFreeSession` runs exactly once per authed session (not before
- * we have a token).
- */
 const AuthedSurface = ({
   chatKey,
   initialPrompt,
@@ -316,24 +286,10 @@ const AuthedSurface = ({
 }: AuthedSurfaceProps) => {
   const { session, error: sessionError } = useSavantFreeSession()
 
-  // Terminal state: a 409 from the gate means another CLI rotated our
-  // instance id. Show a dedicated screen and stop polling — don't fall back
-  // into the pre-chat screen, which would look like normal startup progress.
   if (IS_SAVANT_FREE && session?.status === 'superseded') {
     return <SavantFreeSupersededScreen />
   }
 
-  // Route every non-admitted state through the pre-chat screen:
-  //   null     → initial GET in flight (brief)
-  //   'none'   → no seat yet; show model-picker landing
-  //   'country_blocked' → terminal region-gate message
-  //   'banned' → terminal account-banned message
-  //   'rate_limited' → hit shared session quota; terminal for this run
-  //   'takeover_prompt' → another local CLI already holds this account
-  //
-  // 'ended' deliberately falls through to <Chat>: the agent may still be
-  // finishing work under the server-side grace period, and the chat surface
-  // itself swaps the input box for the session-ended banner.
   if (
     IS_SAVANT_FREE &&
     (session === null ||
@@ -346,10 +302,6 @@ const AuthedSurface = ({
     return <SavantFreeLandingScreen session={session} error={sessionError} />
   }
 
-  // Chat history renders inside AuthedSurface so the savant-free session stays
-  // mounted while the user browses history. Unmounting this surface would
-  // DELETE the session row and drop the user back onto the landing screen on
-  // return.
   if (showChatHistory) {
     return (
       <ChatHistoryScreen

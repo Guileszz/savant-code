@@ -84,6 +84,7 @@ const TABLE_NOTES: Record<string, string> = {
   nvidia: 'NVIDIA-hosted inference',
   'opencode-go': 'Hosted gateway (dual-protocol)',
   commandcode: 'OpenAI-compatible hosted inference (dual-protocol)',
+  nous: 'OpenAI-compatible direct inference; Portal OAuth is separate',
   cloudflare:
     'Env-only — not in the `/provider` picker; requires the account id too',
 }

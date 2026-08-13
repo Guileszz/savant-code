@@ -8,6 +8,8 @@ import {
   extractSubagentContextParams,
   withParentModel,
 } from './spawn-agent-utils'
+import { getOrCreateEnforcement } from '../../../echo/enforcement'
+import { appendGroundingRefresh } from '../../../echo/grounding'
 import { filterToolSet } from '../../../tools/filter-tool-set'
 
 import type { SavantCodeToolHandlerFunction } from '../handler-function-type'
@@ -54,6 +56,7 @@ export const handleSpawnAgentInline = (async (
     | 'onResponseChunk'
     | 'clearUserPromptMessagesAfterResponse'
     | 'fingerprintId'
+    | 'propagation'
   >,
 ): Promise<{ output: SavantCodeToolOutput<ToolName> }> => {
   const {
@@ -118,9 +121,17 @@ export const handleSpawnAgentInline = (async (
   }
 
   // Extract common context params to avoid bugs from spreading all params
-  const contextParams = extractSubagentContextParams(params)
+  const contextParams = extractSubagentContextParams({
+    ...params,
+    agentState: parentAgentState,
+  })
+  const propagation = contextParams.propagation
+  if (!propagation) {
+    throw new Error('Subagent propagation context is missing.')
+  }
 
   const result = await executeSubagent({
+    propagation,
     ...contextParams,
 
     // Spawn-specific params
@@ -143,8 +154,18 @@ export const handleSpawnAgentInline = (async (
     clearUserPromptMessagesAfterResponse: false,
   })
 
-  // Update parent agent state to reflect shared message history
+  // Update parent agent state to reflect shared message history. The
+  // context-pruner replaces history through set_messages in the child; append
+  // the freshness refresh at the parent mutation boundary so it cannot be
+  // discarded by that replacement.
   parentAgentState.messageHistory = result.agentState.messageHistory
+  if (agentType === 'context-pruner' && !parentAgentState.parentId) {
+    appendGroundingRefresh(
+      parentAgentState,
+      getOrCreateEnforcement(parentAgentState).recordHistoryReplacement()
+        .refreshText,
+    )
+  }
 
   return { output: [{ type: 'json', value: { message: 'Agent spawned.' } }] }
 }) satisfies SavantCodeToolHandlerFunction<ToolName>

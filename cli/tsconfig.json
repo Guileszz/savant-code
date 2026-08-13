@@ -18,7 +18,11 @@
     "preserveSymlinks": false,
     "paths": {
       "@savant-code/sdk": ["../sdk/src/index.ts"],
-      "@savant-code/common/*": ["../common/src/*"]
+      "@savant-code/common/*": ["../common/src/*"],
+      "@savant-code/design-systems": [
+        "../packages/design-systems/src/index.ts"
+      ],
+      "@savant-code/design-systems/*": ["../packages/design-systems/src/*"]
     }
   },
   "include": ["src/**/*", "scripts/**/*"],

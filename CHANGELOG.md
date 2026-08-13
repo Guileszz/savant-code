@@ -1,5 +1,328 @@
 # Changelog
 
+## FID-2026-0812-006/007 — v0.0.23 queue final closure (2026-08-12)
+
+- Closed and archived the coordination master `FID-2026-0812-006` and forensic child `FID-2026-0812-007` after reconciling all v0.0.23 queue records locally. The active FID queue is now empty; no commit, push, release, publication, deployment, or GitHub operation was performed.
+- The operator confirmed that the top-row click/highlight no longer occurred when the CLI was run in a different IDE. This is recorded precisely as an external-environment-dependent resolution; no specific extension, terminal host, OpenTUI path, Savant root cause, or application fix is claimed as proven.
+- FID-2026-0812-007 preserves the unresolved runtime/native hit-grid and child-control evidence boundaries and may be reopened if the behavior recurs in a supported harness. v0.0.23 remains pending and unreleased.
+
+## FID-2026-0812-002–005 — v0.0.23 queue child closure (2026-08-12)
+
+- Closed and archived the four evidence-backed child FIDs under master `FID-2026-0812-006`: terminal surface/sidebar consistency (`002`), Nous Research direct provider (`003`), picker visibility/navigation (`004`), and adaptive grounding refresh/resume (`005`).
+- Recorded implementation, focused validation, operator-confirmed live evidence, local closure loops, and archive moves in each child record. Portal OAuth remains out of scope for `003`; the top-row click/highlight issue remains isolated in active `FID-2026-0812-007`.
+- At the time of this historical entry, FID-006 remained active as the coordination master until the forensic top-row child closed. The later `FID-2026-0812-006/007` closure entry supersedes that queue state. No commit, push, tag, release, publication, deployment, or GitHub operation was performed.
+
+## /dev FID lifecycle reconciliation (2026-08-12; superseded by child closure entry above)
+
+- Reconciled operator-confirmed evidence for the current v0.0.23 queue without touching GitHub or any remote: sidebar/scrollbar visuals are fine (`FID-2026-0812-002`), live Nous inference passed (`003`), all residual picker checks passed (`004`), and live grounding behavior passed (`005`).
+- Kept `FID-2026-0812-007` active because the top-row click/highlight behavior still occurs and its selection layer/renderable owner remain unresolved. The issue is isolated from the resolved sidebar palette/surface work.
+- Updated the active FID index and master register to distinguish resolved operator evidence from pending local lifecycle closure. The later closure entry above records 002–007 transitioning to `closed` and archive; the active queue is now empty. No commit, push, release, publication, or deployment occurred.
+- v0.0.23 remains pending and unreleased; final lifecycle closure still requires the applicable local implementation audit/Nova process and separate operator release authorization.
+
+## FID-2026-0812-003 — Nous Research provider implementation note (2026-08-12; operator inference confirmed)
+
+- Added Nous Research as an opt-in registry-derived provider: `/provider nous`, persisted `NOUS_API_KEY`, active-provider routing, `/health` reporting, live authenticated `/v1/models` catalog, combined picker inclusion, generic SDK routing, exact namespace stripping, audit ownership, and generated provider references.
+- Added redacted regression coverage for stored-key catalog authentication, catalog failure isolation, health output, direct routing, and active Nous bare-slug fail-closed behavior. Provider docs and the new-provider runbook distinguish direct API-key setup from Nous Portal OAuth.
+- Validation evidence: common provider suites 27/27, CLI provider suites 49/49, SDK provider-routing suite 14/14; common/SDK/CLI typechecks, provider-doc drift check, Prettier, and ESLint all passed.
+- **Operator-confirmed:** a configured live Nous inference request completed successfully. Earlier sampled HTTP 404s remain retained as route/model-specific historical evidence and do not block this operator-confirmed closure boundary. Portal OAuth remains out of scope; FID-2026-0812-003 is closed and archived by the queue closure entry above.
+
+## A-Z audit, FID closure, and housekeeping (2026-08-12)
+
+- **FID-2026-0812-001 master closed and archived** by operator direction after the
+  A-Z v0.0.23 harness live-test program reached ledger closure and the release-
+  readiness review passed. At that historical snapshot, `dev/fids/` held **zero
+  active FIDs**. Closure
+  addendum appended to the record (status `verified` → `closed`); archive index
+  and `dev/fids/README.md` updated; historical content preserved.
+- **A-Z harness live-test program closed:** `dev/scratchpad/az-v0.0.23-harness-live-test-report.md`
+  v2.1.0 reconciles its 85-row table exactly (46 PASS, 33 OPERATOR-CONFIRMED,
+  1 FAIL\* fixed and re-verified post-run, 5 SKIP, **0 NEEDS-REVIEW**).
+  In-harness agent + operator-executed interactive tests; operator rows are
+  honestly labeled `OPERATOR-CONFIRMED`, never converted to unobserved PASS.
+- **Documentation alignment:** added 8 missing slash-command rows to
+  `docs/features.md` (`/design`, `/release`, `/feedback`, `/publish`, `/usage`,
+  `/subscribe`, `/connect`, `/end-session`), an availability note, and feature
+  write-ups for Design Systems, the Release Workflow, and Session-Init Grounding
+  (FID-2026-0810-002); added matching feature bullets to `docs/index.md`.
+- **Script alignment:** removed the dead root `buffbench` script (no `evals`
+  target; superseded by evals v2) and its orphaned `.gitignore` patterns.
+- **Bloat trim:** untracked stale committed eval-harness outputs
+  (`evals/v2/reports/report.{json,md}`) and added a `**/evals/v2/reports/` ignore
+  pattern; removed on-disk test artifacts, temp build dirs, and stray empty
+  directories (`test/`, `cli/test/`, `debug/`, `agents/debug/`).
+- **Verification (all exit 0):** 11-workspace typecheck, 5,014 workspace tests
+  (0 failures), ESLint `--max-warnings 0`, Markdownlint, Prettier,
+  `validate:repository`, `quality:report` (1,304 baselined files),
+  protocol-bundle/provider-docs/design-systems/learnings/hygiene drift checks,
+  `audit:evidence` (WORKING_TREE_EVIDENCE), `release:public:diagnose`
+  ("Diagnostic gates passed"), and `release:public:preview` (mutation-free).
+  Independent review: PASS. No commit, tag, push, publication, or deployment was
+  performed; clean-release certification remains a separate operator action.
+
+## Comprehensive v0.0.23 live regression prompt (2026-08-11)
+
+- Added [`dev/test-prompts/v0.0.23-comprehensive-live-test.md`](dev/test-prompts/v0.0.23-comprehensive-live-test.md), an agent-executable live test whose coverage index is the current changelog rather than only the design-system feature.
+- The prompt covers release/audit safety, metadata and FID/LEARNINGS validation, protocol boot and grounding, ECHO enforcement, design-system workflows, provider/configuration parity, Code Universe, SDK/headless behavior, packaging wrappers, CLI modes, performance baselines, user/agent feedback, and cleanup.
+- It writes `dev/scratchpad/v0.0.23-comprehensive-live-test-report.md`, separates static checks from live evidence, classifies environment/timeouts as `NEEDS-REVIEW`, and forbids publish/push/commit/tag/deploy/credential use. No live result or clean-release certification is claimed by this documentation change.
+
+## FID-2026-0811-030 — loadable design-system skill library documented (2026-08-11)
+
+- Added the extensive [design-system library guide](docs/design/design-system-library.md), documenting the 74-resource offline catalog, selection precedence, interactive create/edit lifecycle, natural-language confirmation boundary, headless authoring contract, draft recovery, persistence and provenance model, target adapters, EHEL enforcement, packaging matrix, and operational verification.
+- Added `dev/test-prompts/design-system-live-ux-performance.md`, a live CLI test covering usability, agent feedback, cold/warm latency, resource/context overhead, persistence, headless errors, and enforcement correction. Added a separate [independent sign-off request](dev/nova/outbox/2026-08-11-fid-2026-0811-030-design-system-live-test-signoff-request.md) for the prompt and its eventual live report. Updated the English and Chinese READMEs and guide to link it. Implementation closure remains distinct from the pending independent documentation/implementation review; no release boundary was crossed.
+
+## FID-2026-0811-030 — loadable design-system skill library closed (2026-08-11)
+
+- Shipped the loadable `savant-design-systems` skill with 74 offline design resources, deterministic manifest/hash validation, provenance metadata, active selection precedence, and packaged CLI/Savant-Free support.
+- Added `/design` list/use/current/create/edit/import/validate/drafts/resume/discard/reset workflows, confirmed natural-language creation, bounded drafts, versioned atomic custom persistence, built-in clone-before-edit, and validated `--design-input <path|->` headless transport.
+- Connected the active contract through CLI run configuration and SDK session state into EHEL turn-end scanning. Added dedicated design-contract receipts, CSS/React/OpenTUI color/typography/spacing/radius checks, dynamic-expression review, fail-closed unavailable-content handling, and approved-root path rechecks.
+- Verification: 42 focused tests across 8 files, CLI/agent-runtime/design-systems typechecks, Prettier, changed-file ESLint, design-system drift, protocol-bundle drift, hygiene, and isolated pack/extract/catalog validation for all three release wrappers (74 resources each) passed. Independent implementation review returned PASS.
+- FID closed and archived in the working tree. Repository quality/Markdownlint failures from broader dirty-tree design documents remain explicitly NEEDS-REVIEW; no commit, push, release, publication, or deployment was performed.
+
+## FID-2026-0811-022–029 — LEARNINGS feedback-system remediation closed (2026-08-11)
+
+- Completed the approved seven-child remediation package and master FID under local automation level 3.
+- Added a curated privacy-safe embedded learning source with source-identity, credential/privacy, and protocol-boundary validation in the learning-validation pipeline; internal learning history remains local and preserved.
+- Added strict structured learning validation with a legacy boundary, chronology and insertion-marker checks, multiline fields, duplicate/unknown-field rejection, stable evidence resolution, canonical rule uniqueness, and supersession-cycle validation.
+- Corrected current guidance to point to the reversible release-preflight contract and narrowed protocol-variant wording to the harness-injected scope.
+- Reused the existing public-release guardrails for frozen-lockfile ordering, pinned Bun/npm compatibility, restoration, direct exit classification, redacted evidence, timeout handling, and mutation-free diagnostics; no second release engine was created.
+- Local implementation evidence passed: focused script suites (11/7/5/8/55/3/13/2), SDK/common/agent-runtime/CLI typechecks, ESLint, Prettier, hygiene, quality, provider-reference drift, protocol-bundle drift, and repository validation. The global `bun run lint:md` remains `NEEDS-REVIEW` solely because pre-existing untracked design-system documents under `packages/design-systems/library/` fail Markdownlint; governed learning documents are clean.
+- The resolver quality ceiling is recorded at 384 lines in `dev/quality-baseline.json` as an implementation-driven ratchet, not as compliance with the 300-line new-file target. All child and master FIDs transitioned to `closed` and moved to `dev/fids/archive/` as untracked working-tree evidence; independent Nova implementation sign-off is requested separately. No commit, push, tag, publication, deployment, or release was performed.
+
+## FID-2026-0811-015–021 — ECHO compliance remediation closed (2026-08-11)
+
+- Completed the master remediation under the granted automation level 3 scope: production EHEL turn-end wiring and scanner lifecycle, explicit execution-policy boundaries replacing broad `devMode` bypasses, trusted custom/MCP tool-definition provenance, no-attribution FID governance, provenance-scoped hygiene, production boundary classification, and deterministic audit evidence.
+- FIDs `FID-2026-0811-015`, `FID-2026-0811-016`, `FID-2026-0811-017`, `FID-2026-0811-018`, `FID-2026-0811-019`, `FID-2026-0811-020`, and `FID-2026-0811-021` are closed and archived after Nova's independent implementation audit returned **PASS — implementation approved for closure** (`dev/nova/inbox/2026-08-11-fid-2026-0811-015-021-echo-compliance-remediation-implementation-audit-response.md`). The archived sign-off request remains historical correspondence under `dev/nova/outbox/archive/`.
+- Final verification: SDK/common/agent-runtime/CLI typechecks exit 0; agent-runtime 780/780 tests; scripts 21/21 focused tests; ESLint, Markdownlint, Prettier, hygiene, quality, repository validation, protocol-bundle drift, and provider-reference drift all pass.
+- Working-tree audit evidence: repository head `98acc253623050d9518ef528a8f7975057262948`, Bun `1.3.14`, manifest SHA-256 `21110e2f32dccab4b69adc1c5d55ed98d637d44aa3200e679c8b769e4bfe4808`, result `WORKING_TREE_EVIDENCE (not clean-release certification)`. Nova independently noted that the scripts-suite rerun timed out at the environment limit; the previously recorded script-level PASS remains working-tree evidence, not clean certification.
+- The untracked 004–014 archive-looking records remain explicitly untrusted and untouched pending operator disposition. No commit, push, tag, release, publication, deployment, credential use, or unrelated artifact disposition occurred.
+
+
+## FID-2026-0811-004–014 — deep audit implementation closure (2026-08-11)
+
+- Closed and archived the master deep-audit program plus all ten child FIDs after implementation, independent review, and final repository validation.
+- Hardened pushed-content credential scanning with bounded fail-closed behavior, explicit staged-deletion proof, and no-shell subprocess execution at release boundaries.
+- Added structured audit evidence with redacted transcripts, timeout/spawn failure classification, deterministic manifest identity, and explicit working-tree versus clean-certification results.
+- Made development defaults require explicit `dev`/`test` mode and normalized protected `true`/`1` environment signals.
+- Added FID filename, relationship, master-register, dependency, and cycle validation; quality ratchets now record measured ceilings for the intentionally changed files.
+- Final evidence: full typecheck, workspace tests (772 main-suite tests passed), ESLint, Markdownlint, Prettier, quality report, repository validation, protocol-bundle drift, and provider-reference drift all passed. Working-tree audit manifest: `1d566250c4012d278d713ffd6aad643bbefafcceca9a898f43b7e631665b12c7`; clean certification correctly remained unavailable while the tree was dirty.
+- v0.0.23 remains pending and unreleased; no tag, push, publication, or deployment was performed.
+
+## v0.0.23 — 2026-08-09 (pending, unreleased)
+
+> **Release preparation status:** The working tree is aligned to the pending `0.0.23`
+> target. This entry documents the next release and does not indicate a tag, push, npm
+> publication, GitHub release, or deployment.
+>
+> **Optimization and automation program (FIDs 003–010):** The implementation scope was
+> completed and independently signed off. The batch adds canonical metadata validation,
+> deterministic validation-manifest parity, bounded/redacted runtime evidence,
+> backward-compatible RunState serialization, bounded subagent propagation,
+> provider-registry exception/drift audits, and a fail-closed single-agent boot contract.
+> FID-009 is the governance master plan and adds no runtime behavior; FID-010 prevents
+> single-agent protocol selection from silently falling back to the harness protocol.
+>
+> **Governance:** Operator build approval was supplied, and the independent implementation
+> audit is recorded at `dev/nova/inbox/2026-08-09-fid-2026-0809-003-010-optimization-automation-implementation-sign-off-response.md`.
+> No credentials were used, provider routing was not changed, RunState backward compatibility
+> was preserved, propagation bounds were verified, and active artifacts follow the no-signature policy.
+>
+> **Verification:** Root typecheck, ESLint, Prettier, Markdownlint, repository validation,
+> provider-doc generation checks, and relevant common/SDK/agent-runtime/contract suites passed
+> in the prior implementation audit. The release gate was re-run under the pinned Bun `1.3.14`
+> toolchain on 2026-08-09 and passes end to end: typecheck × 10, all ten workspace test suites,
+> ESLint, markdownlint, Prettier, repository validation, provider-doc check, and the clean-env
+> `ci` build (SDK + Savant-Free binary). Release builds require a clean shell (no dev
+> `NEXT_PUBLIC_*` overrides and `.env.local` set aside), per the FID-2026-0805-002 env-integrity
+> gate. Publication remains a separate operator action.
+
+### Housekeeping and FID closure batch (FIDs 003–010)
+
+- Archived the independently signed-off implementation FIDs under `dev/fids/archive/`.
+- Updated active README, versioning, privacy, architecture, SDK, and Savant-Free documentation to identify `0.0.23` as pending and unreleased.
+- Kept `0.0.21`/`0.0.22` release records, dated session evidence, test prompts, and archived history immutable.
+- No release, tag, push, package publication, or deployment was performed.
+
+### FID ledger reconciliation (2026-08-09, operator-accepted)
+
+- `dev/fids/` now holds **zero active FIDs** (only `README.md` + `.gitkeep`). The FIDs
+  previously listed as active in the ledger — `0806-017`, `0806-018`, `0807-001` through
+  `0807-006`, and `0808-001` — had all been moved to `dev/fids/archive/` while retaining
+  non-closed status metadata and unresolved review boundaries.
+- Per operator decision, those remaining review boundaries are **waived** and the records are
+  accepted as **historical**, matching their physical archive placement. `0808-001` is genuinely
+  closed (operator-directed close with Nova sign-off); the other eight are operator-accepted
+  historical records, not an active work queue.
+- Recorded the corrective decision in `dev/fids/README.md` and the corrective index entry in
+  `dev/fids/archive/README.md`. Historical FID files, session summaries, and audit-channel
+  correspondence were not rewritten (no-signature / immutable-history policy).
+
+### Dev bootup env-validation hard crash (FID-2026-0810-001)
+
+- **Severity:** high | **Status:** closed
+- **Problem:** `bun dev` hard-crashes with a cryptic zod validation error when the
+  repo-root `.env.local` is not loaded. The boot chain runs `bun --cwd cli dev`,
+  which changes Bun's cwd to `cli/`, so Bun's auto-loader looks for `cli/.env.local`
+  (absent) instead of the repo-root file (exists but unloaded). The agent prebuild
+  then dynamically imports agent files which chain-import `@savant-code/sdk` →
+  `common/src/env.ts`, which validates 8 required `NEXT_PUBLIC_*` vars at module
+  scope and throws on missing values.
+- **Fix (3 phases):**
+  - Phase 1: `cli/scripts/prebuild-agents.ts` now imports `load-dev-env.ts` (the
+    existing `.env.local` walk-up loader, which handles the `--cwd cli` mismatch)
+    before scanning agent files. Also excludes `manual-e2e.ts` files from the
+    prebuild scan glob (they are test tooling, not agent definitions).
+  - Phase 2: `common/src/env.ts` now emits an actionable error message pointing
+    to `.env.example` when env validation fails, instead of a raw zod dump.
+  - Phase 3: `common/src/env.ts` provides dev-mode defaults for non-boot-critical
+    vars (`SUPPORT_EMAIL`, `POSTHOG_*`, `STRIPE_*`, `GOOGLE_SITE_VERIFICATION_ID`)
+    so that a fresh clone with no `.env.local` can still boot for local development.
+- **Verification:** `bun run prebuild:agents` tested with `.env.local` set aside
+  and all `NEXT_PUBLIC_*` vars unset → exit 0. Typecheck: common + agents exit 0.
+  Lint:md + prettier green. Release path unchanged (env-integrity gate unaffected).
+
+### Universal session-init grounding — local-first reads with embedded fallback (FID-2026-0810-002)
+
+> Implemented and closed 2026-08-10 under operator automation level 3. The operator observed
+> that a fresh session answered the first message with zero grounding reads; the boot response
+> also cited the single-agent protocol document (which is NOT part of the savant-code harness —
+> it is the protocol of a third-party harness the operator uses when building outside savant-code).
+> This FID makes session-init grounding **universal and deterministic** in every mode
+> (HYBRID, STRICT, ANALYZE, SCAFFOLD, PLAN, DEFAULT), interactive and headless, SavantFree and
+> full product, and SDK harness sessions — and guarantees the harness never selects or references
+> the single-agent document.
+>
+> - **Embedded harness grounding bundle (generated, drift-checked):** new
+>   `scripts/generate-protocol-bundle.ts` emits `common/src/constants/protocol-bundle.generated.ts`
+>   embedding the **full** harness grounding set (`ECHO.md`, `ARCHITECTURE.md`,
+>   `protocol.config.yaml`, `dev/LEARNINGS.md`, `templates/FID-TEMPLATE.md`), keyed to the
+>   harness variant. The single-agent document is **deliberately excluded** — it does not ship
+>   with the package. The generator resolves inputs via `import.meta.dir` (never `process.cwd()`),
+>   formats with the repo `.prettierrc`, and is idempotent; a drift check
+>   (`generate:protocol-bundle:check`) is wired into `validate:repository` and the pre-push path.
+> - **Local-first boot resolution with embedded fallback:** `resolveBootContract` keeps local
+>   files winning; harness mode falls back to the embedded bundle instead of throwing when files
+>   are absent (npm-install case). `protocolSource: 'local' | 'embedded'` is persisted on main
+>   agent state at both SDK boot call sites. The native `read_files` handler serves grounding-set
+>   paths from the bundle when `protocolSource === 'embedded'` (synthetic read — no context
+>   injection, nothing written to the user's cwd). Single-agent variant unchanged (local-only,
+>   fail-closed, not bundled).
+> - **Universal tool-level gate:** the session-init gate in `EchoEnforcement.beforeToolCall` no
+>   longer requires strict mode — it fires in every mode when armed (`gateArmed:
+>   Boolean(agentState.protocolFile)`). SDK embedders without a boot contract keep legacy
+>   behavior; the CLI always resolves, so product sessions always gate. Gate never seeded for the
+>   main agent; `protocolPreSeeded` stays subagent-only.
+> - **Eager enforcement lifecycle:** shared `getOrCreateEnforcement(agentState)` factory, called
+>   at loop start for the main agent; tool gating and loop gating share one authoritative state.
+> - **First-turn completion gate:** `applyUngroundedCompletionGate` in `loop-iteration.ts` runs
+>   on both the LLM and programmatic end-turn paths. Ungrounded text-only completions are steered
+>   with `ECHO_COMPLIANCE` messaging and the loop continues; `COMPLETION_GATE_MAX_RETRIES = 3`,
+>   after which the completion gate disarms for the session with a one-time notice (tool gate
+>   stays armed). Subagents exempt.
+> - **Prompt/refresh fixes + harness boundary:** both hard-coded single-agent references purged
+>   from the harness's own injected 15-turn refresh (`protocol-summary.ts` — governing-law line
+>   and the "Double audit (single agent)" heading, reworded to the harness audit chain); stale
+>   signing instruction updated to the no-signature policy; system-prompt Session-init paragraph
+>   reworded to the local-first + embedded flow. Harness-boundary sweep
+>   (`grep -rniE 'single[ _-]?agent'` over harness-injected context) now returns **zero** matches.
+> - **Verification:** typecheck × 4 (sdk, common, agent-runtime, cli); full suites green —
+>   agent-runtime 769, common 563, sdk 460, cli 2,938, scripts 21; ESLint `--max-warnings 0`;
+>   markdownlint; Prettier (including the generated bundle, now emitted formatted);
+>   `validate:repository` PASS; protocol-bundle + provider-docs drift checks clean; loop-level
+>   completion-gate tests (steered text-only first turn + protocol-read clears the gate) and
+>   embedded-fallback unit tests added. FID closed and archived to `dev/fids/archive/`.
+
+## Generated condensed protocol copies — single source of truth (FID-2026-0810-003)
+
+> Closed and archived 2026-08-10 after the operator approved the converged plan
+> (Perfection Loop Loops 1–3: RED → AUDIT with 14 adversarial corrections folded into
+> Loop 3 → approval) and implementation completed under automation level 3. Follow-up to
+> FID-2026-0810-002 Change 6's recorded Missed Question 9: convert the two hand-maintained
+> condensed protocol copies into generated output sharing ECHO.md as the canonical source.
+>
+> - **Single source of truth:** `ECHO.md` is canonical for titles/structure; the generator's
+>   curated-directive table hosts condensed wording (fail-fast validated against ECHO.md).
+>   Editing ECHO.md law titles, FSM states, the five questions, circuit-breaker titles,
+>   lifecycle stages, or authoring-rule phrases flows through regeneration; the two copies
+>   can never disagree because they render from the same facts. `docs/echo-protocol.md`
+>   (docs mirror) explicitly out of scope.
+> - **Core generator module** `scripts/protocol-copies.ts`: ECHO.md fact extraction (15 laws,
+>   6 FSM states, 7 circuit-breaker rules, 5 questions, lifecycle stages, anti-pattern
+>   titles) with fail-fast validation against the actual table shapes; `FRAMING` constants
+>   for harness-runtime-only content (phase gating, session directives, no-signature
+>   policy, double-audit wording); two renderers emitting `echo-protocol-instructions.generated.ts`
+>   (full view) and `protocol-refresh.generated.ts` (compact 15-turn view).
+> - **Runtime wiring:** `agents.ts` re-exports `ECHO_PROTOCOL_INSTRUCTIONS` from the
+>   generated module; `protocol-summary.ts` imports `PROTOCOL_REFRESH_CONTENT` — public API
+>   unchanged, sentinel/interval logic stays hand-written.
+> - **Verification:** new generator test suite (15 assertions); existing `agents.test.ts`
+>   parity phrases green against the generated constant; token budget on decoded values —
+>   instructions +2.3%, refresh +2.4% (both within ±5%, FID-018 trims preserved); typecheck
+>   × 4; full suites green (agent-runtime 769, common 563, sdk 460, cli 2,938, scripts 36);
+>   ESLint `--max-warnings 0`; markdownlint; Prettier; `validate:repository` PASS;
+>   protocol-bundle drift check clean; agents bundle regenerated with zero single-agent
+>   references in harness-injected context.
+
+## Graph-export file decomposition — template.ts + export-serializer.ts (FID-2026-0809-011)
+
+> Closed and archived 2026-08-09 after the Nova implementation sign-off **PASS**
+> (`dev/nova/inbox/2026-08-09-fid-2026-0809-011-graph-export-file-decomposition-nova-audit-response.md`)
+> verified every claim with file:line evidence. Maintainability-only decomposition of the two
+> largest audit outliers with a **zero-behavior-change** contract proven by byte-identity:
+>
+> - **Phase A — `packages/knowledge-graph/src/export-serializer.ts` (1,096 ln → split):**
+>   `export/types.ts` (payload interfaces), `export/helpers.ts` (constants, private helpers,
+>   `readFilePreview`), `export/serialize.ts` (`serializeGraphForExport`), with
+>   `export-serializer.ts` as a **restricted barrel** re-exporting only the original public
+>   surface — the four internal symbols required by the split stay contained (no API leak).
+>   Dependency chain is strictly acyclic: `types → helpers → serialize`.
+> - **Phase B — `cli/src/commands/graph-export/template.ts` (1,883 ln → thin entry + modules):**
+>   `build-graph-export.ts` (orchestrator: lock → index refresh → serialize ×2 → layout →
+>   embed → compress, plus shared `reportGraphExportProgress`), `html-sections.ts` (shell +
+>   ambient markup), `universe-css.ts` (stylesheet), `universe-app-script.ts` (~1,606-line
+>   browser app lifted verbatim with zero `${`/backtick interpolations). `buildGraphExportHtml`
+>   exported contract unchanged; progress-stage ordering preserved.
+>
+> **Verification (all green):** rendered artifact byte-identical pre/post — SHA-256
+> `6c30836d587778001e0c44b7fc4319eeb8484003fe3cefbfe2180217d65262e2` at 1,561,975 bytes
+> (`generatedAt` normalized); typecheck × 3 (knowledge-graph, cli, evals); graph-export suite
+> 41 tests / 428 assertions; knowledge-graph suite 18 tests / 62 assertions; ESLint +
+> Prettier + markdownlint clean. Independent review findings (barrel surface leak,
+> progress-wrapper duplication) were fixed and re-verified before the Nova audit. FID archived
+> to `dev/fids/archive/`.
+
+## All-tier optimization program — gate, compliance, file-length, tests, prompts (FID-2026-0809-012 through 018)
+
+> Implemented 2026-08-09 under the operator's automation level 3 grant. The master FID-2026-0809-012
+> coordinates six children across four tiers. The independent Nova implementation audit is recorded
+> as **PASS** (`dev/nova/inbox/2026-08-09-fid-2026-0809-012-018-optimization-program-implementation-audit-response.md`)
+> and all seven FIDs were closed and archived 2026-08-09. No release, tag, push, publication, or
+> deployment was performed.
+>
+> - **FID-013 (Tier 0 — gate restoration):** `bun run lint:md` restored to exit 0 after handling the
+>   three untracked MD013-breaking design documents (`Savant Command Center Design Concept.md`,
+>   `Visual Workflows For Savant-Code.md`, `Command Center Design Sprint.md`).
+> - **FID-014 (Tier 1 — signature scrub):** `Author: Savant` attribution removed from the three
+>   tracked active documents; dated historical session summaries preserved (immutability invariant).
+> - **FID-015 (Tier 2 — batch A):** the 6 largest production files (509–756 lines, incl. the
+>   `agents/context-pruner/main.ts` 756-line regression and `export/helpers.ts` 691-line leftover)
+>   decomposed to ≤ 400 lines via pure-move + re-export shims; serialized `handleSteps`
+>   `.toString()` self-containment preserved; byte-identity proven per file.
+> - **FID-016 (Tier 2 — batch B):** 17 production files in the 400–500 range decomposed to ≤ 400
+>   lines with the same methodology.
+> - **FID-017 (Tier 2 — test suites):** 14 test files > 500 lines split into part-files
+>   (describe-boundary splits; shared fixture extraction where setup was large); counts preserved
+>   exactly — agent-runtime 761, sdk 461, common 557 — all suites green.
+> - **FID-018 (Tier 3 — prompt tokens):** prose-only trims to `agents/savant/system-prompt.ts`,
+>   `agents/savant/prompts.ts`, `agents/tmux-cli/prompts.ts` — −1,301 tokens (−10.1% on the shipped
+>   payload; −9.0% raw source) with every behavioral instruction, law, tool contract, and gate
+>   preserved; `bundled-agents.generated.ts` regenerated (616,267 B → 568,348 B).
+>
+> **Verification (all green, final gate re-run 2026-08-09):** typecheck × 10 workspaces exit 0;
+> test suites — sdk 534, cli 2,938, common 557, agents 44, agent-runtime 761, evals 69,
+> code-map 51, database 15, knowledge-graph 18, llm-providers 58, scripts 75; ESLint
+> `--max-warnings 0`; Prettier + markdownlint clean; `validate:repository` PASS; provider-docs
+> check up to date; bundle regeneration clean and byte-identical on re-run.
+
 ## v0.0.22 — 2026-08-09
 
 Public release of the **unified provider registry** (single source of truth for

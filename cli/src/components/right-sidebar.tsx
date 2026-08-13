@@ -2,10 +2,11 @@ import { TextAttributes } from '@opentui/core'
 import React from 'react'
 
 import { AgentStack } from './savant-ui'
-import { Branding } from './savant-ui/branding'
+import { createSidebarSurfaceStyle } from '../chat/styles'
 import { useFids } from '../hooks/use-fids'
 import { useTheme } from '../hooks/use-theme'
 import { useChatStore } from '../state/chat-store'
+import { Branding } from './savant-ui/branding'
 import { useSavantFreeModelStore } from '../state/savant-free-model-store'
 import { IS_SAVANT_FREE } from '../utils/constants'
 import { loadSavantCodeModelPreference } from '../utils/settings'
@@ -114,14 +115,14 @@ export const RightSidebar = React.memo(function RightSidebar({
 
   return (
     <box
-      flexDirection="column"
-      width={40}
-      flexShrink={0}
-      paddingTop={3}
-      paddingBottom={1}
-      paddingLeft={1}
-      paddingRight={1}
-      gap={1}
+      style={{
+        ...createSidebarSurfaceStyle(theme.background),
+        paddingTop: 3,
+        paddingBottom: 1,
+        paddingLeft: 1,
+        paddingRight: 1,
+        gap: 1,
+      }}
       focusable={false}
       selectable={false}
     >

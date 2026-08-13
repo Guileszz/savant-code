@@ -74,6 +74,7 @@ export function createCancelledStateHelpers(params: {
   function getCancelledRunState(message?: string): RunState {
     message = message ?? 'Run cancelled by user.'
     return {
+      schemaVersion: 1,
       sessionState: getCancelledSessionState(message),
       traceSessionId,
       output: {
@@ -99,6 +100,7 @@ export function createErrorRunStateFrom(params: {
     const message = error instanceof Error ? error.message : String(error)
     const statusCode = getErrorStatusCode(error)
     return {
+      schemaVersion: 1,
       traceSessionId,
       output: {
         type: 'error' as const,

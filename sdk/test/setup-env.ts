@@ -1,3 +1,7 @@
+import { existsSync } from 'fs'
+import { dirname, join } from 'path'
+import { fileURLToPath } from 'url'
+
 /**
  * Provide sensible defaults for required client env vars during SDK tests.
  * Keeps tests from failing when a developer hasn't exported the full web env.
@@ -52,3 +56,39 @@ if (process.env.CI !== 'true' && process.env.CI !== '1') {
 // Hint to downstream code that this is a test runtime
 process.env.NODE_ENV ||= 'test'
 process.env.BUN_ENV ||= 'test'
+
+// Auto-resolve the vendored ripgrep binary for the monorepo layout, where the
+// published-package node_modules path consulted by src/native/ripgrep.ts is
+// absent. Mirrors that file's platform mapping. An explicit
+// SAVANT_CODE_RG_PATH always wins.
+if (!process.env.SAVANT_CODE_RG_PATH) {
+  const platform = process.platform
+  const arch = process.arch
+  let platformDir: string | undefined
+  if (platform === 'win32' && arch === 'x64') {
+    platformDir = 'x64-win32'
+  } else if (platform === 'darwin' && arch === 'arm64') {
+    platformDir = 'arm64-darwin'
+  } else if (platform === 'darwin' && arch === 'x64') {
+    platformDir = 'x64-darwin'
+  } else if (platform === 'linux' && arch === 'arm64') {
+    platformDir = 'arm64-linux'
+  } else if (platform === 'linux' && arch === 'x64') {
+    platformDir = 'x64-linux'
+  }
+  if (platformDir) {
+    const binaryName = platform === 'win32' ? 'rg.exe' : 'rg'
+    const localRgPath = join(
+      dirname(fileURLToPath(import.meta.url)),
+      '..',
+      'dist',
+      'vendor',
+      'ripgrep',
+      platformDir,
+      binaryName,
+    )
+    if (existsSync(localRgPath)) {
+      process.env.SAVANT_CODE_RG_PATH = localRgPath
+    }
+  }
+}

@@ -2,11 +2,8 @@
 
 import { execSync } from 'child_process'
 import fs from 'fs'
-import path from 'path'
-import { fileURLToPath } from 'url'
-
-const __filename = fileURLToPath(import.meta.url)
-const __dirname = path.dirname(__filename)
+import { resolve } from 'path'
+import { pathToFileURL } from 'url'
 
 function log(message) {
   console.log(`📦 ${message}`)
@@ -46,6 +43,11 @@ function main() {
   log(`📦 Package: ${packageJson.name}@${packageJson.version}`)
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+const isDirectInvocation =
+  import.meta.main ||
+  (process.argv[1] !== undefined &&
+    pathToFileURL(resolve(process.argv[1])).href === import.meta.url)
+
+if (isDirectInvocation) {
   main()
 }

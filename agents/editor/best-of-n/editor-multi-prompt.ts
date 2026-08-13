@@ -58,7 +58,10 @@ function* handleStepsMultiPrompt({
   agentState,
   params,
 }: AgentStepContext): ReturnType<
-  NonNullable<SecretAgentDefinition['handleSteps']>
+  Extract<
+    NonNullable<SecretAgentDefinition['handleSteps']>,
+    (...args: never[]) => unknown
+  >
 > {
   const prompts = (params?.prompts as string[] | undefined) ?? []
 

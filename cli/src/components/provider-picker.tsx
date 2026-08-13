@@ -1,18 +1,12 @@
 import { useKeyboard } from '@opentui/react'
-import { useCallback } from 'react'
+import { useCallback, useEffect, useMemo, useRef } from 'react'
 
 import { Button } from './button'
+import { getPickerViewport } from './picker-viewport'
 import { useTheme } from '../hooks/use-theme'
 
 import type { ProviderSetupName } from '../utils/provider-setup'
-import type { KeyEvent } from '@opentui/core'
-
-export function getProviderPickerHeight(providerCount: number): number {
-  const safeCount = Number.isFinite(providerCount)
-    ? Math.max(0, Math.floor(providerCount))
-    : 0
-  return safeCount + 2
-}
+import type { KeyEvent, ScrollBoxRenderable } from '@opentui/core'
 
 interface ProviderPickerProps {
   providers: Array<{
@@ -24,6 +18,7 @@ interface ProviderPickerProps {
   onSelectIndex: (index: number) => void
   onSelect: (provider: ProviderSetupName) => void
   onClose: () => void
+  terminalHeight: number
 }
 
 /**
@@ -39,8 +34,18 @@ export const ProviderPicker: React.FC<ProviderPickerProps> = ({
   onSelectIndex,
   onSelect,
   onClose,
+  terminalHeight,
 }) => {
   const theme = useTheme()
+  const scrollRef = useRef<ScrollBoxRenderable | null>(null)
+
+  const viewport = useMemo(
+    () => getPickerViewport(terminalHeight, providers.length, selectedIndex),
+    [terminalHeight, providers.length, selectedIndex],
+  )
+  useEffect(() => {
+    if (scrollRef.current) scrollRef.current.scrollTop = viewport.start
+  }, [viewport.start])
 
   const commit = useCallback(
     (index: number) => {
@@ -89,10 +94,7 @@ export const ProviderPicker: React.FC<ProviderPickerProps> = ({
     ),
   )
 
-  // Keep the provider menu intrinsic-sized so the bottom chat panel cannot
-  // shrink it into a clipped/scrollable-looking viewport. The two extra rows
-  // account for the bordered box; every provider row is explicitly one line.
-  const pickerHeight = getProviderPickerHeight(providers.length)
+  const pickerHeight = viewport.visibleRows + 3
 
   return (
     <box
@@ -113,51 +115,77 @@ export const ProviderPicker: React.FC<ProviderPickerProps> = ({
       }}
     >
       <text style={{ fg: theme.muted, wrapMode: 'none' }}>
-        Select a provider (↑/↓, Enter, Esc)
+        {`Select a provider (↑/↓, Enter, Esc) · ${providers.length} total${
+          viewport.needsScroll
+            ? ` · showing ${viewport.start + 1}-${viewport.end}`
+            : ''
+        }`}
       </text>
-      {providers.map((provider, idx) => {
-        const isSelected = idx === selectedIndex
-        const status = provider.configured ? '✓' : '✗'
-        const statusColor = provider.configured ? theme.success : theme.muted
+      <scrollbox
+        ref={scrollRef}
+        scrollX={false}
+        scrollbarOptions={{ visible: false }}
+        verticalScrollbarOptions={{
+          visible: viewport.needsScroll,
+          trackOptions: { width: 1 },
+        }}
+        style={{
+          height: viewport.visibleRows,
+          flexShrink: 0,
+          rootOptions: { backgroundColor: 'transparent' },
+          wrapperOptions: { border: false, backgroundColor: 'transparent' },
+          contentOptions: {
+            flexDirection: 'column',
+            backgroundColor: 'transparent',
+          },
+        }}
+      >
+        {providers.map((provider, idx) => {
+          const isSelected = idx === selectedIndex
+          const status = provider.configured ? '✓' : '✗'
+          const statusColor = provider.configured ? theme.success : theme.muted
 
-        return (
-          <Button
-            key={provider.name}
-            onClick={() => commit(idx)}
-            style={{
-              width: '100%',
-              height: 1,
-              minHeight: 1,
-              flexGrow: 0,
-              flexShrink: 0,
-              paddingLeft: 1,
-              paddingRight: 1,
-              backgroundColor: isSelected ? theme.surfaceHover : theme.surface,
-              flexDirection: 'row',
-              gap: 1,
-              alignItems: 'center',
-            }}
-          >
-            <text fg={theme.primary} wrapMode="none" selectable={false}>
-              {isSelected ? '› ' : '  '}
-            </text>
-            <text fg={statusColor} wrapMode="none" selectable={false}>
-              {status}
-            </text>
-            <text
-              fg={isSelected ? theme.foreground : theme.muted}
-              attributes={isSelected ? 1 : 0}
-              wrapMode="none"
-              selectable={false}
+          return (
+            <Button
+              key={provider.name}
+              onClick={() => commit(idx)}
+              style={{
+                width: '100%',
+                height: 1,
+                minHeight: 1,
+                flexGrow: 0,
+                flexShrink: 0,
+                paddingLeft: 1,
+                paddingRight: 1,
+                backgroundColor: isSelected
+                  ? theme.surfaceHover
+                  : theme.surface,
+                flexDirection: 'row',
+                gap: 1,
+                alignItems: 'center',
+              }}
             >
-              {provider.label}
-            </text>
-            <text fg={theme.muted} wrapMode="none" selectable={false}>
-              ({provider.name})
-            </text>
-          </Button>
-        )
-      })}
+              <text fg={theme.primary} wrapMode="none" selectable={false}>
+                {isSelected ? '› ' : '  '}
+              </text>
+              <text fg={statusColor} wrapMode="none" selectable={false}>
+                {status}
+              </text>
+              <text
+                fg={isSelected ? theme.foreground : theme.muted}
+                attributes={isSelected ? 1 : 0}
+                wrapMode="none"
+                selectable={false}
+              >
+                {provider.label}
+              </text>
+              <text fg={theme.muted} wrapMode="none" selectable={false}>
+                ({provider.name})
+              </text>
+            </Button>
+          )
+        })}
+      </scrollbox>
     </box>
   )
 }

@@ -1,6 +1,6 @@
 # Show HN Post
 
-**Title:** Show HN: Savant Code – a local-first AI coding CLI with a 9-agent auditing loop
+**Title:** Show HN: Savant Code – a local-first AI coding CLI with a 10-agent auditing loop
 
 **URL:** <https://github.com/savant0x/savant-code>
 
@@ -11,7 +11,7 @@ are tired of cleaning up hallucinated code. It runs locally with Ollama or
 connects to your own API keys (BYOK). With local Ollama, your code never leaves
 your machine.
 
-The core idea is a 9-agent "perfection loop" (we call it ECHO) that audits,
+The core idea is a 10-agent "perfection loop" (we call it ECHO) that audits,
 critiques, and rewrites code before it ever reaches your codebase. Detective
 finds issues. Forge implements. Verifier audits. The loop repeats up to a hard
 cap, with explicit permission controls so you know exactly what is about to run.

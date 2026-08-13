@@ -80,12 +80,14 @@ up to `MAX_ITERATIONS = 10` (circuit breaker; see `transition-phase.ts:12`).
 - The Orchestrator writes to `dev/scratchpad/` (scratchpad exemption) without
   ceremony; all other code writes require full Perfection Loop.
 
-### Agent Roster (9 canonical + 5 helper library dirs)
+### Agent Roster (10 canonical ECHO roles)
 
 - Canonical agents per ECHO.md / `ARCHITECTURE.md`:
-  Orchestrator, Detective, Forge, Verifier, Recorder, Thinker, Scout, Researcher, Scribe.
-- Helper library dirs (in `agents/` but NOT counted in roster): `browser-use`, `editor`,
-  `file-explorer`, `librarian`, `types`. These are tool sets, not agents.
+  Orchestrator, Detective, Forge, Verifier, Recorder, Thinker, Scout, Researcher, Scribe,
+  Adversary.
+- Helper tool-library dirs (in `agents/` but NOT counted in roster): see
+  ARCHITECTURE.md → Helper Tool Libraries (e.g. `browser-use`, `database`, `github`,
+  `editor`, `file-explorer`, `librarian`, `types`). These are tool sets, not agents.
 
 ### Three-Layer Audit Chain
 
@@ -318,6 +320,29 @@ BEFORE drafting the audit request. Nova will verify — claim once, verify twice
 Full rebrand to `@savant-code/*` deferred to next push (post-v0.0.2). Use `Option C` decision
 recording per FID-2026-0718-017: *"preserve @savant-code/* pkg names as the 0.0.2 snapshot state;
 full rebrand lands in next push."*
+
+### 8. Manual E2E harnesses must NOT use the `.test.ts` suffix (found 2026-08-09)
+
+Bun's test runner discovers every `*.test.ts` file and executes it **as an entrypoint**,
+so a manual CLI script named `*.test.ts` runs its `import.meta.main`-guarded `main()`
+during `bun test` — not just when invoked by hand. The two manual agent harnesses
+(`agents/browser-use/browser-use.test.ts`, `agents/librarian/librarian.test.ts`) did
+exactly this: `main()` resolved `path.join(process.cwd(), 'agents')`, which is wrong when
+cwd is the `agents/` workspace, so the suite exited 1 (and a "fixed" cwd would have made
+the unit gate fire live browser/LLM calls).
+
+Two attempted fixes did NOT hold:
+
+- Bun's `[test] exclude` in `bunfig.toml` was only honored from the bunfig directory
+  (root), not from the workspace cwd where the gate actually runs.
+- `--path-ignore-patterns` worked but only per-pattern — excluding `browser-use` just
+  surfaced `librarian` next (whack-a-mole; there may be more).
+
+**Rule:** manual/E2E scripts that must not execute in the unit suite must not carry the
+`.test.ts` suffix (e.g. name them `manual-e2e.ts`, keep them out of `__tests__/`). Only
+files with real `test()`/`describe()` blocks belong in the discovery glob. When renaming,
+`git mv`, update the docstring `Usage:` line, and add the file to the eslint tooling
+override (console is the output mechanism for such scripts).
 
 ---
 

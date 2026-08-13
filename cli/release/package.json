@@ -1,6 +1,6 @@
 {
   "name": "savant-code",
-  "version": "0.0.22",
+  "version": "0.0.23",
   "description": "Multi-Agent AI Coding Assistant with ECHO Protocol",
   "license": "Apache-2.0",
   "author": "Savant Code <founders@savant-code.com>",
@@ -25,7 +25,8 @@
     "index.js",
     "launcher.js",
     "http.js",
-    "README.md"
+    "README.md",
+    "savant-design-systems"
   ],
   "os": [
     "darwin",

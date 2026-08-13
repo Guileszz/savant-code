@@ -8,7 +8,7 @@
 project:
   name: 'savant-code'
   description: 'Multi-Agent AI Coding Assistant with ECHO Protocol governance. TypeScript monorepo, Bun runtime.'
-  version: '0.0.21'
+  version: '0.0.23'
 
 protocol:
   version: '0.2.0'
@@ -18,14 +18,13 @@ language: 'typescript' # rust | typescript | python | go | java | csharp
 
 commands:
   build: 'bun run ci' # NOTE: release-artifact build (SDK + Savant-Free binaries only, per package.json `ci`). Full 9-workspace compile verification is the `type_check` gate below.
-  test: 'bun run test' # Root `test` script — chains all 10 workspace unit suites (sdk, cli, common, agents, evals test:v2, agent-runtime, code-map, database, knowledge-graph, llm-providers). Matches the `type_check` gate coverage.
-  # Mirrors the root `typecheck` script — all 10 workspaces including
-  # packages/database + packages/knowledge-graph (FID-2026-0803-001 ECHO-8;
-  # knowledge-graph added FID-2026-0806-002).
-  type_check: 'bun run --cwd=common typecheck && bun run --cwd=agents typecheck && bun run --cwd=sdk typecheck && bun run --cwd=cli typecheck && bun run --cwd=evals typecheck && bun run --cwd=packages/agent-runtime typecheck && bun run --cwd=packages/code-map typecheck && bun run --cwd=packages/database typecheck && bun run --cwd=packages/knowledge-graph typecheck && bun run --cwd=packages/llm-providers typecheck'
+  test: 'bun run test' # Root `test` script — chains all workspace unit suites, including design-systems. Matches the `type_check` gate coverage.
+  # Mirrors the root `typecheck` script — all workspaces including the
+  # design-systems package and packages/database + packages/knowledge-graph.
+  type_check: 'bun run --cwd=common typecheck && bun run --cwd=agents typecheck && bun run --cwd=sdk typecheck && bun run --cwd=cli typecheck && bun run --cwd=evals typecheck && bun run --cwd=packages/agent-runtime typecheck && bun run --cwd=packages/design-systems typecheck && bun run --cwd=packages/code-map typecheck && bun run --cwd=packages/database typecheck && bun run --cwd=packages/knowledge-graph typecheck && bun run --cwd=packages/llm-providers typecheck'
   lint: 'bun x eslint . --max-warnings 0' # zero-tolerance gate (matches .githooks/pre-push)
   lint_md: 'bun run lint:md'
-  # Full-repo prettier check — LIVE gate since the 0.0.21 hardening session
+  # Full-repo prettier check — LIVE gate since the 0.0.21 hardening session; active target 0.0.23
   # (was a documented deferred boundary per FID-001 / FID-2026-0803-001 ECHO-8;
   # now enforced with the generators emitting prettier-formatted output so
   # regenerated files stay compliant).
@@ -90,8 +89,8 @@ savant:
     permissionMode: 'prompt' # safe | prompt | unsafe
 
 # Single-agent protocol contract (renamed from the legacy product namespace,
-# FID-2026-0807-011). The runtime normalizes it into the `savant` ProtocolConfig
-# property and prefers the `savant` namespace when both are present.
+# FID-2026-0807-011). The runtime resolves this namespace explicitly for
+# single-agent sessions; it must not fall through to the harness protocol.
 single_agent:
   protocol:
     version: '0.1.2-single-agent'

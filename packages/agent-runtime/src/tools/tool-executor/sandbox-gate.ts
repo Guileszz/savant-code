@@ -1,7 +1,9 @@
-import { type SandboxPermissionMode } from '@savant-code/common/tools/safety'
-
 import { createDefaultSandboxPolicy, evaluateToolCall } from '../sandbox'
 
+import type {
+  SandboxPermissionMode,
+  ToolSafety,
+} from '@savant-code/common/tools/safety'
 import type { Logger } from '@savant-code/common/types/contracts/logger'
 import type { JSONValue } from '@savant-code/common/types/json'
 import type { PrintModeEvent } from '@savant-code/common/types/print-mode'
@@ -20,6 +22,7 @@ export function checkSandboxPolicy(params: {
   toolCallInput: Record<string, JSONValue>
   projectRoot: string | undefined
   permissionMode: 'safe' | 'prompt' | 'unsafe' | undefined
+  safetyOverride?: ToolSafety
   logger: Logger
   onResponseChunk: (chunk: string | PrintModeEvent) => void
 }): boolean {
@@ -38,11 +41,15 @@ export function checkSandboxPolicy(params: {
     return false
   }
   if (!projectRoot) {
-    logger.warn(
+    logger.error(
       { toolName },
-      'Sandbox check skipped: fileContext.projectRoot is missing. This is a configuration error and may allow unsafe tool calls.',
+      'Sandbox check denied: fileContext.projectRoot is missing.',
     )
-    return false
+    onResponseChunk({
+      type: 'error',
+      message: `Tool \`${toolName}\` was blocked by the sandbox: project root is missing.`,
+    })
+    return true
   }
 
   const sandboxPolicy = createDefaultSandboxPolicy(
@@ -54,6 +61,7 @@ export function checkSandboxPolicy(params: {
     // C1: same safe narrowing as the write gate — validated input only.
     input: toolCallInput,
     policy: sandboxPolicy,
+    safetyOverride: params.safetyOverride,
   })
   if (sandboxDecision.type === 'deny') {
     onResponseChunk({

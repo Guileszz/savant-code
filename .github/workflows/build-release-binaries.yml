@@ -148,7 +148,7 @@ jobs:
         shell: bash
         run: |
           cd cli/bin
-          tar -czf "savant-code-${{ matrix.target }}.tar.gz" "${{ matrix.binary }}" tree-sitter.wasm elk-worker.min.js graph-export-audio env.json
+          tar -czf "savant-code-${{ matrix.target }}.tar.gz" "${{ matrix.binary }}" tree-sitter.wasm elk-worker.min.js graph-export-audio env.json savant-design-systems
 
       - name: Upload to GitHub release
         shell: bash

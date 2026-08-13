@@ -71,6 +71,7 @@ Works with multiple inference providers:
 - **TokenRouter** — Multi-provider gateway
 - **NVIDIA NIM** — NVIDIA-hosted inference
 - **CommandCode** — OpenAI-compatible hosted inference
+- **Nous Research** — OpenAI-compatible direct inference via `NOUS_API_KEY`; Portal OAuth is a separate integration
 - **Cloudflare** — Env-only gateway (Workers AI); requires `CLOUDFLARE_API_TOKEN`
   + `CLOUDFLARE_ACCOUNT_ID`, not in the `/provider` picker
 - **Custom endpoint** — Any OpenAI-compatible API
@@ -272,7 +273,72 @@ opens a PR via the `gh` CLI (FID-2026-0806-004):
 | `/diagnostics` | Show local CLI resource usage |
 | `/ads:enable` / `/ads:disable` | Toggle contextual ads |
 | `/theme:toggle` | Toggle between light and dark mode |
+| `/design` | List, select, create, edit, or reset the active design system |
+| `/release` | Run the public release flow: `/release preview \| diagnose \| go \| resume \| status` |
+| `/feedback` | Share general feedback about SavantCode |
+| `/publish` | Publish an agent to the registry |
+| `/usage` | View credits and subscription quota |
+| `/subscribe` | Subscribe to get more usage |
+| `/connect` | Connect a ChatGPT account (OAuth) |
+| `/end-session` | End a free session (lets you switch model) |
 | `/exit` | Quit the CLI |
+
+**Availability:** SavantFree exposes `/connect`, `/plan`, and `/end-session`; the full build
+adds `/mode`, `/model`, `/provider`, `/usage`, `/subscribe`, `/publish`, `/release`, `/image`,
+and `/ads:enable` / `/ads:disable`. Skill commands (`/skill:<name>`) appear once a skill is
+loaded. Each mode has its own `/mode:<name>` command (see
+[Execution Modes](savant-code-modes.md)).
+
+---
+
+## Design Systems
+
+`/design` manages a lightweight, project-local **design system** — a typed token set that the
+agent applies to any visual output it produces (markdown, HTML exports, terminal UI):
+
+- **`/design current`** — show the active system; `use` switches to another
+- **`/design create`** — author a new system through an interactive wizard (cancel-before-save
+  and cancel-after-preview are both safe)
+- **`/design edit`** — edit the active system with a built-in clone-before-edit and revision
+  history
+- **`/design import` / `validate` / `drafts` / `resume` / `discard`** — full draft lifecycle
+- **`/design reset`** — restore defaults; `reset --all` clears custom systems
+
+Built-in systems are immutable. Persistence is atomic: a failed commit leaves the prior valid
+version active, and restart persistence preserves the active system across sessions.
+A natural-language imperative grammar lets the agent apply design changes conversationally;
+ordinary design *discussion* never writes. The headless file/stdin schema routes through the
+same service with bounded machine-readable errors. See
+[`docs/design/design-system-library.md`](design/design-system-library.md) for the full spec.
+
+---
+
+## Release Workflow
+
+`/release` drives the governed public-release pipeline (documented in
+[Public Release Workflow](public-release.md)):
+
+- **`/release preview`** — mutation-free plan: gate matrix, version/changelog sync, npm/sav
+  artifact manifests, receipt simulation
+- **`/release diagnose`** — run the deterministic release gates only
+- **`/release go`** — execute the approved release (operator-gated, records a receipt)
+- **`/release resume`** — continue a paused release from its receipt
+- **`/release status`** — show the current release state
+
+Release state is tracked via a temp-dir receipt; the pipeline is fail-closed (each step refuses
+to continue if its prerequisite gate is not green) and produces a structured audit trail.
+
+---
+
+## Session-Init Grounding
+
+Every session — interactive or headless, in every mode — starts with a **deterministic grounding
+ritual**: the harness reads `ECHO.md`, `ARCHITECTURE.md`, `protocol.config.yaml`, `LEARNINGS.md`,
+and the FID template **local-first**, falling back to a **full grounding set embedded in the
+runtime** (generated from the repo, drift-checked at validation time) so npm-installed copies
+boot with no scaffolding and no crash. A universal tool gate arms at session start and a
+first-turn completion gate steers ungrounded text-only replies back on contract; both are
+bounded (max 3 retries) and never seed the main agent with a pre-converged protocol state.
 
 ---
 
@@ -280,5 +346,8 @@ opens a PR via the `gh` CLI (FID-2026-0806-004):
 
 - [ECHO Protocol](echo-protocol.md) — The governance system
 - [Agent Roster](agents.md) — The 10 agents and their roles
+- [Execution Modes](savant-code-modes.md) — HYBRID / STRICT / ANALYZE / SCAFFOLD / PLAN contracts
+- [Design System Library](design/design-system-library.md) — The full `/design` specification
+- [Public Release Workflow](public-release.md) — The governed `/release` pipeline
 - [Installation](installation.md) — Getting started
 - [GitHub](https://github.com/savant0x/savant-code) — Source code

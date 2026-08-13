@@ -1,3 +1,4 @@
+import { MAX_SUBAGENT_FAN_OUT } from '@savant-code/common/constants/agents'
 import { jsonToolResult } from '@savant-code/common/util/messages'
 import { safeToJSONValue } from '@savant-code/common/util/type-narrowing'
 
@@ -67,6 +68,7 @@ export const handleSpawnAgents = (async (
       | 'parentSystemPrompt'
       | 'parentTools'
       | 'onResponseChunk'
+      | 'propagation'
     >,
 ): Promise<{ output: SavantCodeToolOutput<ToolName> }> => {
   const {
@@ -86,6 +88,25 @@ export const handleSpawnAgents = (async (
   const { logger } = params
 
   await previousToolCallFinished
+
+  if (
+    !Array.isArray(agents) ||
+    agents.some(
+      (agent) =>
+        !agent ||
+        typeof agent !== 'object' ||
+        typeof agent.agent_type !== 'string',
+    )
+  ) {
+    throw new Error(
+      'Invalid spawn_agents input: agents must be an array of entries with string agent_type values.',
+    )
+  }
+  if (agents.length > MAX_SUBAGENT_FAN_OUT) {
+    throw new Error(
+      `Subagent fan-out limit exceeded (maximum ${MAX_SUBAGENT_FAN_OUT} children per spawn).`,
+    )
+  }
 
   // FID-2026-0718-009 M3: surface sub-agent activity on parent.
   // Sub-agent work begins; parent UI shows 'subagent' state.
@@ -133,9 +154,17 @@ export const handleSpawnAgents = (async (
         // parent UI starts showing 'subagent' once the agent hits tool calls.
 
         // Extract common context params to avoid bugs from spreading all params
-        const contextParams = extractSubagentContextParams(params)
+        const contextParams = extractSubagentContextParams({
+          ...params,
+          agentState: parentAgentState,
+        })
+        const propagation = contextParams.propagation
+        if (!propagation) {
+          throw new Error('Subagent propagation context is missing.')
+        }
 
         const result = await executeSubagent({
+          propagation,
           ...contextParams,
 
           // Spawn-specific params
@@ -149,7 +178,6 @@ export const handleSpawnAgents = (async (
           fingerprintId,
           isOnlyChild: agents.length === 1,
           excludeToolFromMessageHistory: false,
-          fromHandleSteps: false,
           parentSystemPrompt,
           // FID-2026-0802-005 L12: filterToolSet only when the child actually
           // inherits the parent's system prompt (avoid redundant computation

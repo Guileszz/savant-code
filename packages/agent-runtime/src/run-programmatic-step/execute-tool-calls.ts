@@ -90,14 +90,25 @@ export async function executeSingleToolCall(
   }
 
   const toolResultsToAddToMessageHistory: ToolMessage[] = []
-  // Execute the tool call
+  // Execute with a narrow template copy that exposes only this validated
+  // programmatic tool to the executor. No caller-provided bypass flag or
+  // capability set is trusted by the executor.
+  const programmaticAgentTemplate = {
+    ...params.agentTemplate,
+    toolNames: [
+      ...new Set([
+        ...(params.agentTemplate.toolNames ?? []),
+        toolCallToExecute.toolName,
+      ]),
+    ],
+  }
   await executeToolCall({
     ...params,
+    agentTemplate: programmaticAgentTemplate,
     toolName: toolCallToExecute.toolName as ToolName,
     input: toolCallToExecute.input,
     autoInsertEndStepParam: true,
     excludeToolFromMessageHistory,
-    fromHandleSteps: true,
     toolCallId,
     toolCalls: [],
     toolCallsToAddToMessageHistory: [],

@@ -2,6 +2,8 @@ import { shouldUseLocalTokenCount } from '@savant-code/common/constants/free-age
 import { buildArray } from '@savant-code/common/util/array'
 import { userMessage } from '@savant-code/common/util/messages'
 
+import { getOrCreateEnforcement } from '../echo/enforcement'
+import { appendGroundingRefresh } from '../echo/grounding'
 import { callTokenCountAPI } from '../llm-api/savant-code-web-api'
 import { getAgentPrompt } from '../templates/strings'
 import {
@@ -162,6 +164,12 @@ export async function prepareStepContext(params: {
       },
       `⚙️ Context micro-compacted: cleared stale tool results, ~${microResult.tokensSaved.toLocaleString()} tokens saved. Context at ${percentUsed}% of auto-compact threshold.`,
     )
+    if (!agentState.parentId) {
+      appendGroundingRefresh(
+        agentState,
+        getOrCreateEnforcement(agentState).recordCompaction().refreshText,
+      )
+    }
   }
 
   // FID-2026-0725-085: Check auto-compact threshold.
@@ -172,6 +180,12 @@ export async function prepareStepContext(params: {
     agentState.contextTokenCount,
   )
   if (autoCompactCheck.shouldCompact) {
+    if (!agentState.parentId) {
+      appendGroundingRefresh(
+        agentState,
+        getOrCreateEnforcement(agentState).recordCompaction().refreshText,
+      )
+    }
     const degradationWarning = contextCompactor.getDegradationWarning()
     if (degradationWarning) {
       logger.warn(

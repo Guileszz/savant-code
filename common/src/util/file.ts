@@ -7,6 +7,7 @@ import { jsonValueSchema } from '../types/json'
 
 import type { AgentDefinition } from '../templates/initial-agents-dir/types/agent-definition'
 import type { StepHandler } from '../types/agent-template'
+import type { DesignContract } from '../types/design-system'
 import type { SavantCodeFileSystem } from '../types/filesystem'
 import type { JSONValue } from '../types/json'
 import type { SkillsMap } from '../types/skill'
@@ -58,6 +59,9 @@ export const customToolDefinitionsSchema = z
       inputSchema: z.custom<z.ZodType | Record<string, JSONValue>>(),
       endsAgentStep: z.boolean().optional().default(false),
       description: z.string().optional(),
+      /** Host-declared effect and approval policy for extension tools. */
+      effect: z.enum(['read', 'write', 'shell', 'network', 'mixed']).optional(),
+      permission: z.enum(['allow', 'prompt', 'deny']).optional(),
       exampleInputs: z.record(z.string(), jsonValueSchema).array().optional(),
     }),
   )
@@ -100,6 +104,10 @@ export const ProjectFileContextSchema = z.object({
   devMode: z.boolean().optional(),
   /** Sandbox permission mode: safe = deny risky, prompt = ask when possible, unsafe = allow. */
   permissionMode: z.enum(['safe', 'prompt', 'unsafe']).optional(),
+  /** Active design contract; only the selected system is transported. */
+  designContract: z.custom<DesignContract>().optional(),
+  /** Rendered active design guidance injected into agent prompts. */
+  designSystemContext: z.string().optional(),
 })
 
 export type ProjectFileContext = {
@@ -134,6 +142,10 @@ export type ProjectFileContext = {
   devMode?: boolean
   /** Sandbox permission mode: safe = deny risky, prompt = ask when possible, unsafe = allow. */
   permissionMode?: 'safe' | 'prompt' | 'unsafe'
+  /** Active design contract; only the selected system is transported. */
+  designContract?: DesignContract
+  /** Rendered active design guidance injected into agent prompts. */
+  designSystemContext?: string
 }
 
 export const fileRegex =
@@ -185,6 +197,8 @@ export const getStubProjectFileContext = (): ProjectFileContext => ({
   },
   devMode: undefined,
   permissionMode: undefined,
+  designContract: undefined,
+  designSystemContext: undefined,
 })
 
 export const createMarkdownFileBlock = (filePath: string, content: string) => {

@@ -1,5 +1,12 @@
 import type { JSONObject, JSONValue } from '../types/json'
 
+// The empty catches below are deliberate parse-probe outcomes, not swallowed
+// errors: each tries a successively more permissive JSON repair (append `}`, a
+// closing quote, strip a trailing escape, truncate at the last comma) and the
+// `catch {}` is the probe's expected "not parseable yet" result. The final
+// fallback (empty params) is the honest degraded-parse answer for hostile or
+// mid-token streams. Verified 2026-08-09 audit — keep probe semantics, do not
+// convert to logged errors (LEARNINGS: probe outcome ≠ diagnostic swallow).
 export function parsePartialJsonObjectSingle(content: string): {
   lastParamComplete: boolean
   params: JSONObject

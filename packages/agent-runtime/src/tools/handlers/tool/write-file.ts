@@ -54,6 +54,24 @@ export function getFileProcessingValues(
   }
 }
 
+/**
+ * Return the exact successful content for one completed file-tool call.
+ * `undefined` means no successful content snapshot was produced; `''` is
+ * deliberately returned for a successful empty-file write.
+ */
+export function getSuccessfulFileContent(params: {
+  state: FileProcessingState
+  path: string
+  toolCallId: string
+}): string | undefined {
+  const change = params.state.fileChanges.find(
+    (candidate) =>
+      candidate.path === params.path &&
+      candidate.toolCallId === params.toolCallId,
+  )
+  return change?.content
+}
+
 export const handleWriteFile = (async (
   params: {
     previousToolCallFinished: Promise<void>
@@ -63,9 +81,6 @@ export const handleWriteFile = (async (
     clientSessionId: string
     fileProcessingState: FileProcessingState
     fingerprintId: string
-    // Optional to support test fixtures / partial mocks that don't pass fileContext.
-    // The runtime path through executeToolCall always provides this. We null-check
-    // defensively to fail soft (return reject) rather than crash with TypeError.
     fileContext?: ProjectFileContext
     logger: Logger
     prompt: string | undefined
@@ -92,11 +107,6 @@ export const handleWriteFile = (async (
   } = params
   const { path, content } = toolCall.input
 
-  // FID-2026-0718-013 v3 — defense-in-depth. Tool-executor already routed
-  // through resolveAndContain (F3: outside !isDevOverride), but a hostile or
-  // buggy caller that bypassed the gate (e.g. via direct tool dispatch) would
-  // still be caught here. Also catches paths mutated by intermediate code.
-  // symmetric with the gate at tool-executor.ts (same projectRoot source).
   const projectRoot = params.fileContext?.projectRoot
   if (!projectRoot) {
     return {
@@ -130,7 +140,6 @@ export const handleWriteFile = (async (
   const fileProcessingPromisesByPath = fileProcessingState.promisesByPath
   const fileProcessingPromises = fileProcessingState.allPromises
 
-  // Initialize state for this file path if needed
   if (!fileProcessingPromisesByPath[path]) {
     fileProcessingPromisesByPath[path] = []
   }
@@ -158,14 +167,12 @@ export const handleWriteFile = (async (
     logger,
   })
     .then((result) => {
-      // Check for abort and throw at the boundary
       if (result.aborted) {
         throw new AbortError(result.reason)
       }
       return result.value
     })
     .catch((error) => {
-      // AbortError propagates up - don't convert to tool error
       if (error instanceof AbortError) {
         throw error
       }
@@ -221,7 +228,6 @@ export async function postStreamProcessing<T extends FileProcessingTools>(
     }
     fileProcessingState.firstFileProcessed = true
   } else {
-    // Update the arrays with new results for subsequent tool calls
     const [newErrors, newChanges] = partition(
       allFileProcessingResults,
       (result) => 'error' in result,
@@ -235,8 +241,6 @@ export async function postStreamProcessing<T extends FileProcessingTools>(
       { error: string }
     >[]
   }
-
-  // Note: toolCallResults was previously assigned but unused - errors are returned directly now
 
   const errors = fileProcessingState.fileChangeErrors.filter(
     (result) => result.toolCallId === toolCall.toolCallId,

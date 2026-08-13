@@ -6,11 +6,31 @@ import { IS_DEV } from '@savant-code/common/env'
 import { getCliEnv } from './env'
 import { getCurrentChatDir, getProjectRoot } from '../project-files'
 
-import type { TraceWriter } from '@savant-code/common/types/contracts/trace'
+import type {
+  RuntimeTraceEvent,
+  TraceWriter,
+} from '@savant-code/common/types/contracts/trace'
 import type { JSONValue } from '@savant-code/common/types/json'
 import type { Message } from '@savant-code/common/types/messages/savant-code-message'
 
 const TRACE_FILENAME = 'trace.jsonl'
+const MAX_TRACE_VALUE_LENGTH = 160
+const MAX_TRACE_REASON_LENGTH = 160
+const MAX_RUNTIME_EVENTS = 2_000
+
+function boundedRuntimeEvent(event: RuntimeTraceEvent): RuntimeTraceEvent {
+  return {
+    ...event,
+    runId: event.runId?.slice(0, MAX_TRACE_VALUE_LENGTH),
+    agentId: event.agentId.slice(0, MAX_TRACE_VALUE_LENGTH),
+    agentType: event.agentType.slice(0, MAX_TRACE_VALUE_LENGTH),
+    reason:
+      event.reason === undefined
+        ? undefined
+        : event.reason.slice(0, MAX_TRACE_REASON_LENGTH),
+    toolName: event.toolName?.slice(0, 80),
+  }
+}
 
 type AgentTraceState = {
   /** Roles of messages already written, in order. Used to detect history
@@ -64,8 +84,32 @@ export function createTraceWriter(
 
   const agentStates = new Map<string, AgentTraceState>()
   let ensuredDir: string | undefined
+  let runtimeEventCount = 0
 
   return {
+    recordEvent: (event) => {
+      if (runtimeEventCount >= MAX_RUNTIME_EVENTS) return
+      runtimeEventCount++
+      const filePath = resolveTraceFilePath()
+      if (!filePath) return
+      try {
+        const dir = dirname(filePath)
+        if (ensuredDir !== dir) {
+          mkdirSync(dir, { recursive: true })
+          ensuredDir = dir
+        }
+        appendFileSync(
+          filePath,
+          JSON.stringify({
+            timestamp: new Date().toISOString(),
+            type: 'runtime_event',
+            ...boundedRuntimeEvent(event),
+          }) + '\n',
+        )
+      } catch {
+        // Tracing must never break the run
+      }
+    },
     recordStep: ({
       agentId,
       agentType,

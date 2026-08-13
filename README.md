@@ -10,11 +10,46 @@ touches your repo.**
 Built with TypeScript/Bun, governed by the ECHO Protocol, and designed for
 local-first use with Ollama.
 
-[![TypeScript](https://img.shields.io/badge/TypeScript-5.5-%23000000?style=flat-square&logo=typescript&logoColor=%2300fbff)](https://www.typescriptlang.org/)[![Bun](https://img.shields.io/badge/Bun-1.3.14-%23000000?style=flat-square&logo=bun&logoColor=%2300fbff)](https://bun.sh/)[![React](https://img.shields.io/badge/React-19-%23000000?style=flat-square&logo=react&logoColor=%2300fbff)](https://react.dev/)[![OpenTUI](https://img.shields.io/badge/OpenTUI-0.2.2-%23000000?style=flat-square&logo=github&logoColor=%2300fbff)](https://github.com/anomalyco/opentui)[![ECHO](https://img.shields.io/badge/ECHO-v0.2.0-%23000000?style=flat-square&logo=github&logoColor=%2300fbff)](ECHO.md)[![License](https://img.shields.io/badge/License-Apache_2.0-%23000000?style=flat-square&logo=apache&logoColor=%2300fbff)](LICENSE)[![Release](https://img.shields.io/badge/Release-v0.0.22-%23000000?style=flat-square&logo=semver&logoColor=%2300fbff)](CHANGELOG.md)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.5-%23000000?style=flat-square&logo=typescript&logoColor=%2300fbff)](https://www.typescriptlang.org/)[![Bun](https://img.shields.io/badge/Bun-1.3.14-%23000000?style=flat-square&logo=bun&logoColor=%2300fbff)](https://bun.sh/)[![React](https://img.shields.io/badge/React-19-%23000000?style=flat-square&logo=react&logoColor=%2300fbff)](https://react.dev/)[![OpenTUI](https://img.shields.io/badge/OpenTUI-0.2.2-%23000000?style=flat-square&logo=github&logoColor=%2300fbff)](https://github.com/anomalyco/opentui)[![ECHO](https://img.shields.io/badge/ECHO-v0.2.0-%23000000?style=flat-square&logo=github&logoColor=%2300fbff)](ECHO.md)[![License](https://img.shields.io/badge/License-Apache_2.0-%23000000?style=flat-square&logo=apache&logoColor=%2300fbff)](LICENSE)[![Release](https://img.shields.io/badge/Release-v0.0.23-pending-%23000000?style=flat-square&logo=semver&logoColor=%2300fbff)](CHANGELOG.md)
 
 </div>
 
-> **v0.0.22** — the **unified provider registry** makes `common`'s typed
+> **v0.0.23 (pending, unreleased)** — the optimization and automation program's
+> implementation scope is complete and independently signed off across FIDs 003–010.
+> The ECHO remediation package (FID-2026-0811-015 through 021) and the LEARNINGS
+> feedback-system remediation (FID-2026-0811-022 through 029) are implemented,
+> closed, and archived under the granted automation level 3 scope. Nova's
+> independent implementation audits returned **PASS — implementation approved
+> for closure** for both packages. The LEARNINGS work adds a curated privacy-safe
+> embedded source, strict structured lesson validation, chronology and
+> supersession checks, fail-closed stable evidence references, and canonical
+> rule validation. The ECHO work adds production EHEL turn-end reachability,
+> content-complete scanning, trusted custom/MCP tool provenance, explicit
+> execution policy, no-attribution FID governance, provenance-scoped hygiene,
+> and deterministic audit evidence. The earlier untracked 004–014
+> archive-looking artifacts remain explicitly untrusted and untouched pending
+> operator disposition. No tag, push, publication, or deployment has occurred.
+>
+> **LEARNINGS audit boundary:** Nova verified 104 tests across 8 suites with
+> zero failures. The global `lint:md` command remains `NEEDS-REVIEW` only for
+> unrelated untracked design-system documents under
+> `packages/design-systems/library/`; the governed learning documents are
+> clean. FID archives and implementation files remain untracked working-tree
+> evidence, not clean-release certification.
+>
+> **Universal session-init grounding (FID-2026-0810-002):** every session boots
+> with a deterministic grounding ritual — the harness protocol and grounding
+> files are read local-first, with the **full harness grounding set embedded in
+> the runtime** as a fallback, so npm-installed copies in any project boot
+> (no crash, no scaffolding). The boot reads are enforced in every mode
+> (HYBRID, STRICT, ANALYZE, SCAFFOLD, PLAN, DEFAULT) via a universal tool gate
+> and a first-turn completion gate, and the embedded copies are generated from
+> the repo files with a drift check that fails validation if they fall out of
+> sync.
+>
+> The prior unified provider registry remains historical ground truth; this pending
+> build adds drift detection without changing provider routing. The **unified
+> provider registry** makes `common`'s typed
 > `PROVIDER_REGISTRY` the single source of truth for every provider surface
 > (routing, credentials, `/provider` setup, picker sections, model catalogs,
 > generated docs — adding a provider is now one registry entry, see
@@ -77,6 +112,7 @@ history. The supported hosted providers are:
 | TokenHarbor | `/provider tokenharbor` | `TOKENHARBOR_API_KEY` | OpenAI-compatible gateway at `https://tokenharbor.ai/v1` |
 | NVIDIA NIM | `/provider nvidia` | `NVIDIA_API_KEY` | NVIDIA-hosted inference |
 | CommandCode | `/provider commandcode` | `COMMAND_CODE_API_KEY` | OpenAI-compatible hosted inference |
+| Nous Research | `/provider nous` | `NOUS_API_KEY` | OpenAI-compatible direct inference; Portal OAuth is separate |
 
 The key is persisted at
 `C:\\Users\\<username>\\.savant-code\\credentials.json` on Windows or
@@ -92,6 +128,7 @@ $env:OPENROUTER_API_KEY = "your-key"
 # $env:TOKENHARBOR_API_KEY = "your-key"
 # $env:NVIDIA_API_KEY = "your-key"
 # $env:COMMAND_CODE_API_KEY = "your-key"
+# $env:NOUS_API_KEY = "your-key"
 savant-code
 ```
 
@@ -103,6 +140,7 @@ set OPENROUTER_API_KEY=your-key
 :: set TOKENHARBOR_API_KEY=your-key
 :: set NVIDIA_API_KEY=your-key
 :: set COMMAND_CODE_API_KEY=your-key
+:: set NOUS_API_KEY=your-key
 savant-code
 ```
 
@@ -114,6 +152,7 @@ export OPENROUTER_API_KEY="your-key"
 # export TOKENHARBOR_API_KEY="your-key"
 # export NVIDIA_API_KEY="your-key"
 # export COMMAND_CODE_API_KEY="your-key"
+# export NOUS_API_KEY="your-key"
 savant-code
 ```
 
@@ -136,8 +175,10 @@ OpenRouter key resolution is ordered as follows:
 3. `INFERENCE_API_KEY` — uses the SDK-specific inference key.
 
 Advanced Cloudflare Workers AI integrations use `CLOUDFLARE_API_TOKEN` together
-with `CLOUDFLARE_ACCOUNT_ID`. Ordinary CLI users should use `/provider` or one
-of the four provider-specific keys above. Do not create a project-local `.env`
+with `CLOUDFLARE_ACCOUNT_ID`. Nous Research uses `/provider nous` or
+`NOUS_API_KEY` for direct OpenAI-compatible inference; Nous Portal OAuth is a
+separate integration and is not part of this provider. Ordinary CLI users should
+use `/provider` or one of the provider-specific keys above. Do not create a project-local `.env`
 file or edit `credentials.json` manually.
 
 ---
@@ -248,6 +289,22 @@ pass.
   knowledge, auto-loaded into agent context.
 - **Skills** — OpenClaw-format `SKILL.md` files discovered at startup, schemas
   sent to the LLM, available as native tools.
+- **Loadable design-system library** — the offline `savant-design-systems` skill
+  ships 74 approximately 2 MB presets with deterministic manifests and provenance.
+  Use `/design list`, `/design use <id>`, `/design current`, `/design create`,
+  `/design edit`, `/design import`, `/design validate`, `/design drafts`,
+  `/design resume`, `/design discard`, and `/design reset`; only the active
+  contract enters agent context. Custom systems are validated, versioned, reloadable,
+  and scanned at the EHEL write boundary. Headless authoring accepts
+  `--design-input <path|->`. See the [design-system library guide](docs/design/design-system-library.md)
+  for the architecture, authoring lifecycle, security model, persistence contract,
+  enforcement behavior, and packaging evidence. For live usability, agent-feedback,
+  and latency validation, run the [design-system live test prompt](dev/test-prompts/design-system-live-ux-performance.md).
+  For the complete pending-update regression across the changelog's current feature domains, run the
+  [v0.0.23 comprehensive live-test prompt](dev/test-prompts/v0.0.23-comprehensive-live-test.md), which writes an
+  evidence report to `dev/scratchpad/v0.0.23-comprehensive-live-test-report.md`.
+  The prompts and their eventual live results have separate independent sign-off boundaries.
+  Implementation is closed in the working tree; independent final documentation/implementation review remains pending.
 - **MCP tools** — Model Context Protocol servers discovered at startup, schemas
   published to the LLM API.
 - **`deep_research` tool** — the Researcher role's mechanical multi-query web
@@ -306,8 +363,9 @@ pass.
   resolve their real context length from the OpenRouter catalog at runtime.
 - **Universal copy buttons** — hover-to-copy on code blocks, tool outputs, and
   file diffs throughout the TUI.
-- **Gateway providers** — TokenRouter, TokenHarbor, NVIDIA NIM, OpenCode Go, CommandCode, and
-  Cloudflare Workers AI via `@savant-code/llm-providers`.
+- **Gateway providers** — TokenRouter, TokenHarbor, NVIDIA NIM, OpenCode Go, CommandCode,
+  Nous Research, and Cloudflare Workers AI via `@savant-code/llm-providers`. Nous Research
+  uses the direct OpenAI-compatible API; Portal OAuth is a separate integration.
 - **Default model** — `openrouter/free` via OpenRouter (configurable via
   `/model`).
 - **Headless / non-interactive mode** — `savant-code --print "<prompt>"` runs a
@@ -772,6 +830,7 @@ Commands can be entered with `/`; aliases are shown in parentheses.
 | `/feedback` (`/bug`, `/report`) | Open the feedback flow |
 | `/telemetry` (`/analytics`) | View or change remote analytics consent |
 | `/theme:toggle` | Switch between light and dark themes |
+| `/design` (`/ds`) | List, select, create, edit, import, validate, resume, discard, and reset design systems |
 | `/bash` (`!`) | Run a shell command or enter Bash mode |
 | `/image` (`/img`, `/attach`) | Attach an image for supported multimodal models |
 | `/init` | Create starter agent types and `knowledge.md` |
@@ -868,6 +927,12 @@ events.
 - [`CHANGELOG.md`](CHANGELOG.md) — Release history
 - [`docs/code-universe-export.md`](docs/code-universe-export.md) — `/export` conversation reports and
   `/graph-export` Code Universe guide
+- [`docs/design/design-system-library.md`](docs/design/design-system-library.md) —
+  loadable design-system architecture, workflows, security, enforcement, and packaging
+- [`dev/test-prompts/design-system-live-ux-performance.md`](dev/test-prompts/design-system-live-ux-performance.md) —
+  live CLI usability, agent-feedback, and performance test prompt
+- `dev/nova/outbox/2026-08-11-fid-2026-0811-030-design-system-live-test-signoff-request.md` —
+  [independent review request for the live test design and captured result](dev/nova/outbox/2026-08-11-fid-2026-0811-030-design-system-live-test-signoff-request.md)
 - [`docs/launch/landing/index.html`](docs/launch/landing/index.html) — Public
   landing page
 - [`dev/LEARNINGS.md`](dev/LEARNINGS.md) — Cross-session lessons

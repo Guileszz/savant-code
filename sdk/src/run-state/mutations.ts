@@ -37,6 +37,7 @@ export async function generateInitialRunState({
   fs: SavantCodeFileSystem
 }): Promise<RunState> {
   return {
+    schemaVersion: 1,
     traceSessionId: crypto.randomUUID(),
     sessionState: await initialSessionState({
       cwd,

@@ -31,7 +31,7 @@ const REQUIRED_SECTIONS = [
 ]
 
 /** Additional sections required in strict mode. */
-const STRICT_SECTIONS = ['### Unanswered Questions']
+const STRICT_SECTIONS = ['### Missed Questions']
 
 /** Minimum number of unanswered questions in strict mode. */
 const MIN_UNANSWERED_QUESTIONS = 2
@@ -67,15 +67,16 @@ export function validateFid(
       }
     }
 
-    // Check Unanswered Questions has minimum question count
-    const uqMatch = content.match(
-      /### Unanswered Questions[\s\S]*?(?=### |## |$)/,
+    // Check Missed Questions has minimum question count.
+    const missedQuestionsMatch = content.match(
+      /### Missed Questions[\s\S]*?(?=### |## |$)/,
     )
-    if (uqMatch) {
-      const questionCount = (uqMatch[0].match(/^\d+\./gm) ?? []).length
+    if (missedQuestionsMatch) {
+      const questionCount = (missedQuestionsMatch[0].match(/^\d+\./gm) ?? [])
+        .length
       if (questionCount < MIN_UNANSWERED_QUESTIONS) {
         errors.push(
-          `Unanswered Questions has ${questionCount} questions ` +
+          `Missed Questions has ${questionCount} questions ` +
             `(minimum is ${MIN_UNANSWERED_QUESTIONS})`,
         )
       }

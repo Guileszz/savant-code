@@ -1,4 +1,5 @@
 import { getInitialSessionState } from '@savant-code/common/types/session-state'
+import { resolveBootContract } from '@savant-code/common/util/boot-contract'
 import { getSystemInfo } from '@savant-code/common/util/system-info'
 
 import { getGitChanges } from './git-changes'
@@ -31,7 +32,10 @@ import type * as fsType from 'fs'
 export async function initialSessionState(
   params: InitialSessionStateOptions,
 ): Promise<SessionState> {
-  const { cwd, maxAgentSteps, skillsDir } = params
+  const { cwd, maxAgentSteps, skillsDir, protocolVariant } = params
+  const bootContract = protocolVariant
+    ? resolveBootContract(cwd ?? process.cwd(), protocolVariant)
+    : undefined
   let {
     agentDefinitions,
     customToolDefinitions,
@@ -153,10 +157,24 @@ export async function initialSessionState(
     shellConfigFiles: {},
     systemInfo: getSystemInfo(),
     ...(params.devMode ? { devMode: params.devMode } : {}),
+    ...(params.designContract
+      ? {
+          designContract: params.designContract,
+          designSystemContext: `## Active Design System Contract\\n\\n${JSON.stringify(params.designContract, null, 2)}`,
+        }
+      : {}),
   })
 
   if (maxAgentSteps) {
     initialState.mainAgentState.stepsRemaining = maxAgentSteps
+  }
+
+  if (bootContract) {
+    initialState.mainAgentState.protocolVariant = bootContract.variant
+    initialState.mainAgentState.protocolFile = bootContract.protocolFile
+    initialState.mainAgentState.protocolVersion = bootContract.protocolVersion
+    initialState.mainAgentState.protocolStrictMode = bootContract.strictMode
+    initialState.mainAgentState.protocolSource = bootContract.protocolSource
   }
 
   return initialState

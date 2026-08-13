@@ -27,7 +27,26 @@ export const filterSlashCommands = (
     (command) => command.id,
     seen,
   )
-  // Prefix of ID
+  const addMatch = (command: SlashCommand) => {
+    const label = command.label.toLowerCase()
+    const firstIndex = label.indexOf(normalized)
+    const indices =
+      firstIndex === -1
+        ? null
+        : createHighlightIndices(firstIndex, firstIndex + normalized.length)
+    pushUnique(matches, {
+      ...command,
+      ...(indices && { labelHighlightIndices: indices }),
+    })
+  }
+
+  // Exact command IDs take precedence over source order. This keeps `/model`
+  // selected as `/model` even though the mode command family is declared first.
+  for (const command of commands) {
+    if (command.id.toLowerCase() === normalized) addMatch(command)
+  }
+
+  // Prefix of ID or alias
   for (const command of commands) {
     if (seen.has(command.id)) continue
     const id = command.id.toLowerCase()
@@ -39,20 +58,11 @@ export const filterSlashCommands = (
       id.startsWith(normalized) ||
       aliasList.some((alias) => alias.startsWith(normalized))
     ) {
-      const label = command.label.toLowerCase()
-      const firstIndex = label.indexOf(normalized)
-      const indices =
-        firstIndex === -1
-          ? null
-          : createHighlightIndices(firstIndex, firstIndex + normalized.length)
-      pushUnique(matches, {
-        ...command,
-        ...(indices && { labelHighlightIndices: indices }),
-      })
+      addMatch(command)
     }
   }
 
-  // Substring of ID
+  // Substring of ID or alias
   for (const command of commands) {
     if (seen.has(command.id)) continue
     const id = command.id.toLowerCase()
@@ -64,18 +74,7 @@ export const filterSlashCommands = (
       id.includes(normalized) ||
       aliasList.some((alias) => alias.includes(normalized))
     ) {
-      const label = command.label.toLowerCase()
-      const firstIndex = label.indexOf(normalized)
-      const indices =
-        firstIndex === -1
-          ? null
-          : createHighlightIndices(firstIndex, firstIndex + normalized.length)
-      pushUnique(matches, {
-        ...command,
-        ...(indices && {
-          labelHighlightIndices: indices,
-        }),
-      })
+      addMatch(command)
     }
   }
 

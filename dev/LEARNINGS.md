@@ -1,5 +1,247 @@
 # LEARNINGS
 
+## Lesson: Generated artifacts require source-shape validation
+
+- **Date:** 2026-08-11
+- **Failure:** A generator can silently accept the wrong source shape and emit incomplete guidance.
+- **Evidence:** scripts/generate-protocol-bundle.ts → symbol:runContentAssertions
+- **Invariant:** Generated content is trustworthy only when extraction validates the source's observed structure.
+- **Guard:** `bun run generate:protocol-bundle:check`
+- **Verification:** Regenerate twice and compare the generated files byte-for-byte.
+- **Scope:** internal
+- **Owning FID:** FID-2026-0811-022
+- **Status:** active
+- **Canonical rule:** generated-artifact-drift
+
+## Lesson: Structured lessons need executable evidence
+
+- **Date:** 2026-08-11
+- **Failure:** Narrative-only lessons cannot reliably become reusable guardrails.
+- **Evidence:** scripts/learnings-validation.ts → symbol:validateLearnings
+- **Invariant:** New lessons declare failure, evidence, invariant, guard, verification, scope, and ownership.
+- **Guard:** `bun run learnings:check`
+- **Verification:** Malformed fixtures fail and legacy prose remains preserved below the boundary.
+- **Scope:** internal
+- **Owning FID:** FID-2026-0811-024
+- **Status:** active
+- **Canonical rule:** learning-schema
+
+## Lesson: Legacy clean-shell guidance is superseded by reversible preflight
+
+- **Date:** 2026-08-11
+- **Failure:** A historical clean-shell recipe required manual environment and
+  settings restoration and could be followed without proving restoration.
+- **Evidence:** scripts/public-release.ts → symbol:withLocalStateRestoration,
+  scripts/public-release.ts → symbol:restoreLocalState
+- **Invariant:** Release preparation uses the existing reversible preflight contract;
+  historical recipes are context only.
+- **Guard:** `bun run release:public:diagnose`
+- **Verification:** Failure, timeout, signal, receipt, and restoration paths are
+  tested without publishing or remote mutation.
+- **Scope:** release
+- **Owning FID:** FID-2026-0811-025, FID-2026-0811-027
+- **Status:** active
+- **Canonical rule:** release-preflight-restoration
+
+## Lesson: Manual clean-shell recipe is superseded
+
+- **Date:** 2026-08-11
+- **Failure:** An earlier manual environment recipe did not prove restoration.
+- **Evidence:** scripts/public-release.ts → symbol:withLocalStateRestoration
+- **Invariant:** Historical recipes remain context and must point to the current reversible release contract.
+- **Guard:** `bun run release:public:diagnose`
+- **Verification:** The replacement contract is exercised by restoration and failure-path tests.
+- **Scope:** release
+- **Owning FID:** FID-2026-0811-025
+- **Status:** superseded
+- **Superseded by:** Legacy clean-shell guidance is superseded by reversible preflight
+- **Canonical rule:** release-preflight-restoration
+
+## Lesson: Harness grounding keeps protocol variants explicit
+
+- **Date:** 2026-08-11
+- **Failure:** Broad boundary wording can confuse a separate governance contract with the harness contract.
+- **Evidence:** common/src/util/boot-contract.ts → symbol:resolveBootContract,
+  scripts/generate-protocol-bundle.ts → symbol:runContentAssertions
+- **Invariant:** The harness selects and injects only its own contract; explicit
+  variant markers remain separate and fail closed.
+- **Guard:** `bun run generate:protocol-bundle:check`
+- **Verification:** Local-first resolution, embedded fallback, and scoped
+  injected-context checks pass without bundling the separate variant.
+- **Scope:** internal
+- **Owning FID:** FID-2026-0811-026
+- **Status:** active
+- **Canonical rule:** protocol-variant-boundary
+
+<!-- Legacy entries below this line are preserved historical prose. -->
+
+## Session 2026-08-10: Generated Condensed Protocol Copies (FID-2026-0810-003)
+
+- **Generated content is only trustworthy when the generator fails fast on the source's
+  real shape.** Two parsing assumptions were wrong for ECHO.md: (1) a blank line sits
+  between the law-table headings and the tables — a `tableRowsAfter` scan that breaks on
+  the first non-pipe line finds zero rows; skip leading blanks. (2) The circuit-breaker
+  numbered list has continuation lines — a scanner that stops at the first non-`N.` line
+  finds 1 of 7 rules; scan until the next heading instead. Every extractor was verified
+  against the actual file with a direct probe (`bun /tmp/probe.mjs`) before the first
+  clean generator run — never trust the intended shape, verify the real one.
+- **Schema asymmetry across tables is the norm, not the exception.** The two ECHO.md law
+  tables have different columns: Laws 1–4 have `Directive` + `Enforcement`, Laws 5–15
+  have `Why` only. Key-phrase validation must match the union (title + whatever the
+  directive column is called), or laws 13–15 fail validation spuriously.
+- **Parity and token-budget measurement must operate on decoded runtime values, not raw
+  source characters.** `\u2014` escapes count 6 source chars but render as 1; an array
+  joined with `\n` has different length than its source lines. Evaluating the old
+  git-HEAD array with `Function('return [' + src + ']')()` gives the true baseline
+  (8,866 → 9,067 = +2.3% for instructions; 2,026 → 2,075 = +2.4% for refresh), while raw
+  `wc -c` on source misleads by hundreds of bytes.
+- **A re-export module is the cheapest way to swap hand-written content for generated
+  output.** `agents.ts` kept its public `ECHO_PROTOCOL_INSTRUCTIONS` export and simply
+  re-exports from `echo-protocol-instructions.generated.ts`; `protocol-summary.ts`
+  imports `PROTOCOL_REFRESH_CONTENT`. Consumers, tests, and the injected prompt sites
+  never changed — only the provenance of the string did.
+- **When a rewrite of an existing script drops a helper, tests catch it, but the error
+  message may not name it.** The generator rewrite lost `readFileSafe`; the failure
+  surfaced as a generic "Cannot find name" at the first generation attempt. A quick
+  `grep -n readFileSafe` before debugging anything else finds the regression in seconds.
+
+## Session 2026-08-10: Universal Session-Init Grounding (FID-2026-0810-002)
+
+**Key Learnings:**
+
+- **A session-init promise in the system prompt is only as good as the harness
+  layer that enforces it.** The prompt said "read ECHO.md 0-EOF before any
+  non-read tool call — the harness blocks other tools until you do", but the
+  gate fired only in STRICT mode (`enforcement.ts` tiered the gate at
+  `all_15`), only when the model actually called a tool, and only when the
+  files existed in the cwd. A greeting answered with pure text streamed out
+  ungrounded in every non-strict mode (the modes users actually run). Text
+  completion is a turn-end path that never touched the tool gate — any
+  grounding guarantee must cover the text-only end-turn path too.
+- **Baked-in content must be generated from the canonical source and
+  drift-checked, or it rots.** Only the condensed `ECHO_PROTOCOL_INSTRUCTIONS`
+  was embedded; the full protocol shipped nowhere, and the hand-maintained
+  condensed copies had already drifted (stale signing instruction in
+  `protocol-summary.ts`). The fix generates the full harness grounding set
+  (`ECHO.md`, `ARCHITECTURE.md`, `protocol.config.yaml`, `dev/LEARNINGS.md`,
+  `templates/FID-TEMPLATE.md`) into a committed bundle with a stale-file
+  check wired into `validate:repository` and pre-push — same proven pattern
+  as the provider-docs check. Files that "update often and must stay in
+  sync" get a mechanical generator, never hand-copied mirrors.
+- **Embedded fallback is a read-path feature, not a context injection.** The
+  boot flow is local-first; when the local files are absent (npm install in
+  an arbitrary project) the SAME `read_files` path serves the embedded
+  document (synthetic read keyed on `protocolSource === 'embedded'`), so the
+  grounding ritual and the enforcement gate behave identically in every
+  environment. No crash (the old boot contract threw on absent files), no
+  scaffolding into the user's cwd, no pre-seeded gate.
+- **Never seed the gate in embedded mode.** The initial design seeded
+  `protocolRead: true` for embedded sessions — that would have disabled the
+  gates exactly where npm-install enforcement matters most and recreated the
+  observed bug. `protocolPreSeeded` stays subagent-only; the main agent
+  always grounds through the real read path.
+- **A universal gate needs an arming rule so SDK embedders keep legacy
+  behavior.** Making the session-init gate fire in every mode could break
+  non-ECHO SDK integrations that never set a protocol variant. Arming follows
+  the boot contract (`gateArmed: Boolean(agentState.protocolFile)`): the CLI
+  always resolves (product sessions always gate); SDK embedders without a
+  contract are unchanged.
+- **A retry cap must disarm, not loop forever.** The completion gate injects
+  steering for ungrounded text completions; after `COMPLETION_GATE_MAX_RETRIES
+  = 3` it disarms for the whole session with a one-time notice (tool gate
+  stays armed). Otherwise a model that never reads would re-trigger steering
+  rounds on every subsequent user message — and the gate must run BEFORE the
+  programmatic end-turn early-return or `handleSteps` main agents skip
+  grounding entirely.
+- **Test fixtures lie about the loop: `end_turn` as a first chunk is blocked
+  by the universal gate.** Loop tests that modeled grounding with an
+  `end_turn` tool call spun to the step cap because the non-read tool was
+  correctly blocked pre-grounding. The real ungrounded-text scenario is a
+  pure-text response (no tool calls), which ends the turn via
+  `hasNoToolResults` — model that, not `end_turn`. Also: an override assigned
+  to `agentRuntimeImpl` in a `beforeEach`-spread fixture never reaches the
+  loop params — assign mocks to the params object directly.
+- **The harness must keep its grounding contract separate from the repository's
+  explicit alternate governance marker.** The separate marker and configuration
+  remain valid outside harness-injected context; the harness bundle and injected
+  refresh must select only the harness contract. A scoped sweep over
+  harness-injected context must return zero references to the alternate protocol
+  document, while repository boundary markers remain allowed.
+
+**Files touched:** `scripts/generate-protocol-bundle.ts` (new),
+`common/src/constants/protocol-bundle.generated.ts` (new, generated),
+`common/src/util/boot-contract.ts`, `common/src/util/embedded-protocol.ts`
+(new), `sdk/src/run-state/initial-state.ts`, `sdk/src/run/execution/session-state.ts`,
+`packages/agent-runtime/src/echo/{enforcement,enforcement-state,protocol-summary}.ts`,
+`packages/agent-runtime/src/run-agent-step/{loop,loop-iteration}.ts`,
+`packages/agent-runtime/src/tools/tool-executor/native.ts`,
+`packages/agent-runtime/src/tools/handlers/tool/read-files.ts`,
+`agents/savant/system-prompt.ts`, `.githooks/pre-push`, `CHANGELOG.md`,
+`dev/fids/archive/FID-2026-0810-002-universal-session-init-grounding.md`.
+
+---
+
+## Session 2026-08-10: Clean-Shell `ci` Contract — Canonical Env Required by Zod Schema
+
+**Key Learnings:**
+
+- **Historical note — superseded clean-shell recipe:** A bare empty env fails
+  `build:savant-free` at the agent prebuild with zod `Invalid environment
+  configuration`; this incident is retained for context. Use the reversible
+  release preflight and its canonical environment contract instead of following
+  this historical recipe directly.
+- **The release engine and CI already do this — replicate them.** `scripts/public-release.ts`
+  builds `PROFILE_ENV = { ...CANONICAL_RELEASE_RUNTIME_DEFAULTS,
+  ...CANONICAL_NEXT_PUBLIC_DEFAULTS }` (line 159) and CI sets the canonical block explicitly;
+  `cli/scripts/build-binary.ts` starts `binaryEnv` from `CANONICAL_NEXT_PUBLIC_DEFAULTS` (lines
+  52–61) and overlays `process.env`. The proven local recipe: (1) `mv .env.local` aside,
+  (2) unset dev `NEXT_PUBLIC_*`, (3) inject the 10 canonical values via `env`, (4) `bun run ci`,
+  (5) restore `.env.local` (verify the restore — never infer from build output; see the
+  2026-08-05 truncated-output lesson).
+- **The env-integrity gate and the zod schema are two different gates.** The gate blocks dev
+  VALUES (leak class); the schema blocks ABSENT values. Passing one does not satisfy the other
+  — `evaluateBinaryEnvIntegrity` sees an empty env as `expected "<unset>"` leaks (block), but
+  the zod failure fires earlier, in `prebuild-agents`, before the gate ever runs. A build-step
+  env contract (what a script needs) is distinct from a value-integrity contract (what values
+  may ship).
+- **Verify a clean-env recipe against the real command before documenting it.** The 0.0.23
+  release-ready handoff's "set aside + clear overrides, then `bun run ci`" guidance failed on
+  the first real run; the corrected recipe (canonical injection) was proven green 2026-08-10
+  (`savant-free.exe` + SDK built, `cli/bin/env.json` canonical, leak scan 0 hits, `.env.local`
+  restored). Corrected in the handoff + recorded in session summary
+  `2026-08-10-1144-single-agent-bootup-housekeeping.md`.
+
+---
+
+## Session 2026-08-09: FID Ledger Drift — Archived Files Still Listed as Active
+
+**Key Learnings:**
+
+- **File location is ground truth; the README table is a claim.** The `dev/fids/`
+  ledger listed nine FIDs as "Current active FIDs" while the active directory
+  held zero FID files — all nine had already been moved to `dev/fids/archive/`.
+  Eight retained non-closed statuses (`implemented`, `fixed`, `analyzed`,
+  `verified`) with unresolved review boundaries. A FID inventory must be
+  verified against the filesystem (`ls dev/fids/`), never trusted from the
+  README alone.
+- **Archive placement ≠ closure.** Moving a FID to the archive is a physical
+  action that can occur without the metadata-side closure (status → `closed`,
+  CHANGELOG entry, review boundaries cleared). The ledger claimed a work queue
+  that did not exist.
+- **Reconcile by adding a corrective note, not by rewriting history.** The
+  archive README's own invariant: add a corrective note or index entry rather
+  than rewriting historical evidence. The correction went into
+  `dev/fids/README.md` (zero active FIDs + operator-accepted records),
+  `dev/fids/archive/README.md` (corrective index table), and a CHANGELOG
+  subsection; FID files, session summaries, and audit-channel correspondence
+  stayed immutable.
+- **An operator decision waives drifted boundaries.** The eight archived-but-
+  unclosed records were accepted as historical by explicit operator decision,
+  not silently mass-closed.
+
+**Files touched:** `dev/fids/README.md`, `dev/fids/archive/README.md`,
+`CHANGELOG.md` (ledger reconciliation); no FID files rewritten.
+
 ## Session 2026-08-09: v0.0.22 Public Release (FID closures → release)
 
 **Key Learnings:**

@@ -52,6 +52,7 @@ Or select one of the supported gateway providers directly:
 | OpenCode Go | `/provider opencode-go` or `DIRECT_PROVIDER=opencode-go` | `OPENCODE_GO_API_KEY` | Hosted gateway (dual-protocol) |
 | Cloudflare | Environment configuration | `CLOUDFLARE_API_TOKEN` + `CLOUDFLARE_ACCOUNT_ID` | Env-only — not in the `/provider` picker; requires the account id too |
 | CommandCode | `/provider commandcode` or `DIRECT_PROVIDER=commandcode` | `COMMAND_CODE_API_KEY` | OpenAI-compatible hosted inference (dual-protocol) |
+| Nous Research | `/provider nous` or `DIRECT_PROVIDER=nous` | `NOUS_API_KEY` | OpenAI-compatible direct inference; Portal OAuth is separate |
 | Ollama | Automatic detection | `OLLAMA_HOST` (optional) | Local inference; no API key required |
 | TokenHarbor | `/provider tokenharbor` or `DIRECT_PROVIDER=tokenharbor` | `TOKENHARBOR_API_KEY` | OpenAI-compatible hosted gateway |
 | Custom endpoint | Environment configuration | `INFERENCE_BASE_URL`, `INFERENCE_API_KEY` | Advanced OpenAI-compatible endpoint |
@@ -71,6 +72,7 @@ $env:OPENCODE_GO_API_KEY = "your-key"
 # $env:TOKENROUTER_API_KEY = "your-key"
 # $env:NVIDIA_API_KEY = "your-key"
 # $env:COMMAND_CODE_API_KEY = "your-key"
+# $env:NOUS_API_KEY = "your-key"
 savant-code
 ```
 
@@ -81,6 +83,7 @@ set OPENCODE_GO_API_KEY=your-key
 :: set TOKENROUTER_API_KEY=your-key
 :: set NVIDIA_API_KEY=your-key
 :: set COMMAND_CODE_API_KEY=your-key
+:: set NOUS_API_KEY=your-key
 savant-code
 ```
 
@@ -91,6 +94,7 @@ export OPENCODE_GO_API_KEY="your-key"
 # export TOKENROUTER_API_KEY="your-key"
 # export NVIDIA_API_KEY="your-key"
 # export COMMAND_CODE_API_KEY="your-key"
+# export NOUS_API_KEY="your-key"
 savant-code
 ```
 
@@ -142,6 +146,7 @@ TOKENHARBOR_API_KEY=dummy-tokenharbor-key-replace-me
 TOKENROUTER_API_KEY=dummy-tokenrouter-key-replace-me
 NVIDIA_API_KEY=dummy-nvidia-key-replace-me
 COMMAND_CODE_API_KEY=dummy-commandcode-key-replace-me
+NOUS_API_KEY=dummy-nous-key-replace-me
 
 # Local Ollama override (optional)
 # OLLAMA_HOST=http://localhost:11434

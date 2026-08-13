@@ -18,6 +18,7 @@ import { CHAT_COMMANDS } from './defs/chat'
 import { CORE_COMMANDS } from './defs/core'
 import { MISC_COMMANDS } from './defs/misc'
 import { MODE_COMMANDS } from './defs/modes'
+import { DESIGN_COMMANDS } from './design'
 import { useChatStore } from '../state/chat-store'
 import { IS_SAVANT_FREE } from '../utils/constants'
 import { getSystemMessage, getUserMessage } from '../utils/message-history'
@@ -42,6 +43,7 @@ const SAVANT_FREE_ONLY_COMMANDS = new Set(['connect', 'plan', 'end-session'])
 const ALL_COMMANDS: CommandDefinition[] = [
   ...CORE_COMMANDS,
   ...CHAT_COMMANDS,
+  ...DESIGN_COMMANDS,
   ...MODE_COMMANDS,
   ...MISC_COMMANDS,
 ]

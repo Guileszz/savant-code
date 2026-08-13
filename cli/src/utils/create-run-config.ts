@@ -10,6 +10,7 @@ import {
 
 import type { EventHandlerState } from './sdk-event-handlers'
 import type { Logger } from '@savant-code/common/types/contracts/logger'
+import type { DesignContract } from '@savant-code/common/types/design-system'
 import type {
   AgentDefinition,
   FileFilter,
@@ -32,10 +33,14 @@ export type CreateRunConfigParams = {
   onStateSnapshot?: (runState: RunState) => void
   /** Optional file write hook. Called after a file is successfully written. */
   onFileWritten?: OnFileWrittenCallback
+  /** Explicit governance contract selected at CLI boot. */
+  protocolVariant?: 'harness' | 'single-agent'
   /** Dev override flag — bypasses all FSM tool gating and agent tool restrictions. */
   devMode?: boolean
   /** Optional sandbox permission mode. */
   permissionMode?: 'safe' | 'prompt' | 'unsafe'
+  /** Active visual design contract for grounding and write enforcement. */
+  designContract?: DesignContract
   /** Optional pre-formatted model metadata block injected into the agent
    *  system prompt via the {SAVANT_CODE_MODEL_INFO} placeholder. */
   modelInfoText?: string
@@ -155,6 +160,8 @@ export const createRunConfig = (params: CreateRunConfigParams) => {
     devMode,
     permissionMode,
     modelInfoText,
+    protocolVariant,
+    designContract,
   } = params
   // FID-2026-0804-009: hoisted so the mode const drives both the runtime
   // option and the fidPaths load-skip decision.
@@ -177,6 +184,8 @@ export const createRunConfig = (params: CreateRunConfigParams) => {
     devMode,
     permissionMode,
     modelInfoText,
+    protocolVariant,
+    designContract,
     contextWindow: params.contextWindow,
     checkpointDir: params.checkpointDir,
     checkpointTurnId: params.checkpointTurnId,

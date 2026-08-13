@@ -32,6 +32,7 @@ export async function handlePromptResponse({
 
     const statusCode = extractStatusCodeFromMessage(action.message)
     resolve({
+      schemaVersion: 1,
       sessionState: initialSessionState,
       traceSessionId,
       output: {
@@ -52,6 +53,7 @@ export async function handlePromptResponse({
       ].join('\n')
       onError({ message })
       resolve({
+        schemaVersion: 1,
         sessionState: initialSessionState,
         traceSessionId,
         output: {
@@ -64,6 +66,7 @@ export async function handlePromptResponse({
     const { sessionState, output } = action
 
     const state: RunReturnType = {
+      schemaVersion: 1,
       sessionState,
       traceSessionId,
       output: output ?? {
@@ -113,6 +116,7 @@ export function buildMainPromptErrorRunState(params: {
   }
 
   return {
+    schemaVersion: 1,
     sessionState: getCancelledSessionState(errorMessage),
     traceSessionId,
     output: {

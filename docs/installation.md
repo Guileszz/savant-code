@@ -72,6 +72,7 @@ Or configure one directly:
 | TokenHarbor | `/provider tokenharbor` | `TOKENHARBOR_API_KEY` |
 | NVIDIA NIM | `/provider nvidia` | `NVIDIA_API_KEY` |
 | CommandCode | `/provider commandcode` | `COMMAND_CODE_API_KEY` |
+| Nous Research | `/provider nous` | `NOUS_API_KEY` (direct OpenAI-compatible API; Portal OAuth is separate) |
 
 ---
 

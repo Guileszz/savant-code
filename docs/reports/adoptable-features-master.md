@@ -161,7 +161,7 @@ Scanned 16 repositories spanning Python, TypeScript, Rust, and Go. The following
 | OpenClaw | Subagent registry with SQLite persistence |
 | Zero | **Swarm with mailbox-based communication + task handoff** |
 
-**Recommended adoption: Zero's Swarm.** Mailbox-based inter-agent communication (not just parent-child), task handoff between agent types, channel-based `WaitSettled` (not polling), deferred tool loading that adapts to swarm state. Rationale: more mature than parent-child spawning (Cline, Gemini CLI); SQLite-persisted alternatives (OpenClaw) are heavier than savant-code's 9-agent roster needs.
+**Recommended adoption: Zero's Swarm.** Mailbox-based inter-agent communication (not just parent-child), task handoff between agent types, channel-based `WaitSettled` (not polling), deferred tool loading that adapts to swarm state. Rationale: more mature than parent-child spawning (Cline, Gemini CLI); SQLite-persisted alternatives (OpenClaw) are heavier than savant-code's 10-agent roster needs.
 
 **Adoptable patterns:**
 
@@ -171,7 +171,7 @@ Scanned 16 repositories spanning Python, TypeScript, Rust, and Go. The following
 - **Role-based tool blocking** (Hermes) — Leaf vs orchestrator tool restrictions
 - **Agent acknowledgement** (Gemini CLI) — User must approve unknown agent definitions
 
-**Impact:** High — savant-code's 9-agent roster needs production-grade orchestration
+**Impact:** High — savant-code's 10-agent roster needs production-grade orchestration
 **Effort:** High (new orchestration layer)
 
 ---

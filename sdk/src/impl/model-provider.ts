@@ -102,11 +102,25 @@ export async function getModelForRequest(
   // `anthropic/claude-sonnet-4.5`). Phase 4 (FID-2026-0809-001 decision 10):
   // when DIRECT_PROVIDER names the active provider, the bare-slug path is
   // authorized with the active provider's own credential (registry-resolved —
-  // including the OpenRouter master-key chain when active), falling back to
-  // the caller-supplied key when none is configured. The base URL still
+  // including the OpenRouter master-key chain when active). An explicitly
+  // active registry gateway fails closed when its own key is absent; it must
+  // never send an unrelated caller or OpenRouter key to that endpoint. The
+  // caller-supplied key remains the fallback only for custom/unknown routing.
+  // The base URL still
   // follows INFERENCE_BASE_URL (set from the active provider's registry entry
   // at startup by the CLI / ollama-onboarding).
-  const activeProviderKey = await resolveActiveProviderKey()
+  const activeProviderId = getActiveProviderId()
+  const activeProviderKey = await resolveActiveProviderKey(activeProviderId)
+  const activeProviderConfig = activeProviderId
+    ? (PROVIDER_REGISTRY as Record<string, ProviderConfig>)[activeProviderId]
+    : undefined
+  if (
+    activeProviderConfig !== undefined &&
+    activeProviderConfig.kind !== 'local' &&
+    !activeProviderKey
+  ) {
+    throw new Error(buildMissingKeyError(activeProviderConfig))
+  }
   return {
     model: await createDefaultInferenceModel(
       activeProviderKey ?? apiKey,
@@ -116,6 +130,10 @@ export async function getModelForRequest(
         // caller-supplied fallback keeps the legacy env precedence inside the
         // factory (custom-endpoint INFERENCE_API_KEY flow preserved).
         preferApiKey: activeProviderKey !== undefined,
+        // Backend-mode fallback retains its historical OpenRouter-compatible
+        // extensions. Direct non-OpenRouter providers, including Nous, must
+        // not receive OpenRouter attribution or structured-output assumptions.
+        providerId: activeProviderId,
       },
     ),
     isChatGptOAuth: false,
@@ -128,11 +146,18 @@ export async function getModelForRequest(
  * selected provider at startup; when it names a registry gateway, bare-slug
  * model ids are authorized with that provider's own key — the same resolution
  * as prefixed routing, including the OpenRouter master-key chain. Local
- * providers (Ollama) and unknown/absent selections yield undefined so the
- * caller-supplied key wins.
+ * providers (Ollama) and unknown/absent selections yield undefined. An
+ * explicitly active gateway is checked by the caller and fails closed when its
+ * own credential is absent; custom/unknown routing can use the caller key.
  */
-async function resolveActiveProviderKey(): Promise<string | undefined> {
-  const activeProviderId = process.env.DIRECT_PROVIDER?.trim().toLowerCase()
+function getActiveProviderId(): string | undefined {
+  const value = process.env.DIRECT_PROVIDER?.trim().toLowerCase()
+  return value || undefined
+}
+
+async function resolveActiveProviderKey(
+  activeProviderId = getActiveProviderId(),
+): Promise<string | undefined> {
   if (!activeProviderId) return undefined
   // The env var is arbitrary user input — index via a string record so an
   // unknown provider id yields undefined instead of a type error.

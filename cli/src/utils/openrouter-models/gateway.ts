@@ -1,8 +1,13 @@
 /**
  * Combined gateway catalog — OpenRouter + TokenRouter + TokenHarbor + NVIDIA NIM
- * + OpenCode Go + CommandCode — plus subscription plumbing.
+ * + OpenCode Go + CommandCode + Nous Research — plus subscription plumbing.
  */
 import { logger } from '../logger'
+import {
+  __resetNousCacheForTest,
+  fetchNousModels,
+  getCachedNousModels,
+} from './nous'
 import {
   __resetNvidiaCacheForTest,
   fetchNvidiaModels,
@@ -69,6 +74,7 @@ function notifyGatewayCatalogListeners(catalog: OpenRouterModel[]): void {
  * - TokenHarbor (hardcoded baseline; authenticated catalog intentionally skipped)
  * - OpenCode Go (hardcoded, subscription-gated)
  * - CommandCode (hardcoded, provider catalog)
+ * - Nous Research (live API, authenticated)
  *
  * Fetches live sources in parallel via Promise.allSettled(). If a source fails,
  * uses cached/empty list for that provider. Returns a combined, sorted list.
@@ -86,9 +92,10 @@ export async function fetchGatewayModels(
   if (gatewayInflight) return gatewayInflight
 
   gatewayInflight = (async () => {
-    const [orResult, nvidiaResult] = await Promise.allSettled([
+    const [orResult, nvidiaResult, nousResult] = await Promise.allSettled([
       fetchOpenRouterModels(forceRefresh),
       fetchNvidiaModels(forceRefresh),
+      fetchNousModels(forceRefresh),
     ])
 
     const orModels =
@@ -99,6 +106,10 @@ export async function fetchGatewayModels(
       nvidiaResult.status === 'fulfilled'
         ? nvidiaResult.value
         : getCachedNvidiaModels()
+    const nousModels =
+      nousResult.status === 'fulfilled'
+        ? nousResult.value
+        : getCachedNousModels()
     const tokenrouterModels = fetchTokenRouterModels()
     const tokenharborModels = getTokenHarborModels()
     const openCodeGoModels = fetchOpenCodeGoModels()
@@ -109,6 +120,7 @@ export async function fetchGatewayModels(
       ...tokenrouterModels,
       ...tokenharborModels,
       ...nvidiaModels,
+      ...nousModels,
       ...openCodeGoModels,
       ...commandCodeModels,
     ]
@@ -129,6 +141,7 @@ export async function fetchGatewayModels(
 export function __resetOpenRouterModelsCacheForTest(): void {
   __resetOpenRouterCacheForTest()
   __resetNvidiaCacheForTest()
+  __resetNousCacheForTest()
   gatewayCache = null
   gatewayCacheAt = 0
   gatewayInflight = null

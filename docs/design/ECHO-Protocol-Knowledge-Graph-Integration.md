@@ -89,7 +89,7 @@ without requiring a full rebuild.
 
 ## **ECHO Protocol Integration and Separation of Duties**
 
-The ECHO Protocol v0.2.0 operates as a strict engineering governance framework, organizing a 9-agent roster around a
+The ECHO Protocol v0.2.0 operates as a strict engineering governance framework, organizing a 10-agent roster around a
 non-negotiable separation of duties4. The integration of the knowledge graph must respect these boundaries absolutely.
 No agent may possess tools that violate their defined phase constraints.
 Under the ECHO Protocol, the Orchestrator serves as the primary router and hybrid coder, possessing write tools like
